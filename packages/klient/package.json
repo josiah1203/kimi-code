@@ -44,10 +44,10 @@
   },
   "dependencies": {
     "@moonshot-ai/agent-core-v2": "workspace:^",
+    "@moonshot-ai/protocol": "workspace:^",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@moonshot-ai/protocol": "workspace:^",
     "@types/ws": "^8.18.0",
     "ulid": "^3.0.1",
     "ws": "^8.18.0"
