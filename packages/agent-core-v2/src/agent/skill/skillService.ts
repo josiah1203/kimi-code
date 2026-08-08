@@ -114,7 +114,7 @@ export class AgentSkillService extends Service implements IAgentSkillService {
       toolCalls: [],
       origin,
     };
-    return (await this.prompt.enqueue({ message })).launched;
+    return (await this.prompt.enqueue({ requestId: origin.activationId, message })).launched;
   }
 
   private renderSkillPrompt(skill: SkillDefinition, rawArgs: string): string {

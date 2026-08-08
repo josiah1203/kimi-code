@@ -63,7 +63,7 @@ export class RestGateway implements IRestGateway {
     sessionId: string,
     agentId: string,
     input: string,
-  ): Promise<{ readonly turn_id: number } | undefined> {
+  ): Promise<{ readonly turn_id: number; readonly run_id?: string } | undefined> {
     const handle = await this.agent(sessionId, agentId).accessor.get(IAgentPromptService).enqueue({
       message: {
         role: 'user',
@@ -73,13 +73,13 @@ export class RestGateway implements IRestGateway {
       },
     });
     const turn = await handle.launched;
-    return turn === undefined ? undefined : { turn_id: turn.id };
+    return turn === undefined ? undefined : { turn_id: turn.id, run_id: handle.runId };
   }
   async steer(
     sessionId: string,
     agentId: string,
     content: string,
-  ): Promise<{ readonly turn_id: number } | undefined> {
+  ): Promise<{ readonly turn_id: number; readonly run_id?: string } | undefined> {
     const service = this.agent(sessionId, agentId).accessor.get(IAgentPromptService);
     const queued = await service.enqueue({ message: {
       role: 'user',
@@ -89,7 +89,7 @@ export class RestGateway implements IRestGateway {
     } });
     const [steered] = await service.steer([queued.id]);
     const turn = await steered?.launched;
-    return turn === undefined ? undefined : { turn_id: turn.id };
+    return turn === undefined ? undefined : { turn_id: turn.id, run_id: steered?.runId };
   }
   cancel(sessionId: string, agentId: string, reason?: string): Promise<void> {
     this.agent(sessionId, agentId).accessor.get(IAgentLoopService).cancel(undefined, reason);

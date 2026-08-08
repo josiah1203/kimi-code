@@ -119,6 +119,8 @@ export interface SessionSummary {
 export interface PromptPayload {
   readonly input: readonly ContentPart[];
   readonly disabledTools?: readonly string[];
+  /** Optional platform request id; legacy callers may omit it. */
+  readonly request_id?: string;
 }
 export interface RunShellCommandPayload {
   readonly command: string;
@@ -298,6 +300,7 @@ export interface RemoveKimiProviderPayload {
 
 export interface PromptLaunchResult {
   readonly turn_id: number;
+  readonly run_id?: string;
 }
 
 export interface AgentAPI {

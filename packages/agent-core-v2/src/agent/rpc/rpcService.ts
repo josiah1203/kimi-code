@@ -99,27 +99,32 @@ export class AgentRPCService implements IAgentRPCService {
       }
     }
     await this.updatePromptMetadata(promptMetadataTextFromPayload(payload));
-    const handle = await this.promptService.enqueue({ message: {
-      role: 'user',
-      content: [...payload.input],
-      toolCalls: [],
-      origin: { kind: 'user' },
-    } });
+    const handle = await this.promptService.enqueue({
+      requestId: payload.request_id,
+      message: {
+        role: 'user',
+        content: [...payload.input],
+        toolCalls: [],
+        origin: { kind: 'user' },
+      },
+    });
     if (handle.state === 'pending') return undefined;
     const turn = await handle.launched;
-    return turn === undefined ? undefined : { turn_id: turn.id };
+    return turn === undefined ? undefined : { turn_id: turn.id, run_id: handle.runId };
   }
 
   async steer(payload: SteerPayload): Promise<PromptLaunchResult | undefined> {
     this.telemetry.track2('input_steer', { parts: payload.input.length });
-    const queued = await this.promptService.enqueue({ message: {
-      role: 'user',
-      content: [...payload.input],
-      toolCalls: [],
-    } });
+    const queued = await this.promptService.enqueue({
+      message: {
+        role: 'user',
+        content: [...payload.input],
+        toolCalls: [],
+      },
+    });
     const [steered] = await this.promptService.steer([queued.id]);
     const turn = await steered?.launched;
-    return turn === undefined ? undefined : { turn_id: turn.id };
+    return turn === undefined ? undefined : { turn_id: turn.id, run_id: steered?.runId };
   }
 
   cancel({ turnId }: CancelPayload): void {
@@ -201,12 +206,15 @@ export class AgentRPCService implements IAgentRPCService {
       commandArgs: origin.commandArgs,
       trigger: origin.trigger,
     });
-    await this.promptService.enqueue({ message: {
-      role: 'user',
-      content: [{ type: 'text', text: expanded }],
-      toolCalls: [],
-      origin,
-    } });
+    await this.promptService.enqueue({
+      requestId: origin.activationId,
+      message: {
+        role: 'user',
+        content: [{ type: 'text', text: expanded }],
+        toolCalls: [],
+        origin,
+      },
+    });
     await this.updatePromptMetadata(promptMetadataTextFromPluginCommand(payload));
   }
 

@@ -11,6 +11,8 @@ export interface PromptSubmitContext {
 
 export interface PromptInput {
   readonly id?: string;
+  /** Optional caller-supplied platform request id for durable Run creation. */
+  readonly requestId?: string;
   readonly message: ContextMessage;
 }
 
@@ -32,6 +34,7 @@ export interface PromptCompletion {
 export interface PromptSnapshot {
   readonly id: string;
   readonly userMessageId: string;
+  readonly runId?: string;
   readonly createdAt: string;
   readonly state: PromptState;
   readonly message: ContextMessage;

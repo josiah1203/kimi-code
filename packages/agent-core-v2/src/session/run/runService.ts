@@ -38,7 +38,7 @@ const runsDocumentSchema = z.strictObject({
 });
 
 const allowedTransitions: Readonly<Record<RunStatus, readonly RunStatus[]>> = {
-  queued: ['planning', 'running', 'cancelled'],
+  queued: ['planning', 'running', 'failed', 'cancelled'],
   planning: ['awaiting_approval', 'running', 'failed', 'cancelled'],
   awaiting_approval: ['running', 'failed', 'cancelled'],
   running: ['succeeded', 'failed', 'cancelled'],
