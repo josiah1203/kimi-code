@@ -425,6 +425,15 @@ export const platformLifecycleEventSchema = z.strictObject({
   actor: platformActorSchema,
   state: z.string().min(1).optional(),
   payload: platformMetadataSchema.optional(),
+}).superRefine((event, ctx) => {
+  const entityType = event.event_type.slice(0, event.event_type.indexOf('.'));
+  if (entityType !== event.entity_type) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['entity_type'],
+      message: 'must match the entity prefix in event_type',
+    });
+  }
 });
 
 export type PlatformLifecycleEvent = z.infer<typeof platformLifecycleEventSchema>;

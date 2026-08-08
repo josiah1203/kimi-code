@@ -194,6 +194,19 @@ describe('platform contracts', () => {
     expect(event.sequence).toBe(4);
 
     expect(
+      platformLifecycleEventSchema.safeParse({
+        event_id: 'event_02',
+        event_type: 'run.created',
+        entity_type: 'workspace',
+        entity_id: 'run_01',
+        workspace_id: workspaceId,
+        sequence: 5,
+        occurred_at: timestamps.updated_at,
+        actor: 'agent',
+      }).success,
+    ).toBe(false);
+
+    expect(
       platformCommandAcceptedSchema.parse({
         request_id: 'request_01',
         object_type: 'run',
