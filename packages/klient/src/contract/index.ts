@@ -39,6 +39,7 @@ import {
 } from './session/lifecycle.js';
 import { sessionMetadataContract } from './session/metadata.js';
 import { sessionQuestionContract } from './session/question.js';
+import { sessionRunContract } from './session/run.js';
 import { sessionSkillCatalogContract } from './session/skills.js';
 
 export const globalContract: KlientContract = {
@@ -65,6 +66,7 @@ export const globalContract: KlientContract = {
   sessionInteractionService: sessionInteractionContract,
   sessionApprovalService: sessionApprovalContract,
   sessionQuestionService: sessionQuestionContract,
+  sessionRunService: sessionRunContract,
   sessionSkillCatalog: sessionSkillCatalogContract,
   // agent scope
   agentRPCService: agentRpcContract,

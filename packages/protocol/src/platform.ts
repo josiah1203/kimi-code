@@ -223,6 +223,27 @@ export const runSchema = z.strictObject({
 
 export type Run = z.infer<typeof runSchema>;
 
+/** Input for the first durable Run command. Mutations carry a request id. */
+export const runCreateInputSchema = z.strictObject({
+  request_id: platformIdentifierSchema,
+  parent_run_id: runIdSchema.optional(),
+  plan: z.array(runPlanStepSchema).optional(),
+  input_resources: z.array(resourceRefSchema).optional(),
+  execution_target_id: executionTargetIdSchema.optional(),
+  metadata: platformMetadataSchema.optional(),
+});
+
+export type RunCreateInput = z.infer<typeof runCreateInputSchema>;
+
+/** State transition command; the service enforces the legal transition graph. */
+export const runTransitionInputSchema = z.strictObject({
+  request_id: platformIdentifierSchema,
+  status: runStatusSchema,
+  status_reason: z.string().max(2_000).optional(),
+});
+
+export type RunTransitionInput = z.infer<typeof runTransitionInputSchema>;
+
 export const providerConnectionProviderSchema = z.enum([
   'kimi',
   'openai',

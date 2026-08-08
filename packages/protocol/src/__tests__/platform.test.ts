@@ -10,7 +10,9 @@ import {
   policyDecisionSchema,
   providerConnectionSchema,
   resourceSchema,
+  runCreateInputSchema,
   runSchema,
+  runTransitionInputSchema,
   usageRecordSchema,
 } from '../platform';
 import { workspaceSchema } from '../workspace';
@@ -204,5 +206,22 @@ describe('platform contracts', () => {
       object_type: 'run',
       object_id: 'run_01',
     });
+  });
+
+  it('requires request ids on Run mutations', () => {
+    expect(
+      runCreateInputSchema.parse({
+        request_id: 'req_1',
+        metadata: { source: 'test' },
+      }),
+    ).toMatchObject({ request_id: 'req_1' });
+    expect(
+      runTransitionInputSchema.parse({
+        request_id: 'req_2',
+        status: 'running',
+      }),
+    ).toMatchObject({ status: 'running' });
+    expect(() => runCreateInputSchema.parse({ metadata: {} })).toThrow();
+    expect(() => runTransitionInputSchema.parse({ status: 'cancelled' })).toThrow();
   });
 });
