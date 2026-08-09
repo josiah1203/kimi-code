@@ -1,11 +1,11 @@
 /**
  * Scenario: `AgentRPCService.activateSkill` is the wire-facing skill
- * activation entry — awaited, returning the launched turn id.
+ * activation entry — returning a launch or durable acceptance result.
  *
  * Unlike `IAgentSkillService.activate` (in-process, returns the live `Turn`
- * handle), the RPC variant must settle only once the turn has launched and
- * must surface activation failures (unknown skill, busy agent) to the caller
- * instead of fire-and-forget. Run: `pnpm --filter @moonshot-ai/agent-core-v2
+ * handle), the RPC variant returns before a queued turn launches and must
+ * surface activation failures (unknown skill) to the caller instead of
+ * fire-and-forget. Run: `pnpm --filter @moonshot-ai/agent-core-v2
  * exec vitest run test/agent/rpc/activateSkill.test.ts`.
  */
 
@@ -40,6 +40,7 @@ describe('activateSkill RPC', () => {
     const launched = await ctx.rpc.activateSkill({ name: 'commit', args: '-m fix' });
     // Turn ids are 0-based; the point is the launch result came back at all.
     expect(launched?.turn_id).toBe(0);
+    expect(launched?.run_id).toEqual(expect.any(String));
 
     await ctx.untilTurnEnd();
     // JSON.stringify escapes the block's attribute quotes — assert on the

@@ -14,12 +14,12 @@ export interface IRestGateway {
     sessionId: string,
     agentId: string,
     input: string,
-  ): Promise<{ readonly turn_id: number } | undefined>;
+  ): Promise<{ readonly turn_id: number; readonly run_id?: string } | undefined>;
   steer(
     sessionId: string,
     agentId: string,
     content: string,
-  ): Promise<{ readonly turn_id: number } | undefined>;
+  ): Promise<{ readonly turn_id: number; readonly run_id?: string } | undefined>;
   cancel(sessionId: string, agentId: string, reason?: string): Promise<void>;
   getStatus(sessionId: string): Promise<unknown>;
   flushLogs(sessionId: string): Promise<void>;

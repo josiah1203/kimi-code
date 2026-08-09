@@ -29,6 +29,7 @@ import { ISessionMetadata } from '@moonshot-ai/agent-core-v2/session/sessionMeta
 import { ISessionInteractionService } from '@moonshot-ai/agent-core-v2/session/interaction/interaction';
 import { ISessionApprovalService } from '@moonshot-ai/agent-core-v2/session/approval/approval';
 import { ISessionQuestionService } from '@moonshot-ai/agent-core-v2/session/question/question';
+import { ISessionRunService } from '@moonshot-ai/agent-core-v2/session/run/run';
 import { ISessionSkillCatalog } from '@moonshot-ai/agent-core-v2/session/sessionSkillCatalog/skillCatalog';
 import { IAgentRPCService } from '@moonshot-ai/agent-core-v2/agent/rpc/rpc';
 import { IAgentActivityView } from '@moonshot-ai/agent-core-v2/agent/activityView/activityView';
@@ -62,6 +63,7 @@ export const serviceTokens: Readonly<Record<string, ServiceIdentifier<unknown>>>
   sessionInteractionService: ISessionInteractionService,
   sessionApprovalService: ISessionApprovalService,
   sessionQuestionService: ISessionQuestionService,
+  sessionRunService: ISessionRunService,
   sessionSkillCatalog: ISessionSkillCatalog,
   agentRPCService: IAgentRPCService,
   agentActivityView: IAgentActivityView,

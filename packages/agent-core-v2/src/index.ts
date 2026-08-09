@@ -420,6 +420,8 @@ export * from '#/session/interaction/interaction';
 export * from '#/session/interaction/interactionOps';
 export * from '#/session/interaction/interactionService';
 export * from '#/session/sessionContext/sessionContext';
+export * from '#/session/run/run';
+export * from '#/session/run/runService';
 
 import '#/session/approval/approval';
 import '#/session/approval/approvalService';

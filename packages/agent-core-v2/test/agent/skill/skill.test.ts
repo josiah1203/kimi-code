@@ -202,6 +202,7 @@ describe('SkillTool', () => {
   function stubSkillService(): IAgentSkillService {
     return {
       _serviceBrand: undefined,
+      activatePrompt: () => Promise.reject(new Error('not implemented')),
       activate: () => Promise.reject(new Error('not implemented')),
       recordModelToolActivation: () => {},
     };

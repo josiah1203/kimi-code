@@ -23,6 +23,44 @@ defineKlientConformance('memory', async () => {
 });
 
 describe('memory dispatcher specifics', () => {
+  it('exposes the durable Run lifecycle through the session facade', async () => {
+    const { homeDir, app } = await makeEngine();
+    const klient = createKlient({ scope: app });
+    const session = await klient.global.sessions.create({ workDir: homeDir });
+    const runEvents: string[] = [];
+    const eventSubscription = klient.session(session.id).events.on('runs.changed', (run) => {
+      runEvents.push(`${run.id}:${run.status}`);
+    });
+
+    const created = await klient.session(session.id).runs.create({
+      request_id: 'request_create',
+      metadata: { source: 'memory-test' },
+    });
+    expect(created).toMatchObject({
+      agent_session_id: session.id,
+      status: 'queued',
+    });
+
+    const running = await klient.session(session.id).runs.transition(created.id, {
+      request_id: 'request_start',
+      status: 'running',
+    });
+    expect(running).toMatchObject({ status: 'running' });
+
+    const freshHandle = klient.session(session.id);
+    expect(await freshHandle.runs.get(created.id)).toMatchObject({
+      id: created.id,
+      status: 'running',
+    });
+    expect(await freshHandle.runs.list()).toHaveLength(1);
+    expect(runEvents).toEqual([`${created.id}:queued`, `${created.id}:running`]);
+
+    eventSubscription.dispose();
+    await klient.close();
+    app.dispose();
+    await rm(homeDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 25 });
+  });
+
   it('rejects unknown services and methods with RPCError(40001)', async () => {
     const { homeDir, app } = await makeEngine();
     const dispatcher = createMemoryDispatcher(app);

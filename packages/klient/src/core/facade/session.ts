@@ -26,6 +26,7 @@ import type {
   SessionMetaPatch,
 } from '@moonshot-ai/agent-core-v2/session/sessionMetadata/sessionMetadata';
 import type { SkillSummary } from '@moonshot-ai/agent-core-v2/app/skillCatalog/types';
+import type { Run, RunCreateInput, RunTransitionInput } from '../../contract/platform.js';
 
 import type { ScopeRef } from '../channel.js';
 import type { McpServerConfig } from '../../contract/mcp.js';
@@ -77,6 +78,13 @@ export interface SessionSkillsFacade {
   list(): Promise<readonly SkillSummary[]>;
 }
 
+export interface SessionRunsFacade {
+  list(): Promise<readonly Run[]>;
+  get(id: string): Promise<Run | undefined>;
+  create(input: RunCreateInput): Promise<Run>;
+  transition(id: string, input: RunTransitionInput): Promise<Run | undefined>;
+}
+
 /**
  * Derived session lifecycle phase. The engine retired its `sessionActivity`
  * service (#1751) — busy is now derived from agent activity views — so the
@@ -103,6 +111,7 @@ export interface SessionFacade {
   readonly questions: SessionQuestionsFacade;
   readonly interactions: SessionInteractionsFacade;
   readonly skills: SessionSkillsFacade;
+  readonly runs: SessionRunsFacade;
   /** Agent id → metadata for every agent registered in this session. */
   agents(): Promise<Readonly<Record<string, AgentMeta>>>;
 }
@@ -226,6 +235,15 @@ export function createSessionFacade(call: ScopedCaller, sessionId: string): Sess
     skills: {
       list: () =>
         call(scope, 'sessionSkillCatalog', 'list', []) as Promise<readonly SkillSummary[]>,
+    },
+
+    runs: {
+      list: () => call(scope, 'sessionRunService', 'list', []) as Promise<readonly Run[]>,
+      get: (id) => call(scope, 'sessionRunService', 'get', [id]) as Promise<Run | undefined>,
+      create: (input) =>
+        call(scope, 'sessionRunService', 'create', [input]) as Promise<Run>,
+      transition: (id, input) =>
+        call(scope, 'sessionRunService', 'transition', [id, input]) as Promise<Run | undefined>,
     },
 
     agents: async () => {

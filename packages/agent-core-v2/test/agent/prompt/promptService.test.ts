@@ -24,6 +24,7 @@ import { IEventBus } from '#/app/event/eventBus';
 import { EventBusService } from '#/app/event/eventBusService';
 import { ErrorCodes, Error2 } from '#/errors';
 import { createHooks } from '#/hooks';
+import { ISessionRunService } from '#/session/run/run';
 import { IWireService } from '#/wire/wire';
 
 import { stubContextMemory } from '../contextMemory/stubs';
@@ -34,11 +35,11 @@ function message(text: string): ContextMessage {
   return { role: 'user', content: [{ type: 'text', text }], toolCalls: [], origin: { kind: 'user' } };
 }
 
-function harness() {
+function harness(options: { readonly pendingTurnResult?: boolean } = {}) {
   const disposables = new DisposableStore();
   onTestFinished(() => disposables.dispose());
   const context = stubContextMemory();
-  const loop = stubLoopWithHooks({ pendingTurnResult: true });
+  const loop = stubLoopWithHooks({ pendingTurnResult: options.pendingTurnResult ?? true });
   const fullCompaction = {
     _serviceBrand: undefined,
     compacting: null,
@@ -46,6 +47,17 @@ function harness() {
     hooks: createHooks(['onWillCompact']),
     onDidFinishCompaction: Event.None,
   } as unknown as IAgentFullCompactionService;
+  const runs = {
+    _serviceBrand: undefined,
+    ready: Promise.resolve(),
+    list: vi.fn(async () => []),
+    get: vi.fn(async () => undefined),
+    create: vi.fn(async ({ request_id }: { readonly request_id: string }) => ({
+      id: `run-${request_id}`,
+    })),
+    transition: vi.fn(async () => undefined),
+    onDidChange: Event.None,
+  } as unknown as ISessionRunService;
   const ix = createServices(disposables, {
     strict: true, additionalServices: (reg) => {
       registerStateServices(reg);
@@ -56,13 +68,34 @@ function harness() {
       reg.defineInstance(IAgentFullCompactionService, fullCompaction);
       reg.define(IEventBus, EventBusService);
       reg.define(IAgentSystemReminderService, AgentSystemReminderService);
+      reg.defineInstance(ISessionRunService, runs);
       reg.define(IAgentPromptService, AgentPromptService);
     }
   });
-  return { prompt: ix.get(IAgentPromptService), loop, context, fullCompaction, eventBus: ix.get(IEventBus) };
+  return { prompt: ix.get(IAgentPromptService), loop, context, fullCompaction, eventBus: ix.get(IEventBus), runs };
 }
 
 describe('AgentPromptService', () => {
+  it('creates and settles a durable Run for a user prompt', async () => {
+    const { prompt, runs } = harness({ pendingTurnResult: false });
+    const handle = await prompt.enqueue({
+      requestId: 'request-1',
+      message: message('hello'),
+    });
+
+    expect(handle.runId).toBe('run-request-1');
+    await expect(handle.completion).resolves.toMatchObject({ state: 'completed' });
+    expect(runs.create).toHaveBeenCalledWith({ request_id: 'request-1' });
+    expect(runs.transition).toHaveBeenCalledWith(
+      'run-request-1',
+      expect.objectContaining({ status: 'running' }),
+    );
+    expect(runs.transition).toHaveBeenCalledWith(
+      'run-request-1',
+      expect.objectContaining({ status: 'succeeded' }),
+    );
+  });
+
   it('assigns stable identity and launches an idle prompt', async () => {
     const { prompt } = harness();
     const handle = await prompt.enqueue({ id: 'prompt-1', message: message('hello') });
@@ -110,6 +143,26 @@ describe('AgentPromptService', () => {
     const handles = await prompt.steer([two.id, one.id]);
     expect(handles.map((item) => item.id)).toEqual([one.id, two.id]);
     loop.drainNextBatch(context);
+  });
+
+  it('transitions steered prompt Runs with the active Run', async () => {
+    const { prompt, loop, runs } = harness();
+    const active = await prompt.enqueue({ requestId: 'active', message: message('active') });
+    const child = await prompt.enqueue({ requestId: 'child', message: message('child') });
+
+    await prompt.steer([child.id]);
+    loop.completeActive({ type: 'completed', steps: 0, truncated: false });
+    await expect(child.completion).resolves.toMatchObject({ state: 'completed' });
+
+    expect(runs.transition).toHaveBeenCalledWith(
+      'run-child',
+      expect.objectContaining({ status: 'running' }),
+    );
+    expect(runs.transition).toHaveBeenCalledWith(
+      'run-child',
+      expect.objectContaining({ status: 'succeeded' }),
+    );
+    expect(active.runId).toBe('run-active');
   });
 
   it('aborts pending prompts and settles completion', async () => {
