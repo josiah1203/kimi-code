@@ -299,7 +299,7 @@ export interface RemoveKimiProviderPayload {
 }
 
 export interface PromptLaunchResult {
-  readonly turn_id: number;
+  readonly turn_id?: number;
   readonly run_id?: string;
 }
 
@@ -311,7 +311,7 @@ export interface AgentAPI {
   setPermission: (payload: SetPermissionPayload) => void;
   cancelCompaction: (payload: EmptyPayload) => void;
   activateSkill: (payload: ActivateSkillPayload) => PromptLaunchResult | undefined;
-  activatePluginCommand: (payload: ActivatePluginCommandPayload) => void;
+  activatePluginCommand: (payload: ActivatePluginCommandPayload) => PromptLaunchResult | undefined;
   listCommands: (payload: EmptyPayload) => readonly AgentCommandInfo[];
   runCommand: (payload: RunCommandPayload) => Promise<void>;
   getContext: (payload: EmptyPayload) => AgentContextData;

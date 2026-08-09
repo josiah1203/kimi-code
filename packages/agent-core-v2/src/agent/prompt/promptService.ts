@@ -162,7 +162,11 @@ export class AgentPromptService implements IAgentPromptService {
     }, () => {});
     const turn = (await this.loop.enqueue(request).assigned).turn;
     if (turn === undefined) throw new Error2(ErrorCodes.PROMPT_NOT_FOUND, 'no active turn to steer into');
-    for (const item of selected) { item.state = 'steered'; item.launchedDeferred.resolve(turn); }
+    for (const item of selected) {
+      item.state = 'steered';
+      item.launchedDeferred.resolve(turn);
+      this.transitionRun(item, 'running');
+    }
     this.steered.set(this.active.id, [...(this.steered.get(this.active.id) ?? []), ...selected]);
     this.eventBus.publish({ type: 'prompt.steered', activePromptId: this.active.id, promptIds: selected.map((x) => x.id), content: rerouted.content as ContentPart[], steeredAt: new Date().toISOString() });
     return selected.map((item) => item.handle);
@@ -232,13 +236,15 @@ export class AgentPromptService implements IAgentPromptService {
     if (this.active?.id !== item.id) return;
     this.active = undefined;
     const state = result.type === 'cancelled' ? 'cancelled' : result.type === 'failed' ? 'failed' : 'completed';
+    const runStatus = state === 'completed' ? 'succeeded' : state;
+    const reason = state === 'completed' ? undefined : `prompt_${state}`;
     item.state = state; item.completionDeferred.resolve({ promptId: item.id, result, state });
-    this.transitionRun(
-      item,
-      state === 'completed' ? 'succeeded' : state,
-      state === 'completed' ? undefined : `prompt_${state}`,
-    );
-    for (const child of this.steered.get(item.id) ?? []) { child.state = state; child.completionDeferred.resolve({ promptId: child.id, result, state }); }
+    this.transitionRun(item, runStatus, reason);
+    for (const child of this.steered.get(item.id) ?? []) {
+      child.state = state;
+      child.completionDeferred.resolve({ promptId: child.id, result, state });
+      this.transitionRun(child, runStatus, reason);
+    }
     this.steered.delete(item.id);
     if (state === 'cancelled') this.publishAborted(item.id); else this.publishCompleted(item.id, state);
     void this.startNext();

@@ -10,6 +10,7 @@
 
 import { createDecorator } from "#/_base/di/instantiation";
 import type { SkillActivationOrigin } from '#/agent/contextMemory/types';
+import type { PromptHandle } from '#/agent/prompt/prompt';
 import type { Turn } from '#/agent/loop/loop';
 import type { ContentPart } from '#/kosong/contract/message';
 
@@ -22,6 +23,8 @@ export interface SkillActivationInput {
 export interface IAgentSkillService {
   readonly _serviceBrand: undefined;
 
+  /** Returns the accepted prompt without waiting for a queued turn to launch. */
+  activatePrompt(input: SkillActivationInput): Promise<PromptHandle>;
   activate(input: SkillActivationInput): Promise<Turn>;
   recordModelToolActivation(origin: SkillActivationOrigin): void;
 }

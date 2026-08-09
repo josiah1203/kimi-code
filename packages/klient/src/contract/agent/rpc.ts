@@ -62,9 +62,17 @@ export const activateSkillPayloadSchema = z.object({
   args: z.string().optional(),
 });
 
+export const activatePluginCommandPayloadSchema = z.object({
+  pluginId: z.string(),
+  commandName: z.string(),
+  args: z.string().optional(),
+});
+
 export const promptLaunchResultSchema = z.object({
-  turn_id: z.number(),
+  turn_id: z.number().optional(),
   run_id: z.string().optional(),
+}).refine((result) => result.turn_id !== undefined || result.run_id !== undefined, {
+  message: 'a prompt result must include turn_id or run_id',
 });
 
 export const cancelPayloadSchema = z.object({
@@ -219,6 +227,10 @@ export const agentRpcContract = {
   steer: { input: z.tuple([steerPayloadSchema]), output: maybe(promptLaunchResultSchema) },
   activateSkill: {
     input: z.tuple([activateSkillPayloadSchema]),
+    output: maybe(promptLaunchResultSchema),
+  },
+  activatePluginCommand: {
+    input: z.tuple([activatePluginCommandPayloadSchema]),
     output: maybe(promptLaunchResultSchema),
   },
   cancel: { input: z.tuple([cancelPayloadSchema]), output: noResult },

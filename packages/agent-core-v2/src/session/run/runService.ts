@@ -16,6 +16,7 @@ import { ScopeActivation, registerScopedService } from '#/_base/di/scope';
 import { Emitter, type Event } from '#/_base/event';
 import { IAtomicDocumentStore } from '#/persistence/interface/atomicDocumentStore';
 import { ISessionContext } from '#/session/sessionContext/sessionContext';
+import { Error2, ErrorCodes } from '#/errors';
 import {
   nowIsoDateTime,
   runCreateInputSchema,
@@ -88,7 +89,11 @@ export class SessionRunService extends Disposable implements ISessionRunService 
         command.parent_run_id !== undefined &&
         !this.runs.some((run) => run.id === command.parent_run_id)
       ) {
-        throw new Error(`parent run not found: ${command.parent_run_id}`);
+        throw new Error2(
+          ErrorCodes.REQUEST_INVALID,
+          `parent run not found: ${command.parent_run_id}`,
+          { details: { parentRunId: command.parent_run_id } },
+        );
       }
 
       const now = nowIsoDateTime();

@@ -1,3 +1,10 @@
+/**
+ * Scenario: durable session Run persistence and lifecycle transitions.
+ *
+ * Exercises `ISessionRunService` through DI with an atomic document store and
+ * a fresh independent service instance to verify reload behavior.
+ */
+
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { SyncDescriptor } from '#/_base/di/descriptors';
@@ -88,7 +95,7 @@ describe('SessionRunService', () => {
         request_id: 'request_invalid',
         status: 'running',
       }),
-    ).rejects.toMatchObject({ code: 'RUN_INVALID_STATE_TRANSITION' });
+    ).rejects.toMatchObject({ code: 'request.invalid', name: 'RunStateError' });
   });
 
   it('loads Runs from the same durable session document', async () => {
@@ -96,6 +103,8 @@ describe('SessionRunService', () => {
     const parent = await service.create({ request_id: 'request_parent' });
     await service.create({ request_id: 'request_child', parent_run_id: parent.id });
 
+    // A second independent instance is required to exercise reload from the
+    // same document rather than the first instance's in-memory cache.
     const fresh = disposables.add(ix.createInstance(SessionRunService));
     await fresh.ready;
 

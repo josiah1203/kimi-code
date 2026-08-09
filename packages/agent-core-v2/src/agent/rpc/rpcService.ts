@@ -18,14 +18,14 @@ import { expandCommandArguments } from '#/app/plugin/commands';
 import { IPluginService } from '#/app/plugin/plugin';
 import { ProfileError } from '#/agent/profile/profile';
 import { IAgentToolPolicyService } from '#/agent/toolPolicy/toolPolicy';
-import { IAgentPromptService } from '#/agent/prompt/prompt';
+import { IAgentPromptService, type PromptHandle } from '#/agent/prompt/prompt';
 import { IAgentConversationUndoService } from '#/agent/undo/undo';
 import { ISessionMetadata } from '#/session/sessionMetadata/sessionMetadata';
 import { ISessionContext } from '#/session/sessionContext/sessionContext';
 import { IAgentSkillService } from '#/agent/skill/skill';
 import { ITelemetryService } from '#/app/telemetry/telemetry';
 import { IAgentToolRegistryService } from '#/agent/toolRegistry/toolRegistry';
-import { IAgentLoopService } from '#/agent/loop/loop';
+import { IAgentLoopService, type Turn } from '#/agent/loop/loop';
 import type {
   ActivatePluginCommandPayload,
   ActivateSkillPayload,
@@ -108,9 +108,7 @@ export class AgentRPCService implements IAgentRPCService {
         origin: { kind: 'user' },
       },
     });
-    if (handle.state === 'pending') return undefined;
-    const turn = await handle.launched;
-    return turn === undefined ? undefined : { turn_id: turn.id, run_id: handle.runId };
+    return promptLaunchResult(handle, handle.state === 'pending' ? undefined : await handle.launched);
   }
 
   async steer(payload: SteerPayload): Promise<PromptLaunchResult | undefined> {
@@ -124,7 +122,7 @@ export class AgentRPCService implements IAgentRPCService {
     });
     const [steered] = await this.promptService.steer([queued.id]);
     const turn = await steered?.launched;
-    return turn === undefined ? undefined : { turn_id: turn.id, run_id: steered?.runId };
+    return steered === undefined ? undefined : promptLaunchResult(steered, turn);
   }
 
   cancel({ turnId }: CancelPayload): void {
@@ -170,14 +168,12 @@ export class AgentRPCService implements IAgentRPCService {
   }
 
   async activateSkill(payload: ActivateSkillPayload): Promise<PromptLaunchResult | undefined> {
-    // Awaited (not fire-and-forget): the caller gets the launched turn id and
-    // activation failures (unknown skill, busy) surface instead of vanishing.
-    const turn = await this.skills.activate(payload);
+    const handle = await this.skills.activatePrompt(payload);
     await this.updatePromptMetadata(promptMetadataTextFromSkill(payload));
-    return { turn_id: turn.id };
+    return promptLaunchResult(handle, handle.state === 'pending' ? undefined : await handle.launched);
   }
 
-  async activatePluginCommand(payload: ActivatePluginCommandPayload): Promise<void> {
+  async activatePluginCommand(payload: ActivatePluginCommandPayload): Promise<PromptLaunchResult | undefined> {
     const commands = await this.plugins.listPluginCommands();
     const def = commands.find(
       (command) => command.pluginId === payload.pluginId && command.name === payload.commandName,
@@ -206,7 +202,7 @@ export class AgentRPCService implements IAgentRPCService {
       commandArgs: origin.commandArgs,
       trigger: origin.trigger,
     });
-    await this.promptService.enqueue({
+    const handle = await this.promptService.enqueue({
       requestId: origin.activationId,
       message: {
         role: 'user',
@@ -216,6 +212,7 @@ export class AgentRPCService implements IAgentRPCService {
       },
     });
     await this.updatePromptMetadata(promptMetadataTextFromPluginCommand(payload));
+    return promptLaunchResult(handle, handle.state === 'pending' ? undefined : await handle.launched);
   }
 
   private async updatePromptMetadata(text: string | undefined): Promise<void> {
@@ -255,6 +252,14 @@ export class AgentRPCService implements IAgentRPCService {
       source: tool.source,
     }));
   }
+}
+
+function promptLaunchResult(
+  handle: PromptHandle,
+  turn: Turn | undefined,
+): PromptLaunchResult | undefined {
+  if (turn === undefined && handle.runId === undefined) return undefined;
+  return { turn_id: turn?.id, run_id: handle.runId };
 }
 
 registerScopedService(

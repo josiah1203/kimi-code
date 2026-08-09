@@ -24,7 +24,7 @@ import { ISessionContext } from '#/session/sessionContext/sessionContext';
 import { Service } from '#/_base/di/service';
 import { ErrorCodes, Error2 } from '#/errors';
 import { isUserActivatableSkillType, type SkillDefinition } from '#/app/skillCatalog/types';
-import { IAgentPromptService } from '#/agent/prompt/prompt';
+import { IAgentPromptService, type PromptHandle } from '#/agent/prompt/prompt';
 import { ITelemetryService } from '#/app/telemetry/telemetry';
 import type { Turn } from '#/agent/loop/loop';
 import { IWireService } from '#/wire/wire';
@@ -46,6 +46,18 @@ export class AgentSkillService extends Service implements IAgentSkillService {
   }
 
   async activate(input: SkillActivationInput): Promise<Turn> {
+    const handle = await this.activatePrompt(input);
+    const turn = await handle.launched;
+    if (turn === undefined) {
+      throw new Error2(
+        ErrorCodes.TURN_AGENT_BUSY,
+        'Cannot activate skill while another turn is active',
+      );
+    }
+    return turn;
+  }
+
+  async activatePrompt(input: SkillActivationInput): Promise<PromptHandle> {
     await this.skillCatalog.ready;
     const skill = this.skillCatalog.catalog.getSkill(input.name);
     if (skill === undefined) {
@@ -74,7 +86,7 @@ export class AgentSkillService extends Service implements IAgentSkillService {
       ...(input.content ?? []),
     ];
 
-    const turn = await this.recordActivation(
+    const handle = await this.recordActivation(
       {
         kind: 'skill_activation',
         activationId: randomUUID(),
@@ -87,13 +99,13 @@ export class AgentSkillService extends Service implements IAgentSkillService {
       },
       content,
     );
-    if (turn === undefined) {
+    if (handle === undefined) {
       throw new Error2(
         ErrorCodes.TURN_AGENT_BUSY,
         'Cannot activate skill while another turn is active',
       );
     }
-    return turn;
+    return handle;
   }
 
   recordModelToolActivation(origin: SkillActivationOrigin): void {
@@ -103,7 +115,7 @@ export class AgentSkillService extends Service implements IAgentSkillService {
   private async recordActivation(
     origin: SkillActivationOrigin,
     input?: readonly ContentPart[],
-  ): Promise<Turn | undefined> {
+  ): Promise<PromptHandle | undefined> {
     this.wire.dispatch(skillActivate({ origin }));
     this.publishActivation(origin);
 
@@ -114,7 +126,7 @@ export class AgentSkillService extends Service implements IAgentSkillService {
       toolCalls: [],
       origin,
     };
-    return (await this.prompt.enqueue({ requestId: origin.activationId, message })).launched;
+    return this.prompt.enqueue({ requestId: origin.activationId, message });
   }
 
   private renderSkillPrompt(skill: SkillDefinition, rawArgs: string): string {

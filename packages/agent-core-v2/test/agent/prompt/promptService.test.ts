@@ -145,6 +145,26 @@ describe('AgentPromptService', () => {
     loop.drainNextBatch(context);
   });
 
+  it('transitions steered prompt Runs with the active Run', async () => {
+    const { prompt, loop, runs } = harness();
+    const active = await prompt.enqueue({ requestId: 'active', message: message('active') });
+    const child = await prompt.enqueue({ requestId: 'child', message: message('child') });
+
+    await prompt.steer([child.id]);
+    loop.completeActive({ type: 'completed', steps: 0, truncated: false });
+    await expect(child.completion).resolves.toMatchObject({ state: 'completed' });
+
+    expect(runs.transition).toHaveBeenCalledWith(
+      'run-child',
+      expect.objectContaining({ status: 'running' }),
+    );
+    expect(runs.transition).toHaveBeenCalledWith(
+      'run-child',
+      expect.objectContaining({ status: 'succeeded' }),
+    );
+    expect(active.runId).toBe('run-active');
+  });
+
   it('aborts pending prompts and settles completion', async () => {
     const { prompt } = harness();
     await prompt.enqueue({ message: message('active') });

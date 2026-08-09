@@ -389,6 +389,7 @@ export interface TestAgentOptions {
   readonly initialConfig?: Partial<KimiConfig> | undefined;
   readonly autoConfigure?: boolean | undefined;
   readonly cwd?: string | undefined;
+  readonly workspaceId?: string | undefined;
   readonly [key: string]: unknown;
 }
 
@@ -1143,7 +1144,7 @@ export class AgentTestContext {
       );
 
     const bootstrap = this.root.accessor.get(IBootstrapService);
-    const workspaceId = 'test-workspace';
+    const workspaceId = options.workspaceId ?? 'wd_test_0123456789ab';
     const agentTelemetry = this.root.accessor
       .get(ITelemetryService)
       .withContext({ agent_id: agentId });

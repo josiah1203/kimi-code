@@ -44,10 +44,16 @@ export interface AgentFacade {
   /**
    * Activate a skill as a user-slash activation: the engine renders the skill
    * prompt and drives it as a normal turn (same settlement/event flow as
-   * `prompt`). Resolves with the launched turn id; rejects when the skill is
-   * unknown or the agent is busy.
+   * `prompt`). Resolves with the launched turn id and durable Run id, or with
+   * the Run id alone when the activation is queued; rejects when the skill is
+   * unknown.
    */
   activateSkill(input: { name: string; args?: string }): Promise<PromptLaunchResult>;
+  activatePluginCommand(input: {
+    pluginId: string;
+    commandName: string;
+    args?: string;
+  }): Promise<PromptLaunchResult>;
   cancel(input?: { turnId?: number }): Promise<void>;
   runShellCommand(input: { command: string; commandId?: string }): Promise<ShellCommandResult>;
   cancelShellCommand(input: { commandId: string }): Promise<void>;
@@ -89,6 +95,8 @@ export function createAgentFacade(call: ScopedCaller, scope: ScopeRef): AgentFac
     prompt: (input) => rpc('prompt', input) as Promise<PromptLaunchResult>,
     steer: (input) => rpc('steer', input) as Promise<PromptLaunchResult>,
     activateSkill: (input) => rpc('activateSkill', input) as Promise<PromptLaunchResult>,
+    activatePluginCommand: (input) =>
+      rpc('activatePluginCommand', input) as Promise<PromptLaunchResult>,
     cancel: (input) => rpc('cancel', input ?? {}) as Promise<void>,
     runShellCommand: (input) =>
       call(scope, 'agentShellCommandService', 'run', [input]) as Promise<ShellCommandResult>,

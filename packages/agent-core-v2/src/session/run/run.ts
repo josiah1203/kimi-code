@@ -9,6 +9,7 @@
 
 import { createDecorator, type ServiceIdentifier } from '#/_base/di/instantiation';
 import type { Event } from '#/_base/event';
+import { Error2, ErrorCodes } from '#/errors';
 import type {
   Run,
   RunCreateInput,
@@ -33,15 +34,15 @@ export interface ISessionRunService {
 export const ISessionRunService: ServiceIdentifier<ISessionRunService> =
   createDecorator<ISessionRunService>('sessionRunService');
 
-export class RunStateError extends Error {
-  readonly code = 'RUN_INVALID_STATE_TRANSITION';
-
+export class RunStateError extends Error2 {
   constructor(
     readonly runId: string,
     readonly from: RunStatus,
     readonly to: RunStatus,
   ) {
-    super(`run ${runId} cannot transition from ${from} to ${to}`);
-    this.name = 'RunStateError';
+    super(ErrorCodes.REQUEST_INVALID, `run ${runId} cannot transition from ${from} to ${to}`, {
+      name: 'RunStateError',
+      details: { runId, from, to },
+    });
   }
 }
