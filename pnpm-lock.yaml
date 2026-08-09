@@ -811,13 +811,13 @@ importers:
       '@moonshot-ai/agent-core-v2':
         specifier: workspace:^
         version: link:../agent-core-v2
+      '@moonshot-ai/protocol':
+        specifier: workspace:^
+        version: link:../protocol
       zod:
         specifier: 'catalog:'
         version: 4.3.6
     devDependencies:
-      '@moonshot-ai/protocol':
-        specifier: workspace:^
-        version: link:../protocol
       '@types/ws':
         specifier: ^8.18.0
         version: 8.18.1
@@ -876,6 +876,9 @@ importers:
       '@antfu/utils':
         specifier: ^9.3.0
         version: 9.3.0
+      '@moonshot-ai/protocol':
+        specifier: workspace:^
+        version: link:../protocol
       smol-toml:
         specifier: ^1.6.1
         version: 1.6.1

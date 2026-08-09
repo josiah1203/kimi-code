@@ -14,6 +14,7 @@ export type {
 } from './core/channel.js';
 export { RPCError } from './core/errors.js';
 export { KlientValidationError, type ValidationPhase } from './core/validation.js';
+export * from './contract/platform.js';
 export {
   createKlientFromChannel,
   type AgentHandle,

@@ -74,6 +74,7 @@ export type { LogContext, LogLevel, LogPayload, Logger } from '@moonshot-ai/agen
 // config without spinning up a full KimiCore.
 export { effectiveModelAlias, loadRuntimeConfigSafe, resolveConfigPath } from '@moonshot-ai/agent-core';
 export { limitAgentReplayByTurns } from '@moonshot-ai/agent-core';
+export * from '#/platform';
 export { parseAgentFileText, resolveAgentPath } from '@moonshot-ai/agent-core';
 // The synthesized `[models]` alias a `[secondary_model]` recipe with patch
 // fields materializes at runtime — hosts filter it out of model pickers.

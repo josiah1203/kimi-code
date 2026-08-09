@@ -2,6 +2,10 @@ import { z } from 'zod';
 
 import { isoDateTimeSchema } from './time';
 
+export const workspaceLifecycleStateSchema = z.enum(['created', 'active', 'archived']);
+
+export type WorkspaceLifecycleState = z.infer<typeof workspaceLifecycleStateSchema>;
+
 export const workspaceIdSchema = z
   .string()
   .regex(/^wd_[a-z0-9._-]+_[0-9a-f]{12}$/, {
@@ -17,6 +21,9 @@ export const workspaceSchema = z.object({
   created_at: isoDateTimeSchema,
   last_opened_at: isoDateTimeSchema,
   session_count: z.number().int().nonnegative(),
+  /** Optional platform lifecycle fields; omitted by legacy v1 responses. */
+  state: workspaceLifecycleStateSchema.optional(),
+  archived_at: isoDateTimeSchema.optional(),
 });
 
 export type Workspace = z.infer<typeof workspaceSchema>;
