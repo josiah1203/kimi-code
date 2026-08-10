@@ -111,6 +111,71 @@ describe('SessionRunService', () => {
     ).rejects.toMatchObject({ code: 'request.invalid', name: 'RunStateError' });
   });
 
+  it('does not complete a parent Run while a required child Run is active', async () => {
+    const service = ix.get(ISessionRunService);
+    const parent = await service.create({
+      request_id: 'request_required_parent_active',
+      metadata: { kind: 'conversation' },
+    });
+    await service.transition(parent.id, {
+      request_id: 'request_required_parent_active_start',
+      status: 'running',
+    });
+    const child = await service.create({
+      request_id: 'request_required_child_active',
+      parent_run_id: parent.id,
+      metadata: { kind: 'provider_model_request', required: true },
+    });
+    await service.transition(child.id, {
+      request_id: 'request_required_child_active_start',
+      status: 'running',
+    });
+
+    await expect(
+      service.transition(parent.id, {
+        request_id: 'request_required_parent_active_finish',
+        status: 'succeeded',
+      }),
+    ).rejects.toMatchObject({ code: 'request.invalid' });
+    expect((await service.get(parent.id))?.status).toBe('running');
+  });
+
+  it('fails a parent Run when a required child Run failed before completion', async () => {
+    const service = ix.get(ISessionRunService);
+    const parent = await service.create({
+      request_id: 'request_required_parent_failed',
+      metadata: { kind: 'conversation' },
+    });
+    await service.transition(parent.id, {
+      request_id: 'request_required_parent_failed_start',
+      status: 'running',
+    });
+    const child = await service.create({
+      request_id: 'request_required_child_failed',
+      parent_run_id: parent.id,
+      metadata: { kind: 'dataset_operation', required: true },
+    });
+    await service.transition(child.id, {
+      request_id: 'request_required_child_failed_start',
+      status: 'running',
+    });
+    await service.transition(child.id, {
+      request_id: 'request_required_child_failed_finish',
+      status: 'failed',
+      status_reason: 'native operation unavailable',
+    });
+
+    const completed = await service.transition(parent.id, {
+      request_id: 'request_required_parent_failed_finish',
+      status: 'succeeded',
+    });
+
+    expect(completed).toMatchObject({
+      status: 'failed',
+      status_reason: `required child Run ${child.id} ended with status failed`,
+    });
+  });
+
   it('includes the session identity on every lifecycle event for reconnect filtering', async () => {
     const service = ix.get(ISessionRunService);
     const created = await service.create({ request_id: 'request_event_identity' });

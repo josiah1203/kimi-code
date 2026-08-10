@@ -204,7 +204,7 @@ async function createRun(
     request_id: requestId(ctx.toolCallId, `${kind}:create`),
     parent_run_id: root?.id,
     execution_target_id: executionTargetId,
-    metadata: { kind, tool: 'kimi-platform', ...metadata },
+    metadata: { kind, tool: 'kimi-platform', ...metadata, required: true },
   });
   await runs.transition(run.id, {
     request_id: requestId(ctx.toolCallId, `${kind}:planning`),

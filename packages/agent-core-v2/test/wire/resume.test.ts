@@ -552,7 +552,11 @@ describe('Agent resume', () => {
     const homeDir = await mkdtemp(join(tmpdir(), 'kimi-bg-resume-undelivered-'));
     try {
       const backgroundPersistence = createAgentTaskPersistence(homeDir);
-      const ctx = testAgent(homeDirServices(homeDir), { autoConfigure: false, persistence });
+      const ctx = testAgent(homeDirServices(homeDir), {
+        autoConfigure: false,
+        persistence,
+        workspaceId: 'test-workspace',
+      });
       await backgroundPersistence.writeTask({
         taskId: 'agent-new00000',
         kind: 'agent',
