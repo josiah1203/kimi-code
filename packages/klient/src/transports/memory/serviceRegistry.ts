@@ -50,6 +50,12 @@ import { IWorkspaceExecutionTargetService } from '@moonshot-ai/agent-core-v2/wor
 import { IWorkspaceExecutionService } from '@moonshot-ai/agent-core-v2/workspace/execution/execution';
 import { IWorkspaceAutomationService } from '@moonshot-ai/agent-core-v2/workspace/automations/automation';
 import { IWorkspaceCommercialService } from '@moonshot-ai/agent-core-v2/workspace/commercial/commercial';
+import { IWorkspaceUsageService } from '@moonshot-ai/agent-core-v2/workspace/usage/usage';
+import { IWorkspaceBudgetService } from '@moonshot-ai/agent-core-v2/workspace/budgets/budget';
+import { IPlatformGovernanceService } from '@moonshot-ai/agent-core-v2/app/governance/governance';
+import { IPlatformIdentityService } from '@moonshot-ai/agent-core-v2/app/platformIdentity/platformIdentity';
+import { IPlatformAuthorizationService } from '@moonshot-ai/agent-core-v2/app/authorization/authorization';
+import { IPlatformPluginService } from '@moonshot-ai/agent-core-v2/app/platformPlugins/platformPlugins';
 import { IWorkspacePlatformEventService } from '@moonshot-ai/agent-core-v2/workspace/platformEvents/platformEvents';
 import { IWorkspaceDatasetService } from '@moonshot-ai/agent-core-v2/workspace/datasets/dataset';
 import { IWorkspaceMlService } from '@moonshot-ai/agent-core-v2/workspace/ml/ml';
@@ -79,6 +85,12 @@ export const serviceTokens: Readonly<Record<string, ServiceIdentifier<unknown>>>
   executionService: IWorkspaceExecutionService,
   automationService: IWorkspaceAutomationService,
   commercialService: IWorkspaceCommercialService,
+  workspaceUsageService: IWorkspaceUsageService,
+  workspaceBudgetService: IWorkspaceBudgetService,
+  platformGovernanceService: IPlatformGovernanceService,
+  platformIdentityService: IPlatformIdentityService,
+  platformAuthorizationService: IPlatformAuthorizationService,
+  platformPluginService: IPlatformPluginService,
   platformEvents: IWorkspacePlatformEventService,
   datasetService: IWorkspaceDatasetService,
   mlService: IWorkspaceMlService,

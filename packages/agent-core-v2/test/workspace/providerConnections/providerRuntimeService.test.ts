@@ -12,9 +12,10 @@ import type { IProtocolAdapterRegistry } from '#/kosong/protocol/protocol';
 import type { IPlatformSecretStore } from '#/app/secrets/platformSecretStore';
 import type { IWorkspaceProviderConnectionService } from '#/workspace/providerConnections/providerConnection';
 import type { IWorkspacePolicyService } from '#/workspace/policy/policy';
-import type { IWorkspaceCommercialService } from '#/workspace/commercial/commercial';
+import type { IWorkspaceUsageService } from '#/workspace/usage/usage';
 import type { IWorkspacePlatformEventService } from '#/workspace/platformEvents/platformEvents';
 import { WorkspaceProviderRuntimeService } from '#/workspace/providerConnections/providerRuntimeService';
+import '#/kosong/provider/providers/standard.contrib';
 import { PLATFORM_NO_CREDENTIAL_SECRET_REF, type ProviderConnection } from '@moonshot-ai/protocol';
 
 function connection(overrides: Partial<ProviderConnection> = {}): ProviderConnection {
@@ -80,7 +81,7 @@ function runtime(options: {
   readonly service: WorkspaceProviderRuntimeService;
   readonly removed: string[];
   readonly policy: IWorkspacePolicyService;
-  readonly commercial: IWorkspaceCommercialService;
+  readonly usage: IWorkspaceUsageService;
   readonly events: IWorkspacePlatformEventService;
   readonly secrets: IPlatformSecretStore;
 } {
@@ -142,10 +143,10 @@ function runtime(options: {
     }),
     get: vi.fn(async () => undefined),
   } as unknown as IWorkspacePolicyService;
-  const commercial = {
+  const usage = {
     _serviceBrand: undefined,
     recordUsage: vi.fn(async (input) => input),
-  } as unknown as IWorkspaceCommercialService;
+  } as unknown as IWorkspaceUsageService;
   const events = {
     _serviceBrand: undefined,
     ready: Promise.resolve(),
@@ -160,10 +161,10 @@ function runtime(options: {
     replay: vi.fn(async () => ({ events: [], next_sequence: 0, has_more: false })),
   } as unknown as IWorkspacePlatformEventService;
   return {
-    service: new WorkspaceProviderRuntimeService(connections, secrets, protocols(options.transientFailures), policy, commercial, events),
+    service: new WorkspaceProviderRuntimeService(connections, secrets, protocols(options.transientFailures), policy, usage, events),
     removed,
     policy,
-    commercial,
+    usage,
     events,
     secrets,
   };
@@ -175,6 +176,24 @@ afterEach(() => {
 });
 
 describe('WorkspaceProviderRuntimeService', () => {
+  it('resolves OpenRouter through the OpenAI transport with its managed default endpoint', async () => {
+    const openrouter = connection({
+      id: 'connection_openrouter',
+      name: 'OpenRouter managed',
+      provider: 'openrouter',
+      metadata: { model: 'openai/gpt-4o-mini' },
+    });
+    const { service } = runtime({ current: openrouter, connections: [openrouter] });
+
+    await expect(service.describe(openrouter.id)).resolves.toMatchObject({
+      provider: 'openrouter',
+      model: 'openai/gpt-4o-mini',
+      protocol: 'openai',
+      provider_type: 'openrouter',
+      base_url: 'https://openrouter.ai/api/v1',
+    });
+  });
+
   it('keeps a newly supplied credential opaque and cleans up an idempotent duplicate', async () => {
     const { service, removed } = runtime({ createResult: connection({ secret_ref: 'secret_existing' }) });
     const created = await service.createConnection({
@@ -193,7 +212,7 @@ describe('WorkspaceProviderRuntimeService', () => {
   });
 
   it('validates through kosong and discovers remote models with capabilities', async () => {
-    const { service, commercial, events } = runtime();
+    const { service, usage, events } = runtime();
     const descriptor = await service.describe('connection_openai');
     expect(descriptor).toMatchObject({
       connection_id: 'connection_openai',
@@ -209,7 +228,7 @@ describe('WorkspaceProviderRuntimeService', () => {
     });
     expect(response).toMatchObject({ connection_id: 'connection_openai', ok: true, text: 'pong' });
     expect(response.usage).toMatchObject({ output: 1 });
-    expect(commercial.recordUsage).toHaveBeenCalledWith(expect.objectContaining({
+    expect(usage.recordUsage).toHaveBeenCalledWith(expect.objectContaining({
       run_id: 'run_provider_validate',
       meter: 'intelligence',
       unit: 'intelligence_percent',

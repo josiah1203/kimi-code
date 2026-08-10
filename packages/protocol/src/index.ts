@@ -20,6 +20,7 @@ export * from './fs';
 export * from './file';
 export * from './modelCatalog';
 export * from './platform';
+export * from './business';
 export * from './datasets';
 export * from './ml';
 export * from './pipelines';

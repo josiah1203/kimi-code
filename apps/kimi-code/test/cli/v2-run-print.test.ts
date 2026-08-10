@@ -21,7 +21,10 @@ import {
   ISessionIndex,
   ISessionLifecycleService,
   IWorkspaceLifecycleService,
+  IPlatformModelBindingService,
+  IWorkspaceProviderConnectionService,
   ITelemetryService,
+  IFlagService,
   type BootstrapInput,
   type DomainEvent,
 } from '@moonshot-ai/agent-core-v2';
@@ -121,7 +124,17 @@ function opts(overrides: Record<string, unknown> = {}) {
   } as const;
 }
 
-function makeFakeHarness() {
+interface FakeCanonicalConnection {
+  readonly id: string;
+  readonly state: 'active' | 'validated' | 'configured';
+  readonly updated_at: string;
+  readonly metadata: Readonly<Record<string, unknown>>;
+}
+
+function makeFakeHarness(options: {
+  readonly defaultModel?: string;
+  readonly canonicalConnection?: FakeCanonicalConnection;
+} = {}) {
   // Native event listeners registered on the main agent's IEventBus; the turn
   // emits a streaming assistant delta before completing.
   const eventListeners = new Set<(event: DomainEvent) => void>();
@@ -170,6 +183,15 @@ function makeFakeHarness() {
   ]);
   const agent = fakeScope('main', agentServices);
 
+  const platformBinding = {
+    select: vi.fn(async (input: { readonly connection_id: string; readonly model?: string }) => ({
+      model_alias: `platform:${input.connection_id}/${input.model}`,
+    })),
+  };
+  if (options.canonicalConnection !== undefined) {
+    agentServices.set(IPlatformModelBindingService, platformBinding);
+  }
+
   const sessionServices = new Map<unknown, unknown>([
     // drain enumerates agents; empty → no background work to wait on.
     [IAgentLifecycleService, { list: vi.fn(() => []) }],
@@ -187,14 +209,38 @@ function makeFakeHarness() {
       },
     ],
   ]);
+  if (options.canonicalConnection !== undefined) {
+    handlerServices.set(IWorkspaceProviderConnectionService, {
+      list: vi.fn(async () => [options.canonicalConnection]),
+    });
+  }
   const workspace = fakeScope('wd_v2', handlerServices);
 
   const appServices = new Map<unknown, unknown>([
     [
+      IFlagService,
+      {
+        explain: vi.fn(() => ({
+          id: 'platform_services',
+          title: 'Platform services',
+          description: 'Canonical local platform services',
+          surface: 'platform',
+          env: 'KIMI_CODE_EXPERIMENTAL_PLATFORM_SERVICES',
+          defaultEnabled: true,
+          enabled: true,
+          source: 'default',
+        })),
+      },
+    ],
+    [
       IConfigService,
       {
         ready: Promise.resolve(),
-        get: vi.fn((section: string) => (section === 'defaultModel' ? 'k2' : undefined)),
+        get: vi.fn((section: string) =>
+          section === 'defaultModel'
+            ? ('defaultModel' in options ? options.defaultModel : 'k2')
+            : undefined,
+        ),
         // `applyPrintModeConfigDefaults` inspects each section and fills unset
         // keys via the memory layer; an empty section means everything is unset.
         inspect: vi.fn(() => ({ value: {} })),
@@ -255,7 +301,16 @@ function makeFakeHarness() {
     ],
   ]);
   const app = fakeScope('app', appServices);
-  return { app, agent, session, agentServices, appServices, handlerServices, profileState };
+  return {
+    app,
+    agent,
+    session,
+    agentServices,
+    appServices,
+    handlerServices,
+    profileState,
+    platformBinding,
+  };
 }
 
 describe('runV2Print', () => {
@@ -289,7 +344,7 @@ describe('runV2Print', () => {
       },
     });
     // Version banner is first, then the rendered assistant output.
-    expect(stderr.write).toHaveBeenNthCalledWith(1, 'kimi version 1.2.3-test\n');
+    expect(stderr.write).toHaveBeenNthCalledWith(1, 'spyderbyte version 1.2.3-test\n');
     expect(stdout.text()).toContain('hello world');
     expect(app.dispose).toHaveBeenCalled();
   });
@@ -507,5 +562,44 @@ describe('runV2Print', () => {
     };
     expect(profile.bind).not.toHaveBeenCalled();
     expect(profile.setModel).toHaveBeenCalledWith('new-model');
+  });
+
+  it('auto-selects the persisted canonical provider for a fresh platform session', async () => {
+    const stdout = writer();
+    const stderr = writer();
+    const canonicalConnection: FakeCanonicalConnection = {
+      id: 'conn_openai',
+      state: 'validated',
+      updated_at: '2026-08-10T00:00:00.000Z',
+      metadata: { default_model: 'gpt-5-mini' },
+    };
+    const { app, agent, handlerServices, appServices, platformBinding } = makeFakeHarness({
+      defaultModel: undefined,
+      canonicalConnection,
+    });
+
+    mocks.bootstrap.mockReturnValue({ app });
+    mocks.ensureMainAgent.mockResolvedValue(agent);
+
+    await runV2Print(opts() as never, '1.2.3-test', { stdout, stderr });
+
+    const lifecycle = handlerServices.get(ISessionLifecycleService) as {
+      create: ReturnType<typeof vi.fn>;
+    };
+    expect(lifecycle.create).toHaveBeenCalledWith({
+      workDir: process.cwd(),
+      additionalDirs: undefined,
+      mainAgentBinding: undefined,
+    });
+    expect(platformBinding.select).toHaveBeenCalledWith({
+      connection_id: 'conn_openai',
+      model: 'gpt-5-mini',
+      fallback_connection_ids: [],
+    });
+    const telemetry = appServices.get(ITelemetryService) as { setContext: ReturnType<typeof vi.fn> };
+    expect(telemetry.setContext).toHaveBeenCalledWith({
+      sessionId: 'ses_v2',
+      model: 'platform:conn_openai/gpt-5-mini',
+    });
   });
 });

@@ -64,6 +64,12 @@ export class FlagService extends Disposable implements IFlagService {
     const def = this.registry.get(id);
     if (def === undefined) return undefined;
     const configValue = this.configOverrides[def.id];
+    if (
+      def.emergencyDisableEnv !== undefined &&
+      parseBooleanEnv(this.bootstrap.getEnv(def.emergencyDisableEnv)) === true
+    ) {
+      return this.state(def, false, 'emergency-disable-env', configValue);
+    }
     if (parseBooleanEnv(this.bootstrap.getEnv(MASTER_ENV)) === true) {
       return this.state(def, true, 'master-env', configValue);
     }
@@ -105,6 +111,7 @@ export class FlagService extends Disposable implements IFlagService {
       description: def.description,
       surface: def.surface,
       env: def.env,
+      emergencyDisableEnv: def.emergencyDisableEnv,
       defaultEnabled: def.default,
       enabled,
       source,

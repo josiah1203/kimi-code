@@ -14,6 +14,40 @@ import {
   artifactKindSchema,
   artifactLineageSchema,
   artifactSchema,
+  budgetConfigureInputSchema,
+  budgetReconcileInputSchema,
+  budgetReleaseInputSchema,
+  budgetReservationSchema,
+  budgetReserveInputSchema,
+  budgetSchema,
+  budgetStatusSchema,
+  organizationCreateInputSchema,
+  organizationMemberSchema,
+  organizationMemberUpsertInputSchema,
+  organizationSchema,
+  platformIdentityDevicePollInputSchema,
+  platformIdentityDevicePollResultSchema,
+  platformIdentityDeviceStartSchema,
+  platformIdentityLogoutResultSchema,
+  platformIdentityPkceCompleteInputSchema,
+  platformIdentityPkceStartSchema,
+  platformIdentityStatusSchema,
+  platformAuthorizationDecisionSchema,
+  platformAuthorizationEvaluateInputSchema,
+  platformPluginCommandInputSchema,
+  platformPluginConfigureInputSchema,
+  platformPluginDiscoverInputSchema,
+  platformPluginInstallInputSchema,
+  platformPluginManifestSchema,
+  platformPluginSchema,
+  projectCreateInputSchema,
+  projectBindingCreateInputSchema,
+  projectBindingRemoveInputSchema,
+  projectBindingSchema,
+  projectMemberSchema,
+  projectMemberUpsertInputSchema,
+  projectSchema,
+  projectWorkspaceBindInputSchema,
   automationCreateInputSchema,
   automationFireInputSchema,
   automationFireResultSchema,
@@ -325,6 +359,108 @@ export const commercialContract = {
   },
   recordUsage: { input: z.tuple([usageRecordCreateInputSchema]), output: usageRecordSchema },
   usageSummary: { input: z.tuple([usageSummaryQuerySchema.optional()]), output: usageSummarySchema },
+} satisfies ServiceContract;
+
+/** Open Core usage authority; commercial keeps its admin projection for compatibility. */
+export const usageContract = {
+  recordUsage: { input: z.tuple([usageRecordCreateInputSchema]), output: usageRecordSchema },
+  usageSummary: { input: z.tuple([usageSummaryQuerySchema.optional()]), output: usageSummarySchema },
+} satisfies ServiceContract;
+
+export const budgetContract = {
+  list: { input: z.tuple([]), output: z.array(budgetSchema) },
+  status: { input: z.tuple([]), output: budgetStatusSchema },
+  configure: { input: z.tuple([budgetConfigureInputSchema]), output: budgetSchema },
+  reserve: { input: z.tuple([budgetReserveInputSchema]), output: z.strictObject({
+    reservation: budgetReservationSchema,
+    status: z.enum(['reserved', 'approval_required', 'blocked', 'unbudgeted']),
+    warnings: z.array(z.string()),
+  }) },
+  release: { input: z.tuple([budgetReleaseInputSchema]), output: budgetReservationSchema },
+  reconcile: { input: z.tuple([budgetReconcileInputSchema]), output: budgetReservationSchema },
+} satisfies ServiceContract;
+
+export const governanceContract = {
+  listOrganizations: { input: z.tuple([]), output: z.array(organizationSchema) },
+  getOrganization: { input: z.tuple([z.string()]), output: maybe(organizationSchema) },
+  listOrganizationMembers: { input: z.tuple([z.string()]), output: z.array(organizationMemberSchema) },
+  createOrganization: { input: z.tuple([organizationCreateInputSchema]), output: organizationSchema },
+  upsertOrganizationMember: {
+    input: z.tuple([organizationMemberUpsertInputSchema]),
+    output: organizationMemberSchema,
+  },
+  listProjects: { input: z.tuple([z.string().optional()]), output: z.array(projectSchema) },
+  getProject: { input: z.tuple([z.string()]), output: maybe(projectSchema) },
+  listProjectMembers: { input: z.tuple([z.string()]), output: z.array(projectMemberSchema) },
+  createProject: { input: z.tuple([projectCreateInputSchema]), output: projectSchema },
+  upsertProjectMember: {
+    input: z.tuple([projectMemberUpsertInputSchema]),
+    output: projectMemberSchema,
+  },
+  bindWorkspace: {
+    input: z.tuple([z.string(), projectWorkspaceBindInputSchema]),
+    output: projectSchema,
+  },
+  projectForWorkspace: { input: z.tuple([z.string()]), output: maybe(projectSchema) },
+  listProjectBindings: {
+    input: z.tuple([z.string(), z.string().optional()]),
+    output: z.array(projectBindingSchema),
+  },
+  bindProjectResource: {
+    input: z.tuple([projectBindingCreateInputSchema]),
+    output: projectBindingSchema,
+  },
+  removeProjectBinding: {
+    input: z.tuple([projectBindingRemoveInputSchema]),
+    output: projectBindingSchema,
+  },
+  ensureLocalOrganization: {
+    input: z.tuple([z.string().optional()]),
+    output: organizationSchema,
+  },
+} satisfies ServiceContract;
+
+export const platformIdentityContract = {
+  status: { input: z.tuple([]), output: platformIdentityStatusSchema },
+  startPkce: { input: z.tuple([]), output: platformIdentityPkceStartSchema },
+  completePkce: {
+    input: z.tuple([platformIdentityPkceCompleteInputSchema]),
+    output: platformIdentityStatusSchema,
+  },
+  startDevice: { input: z.tuple([]), output: platformIdentityDeviceStartSchema },
+  pollDevice: {
+    input: z.tuple([platformIdentityDevicePollInputSchema]),
+    output: platformIdentityDevicePollResultSchema,
+  },
+  logout: { input: z.tuple([]), output: platformIdentityLogoutResultSchema },
+} satisfies ServiceContract;
+
+export const platformAuthorizationContract = {
+  evaluate: {
+    input: z.tuple([platformAuthorizationEvaluateInputSchema]),
+    output: platformAuthorizationDecisionSchema,
+  },
+} satisfies ServiceContract;
+
+export const platformPluginsContract = {
+  list: { input: z.tuple([z.string().optional()]), output: z.array(platformPluginSchema) },
+  get: { input: z.tuple([z.string()]), output: maybe(platformPluginSchema) },
+  discover: {
+    input: z.tuple([platformPluginDiscoverInputSchema]),
+    output: platformPluginManifestSchema,
+  },
+  install: {
+    input: z.tuple([platformPluginInstallInputSchema]),
+    output: platformPluginSchema,
+  },
+  configure: {
+    input: z.tuple([platformPluginConfigureInputSchema]),
+    output: platformPluginSchema,
+  },
+  command: {
+    input: z.tuple([platformPluginCommandInputSchema]),
+    output: platformPluginSchema,
+  },
 } satisfies ServiceContract;
 
 export const platformEventsContract = {

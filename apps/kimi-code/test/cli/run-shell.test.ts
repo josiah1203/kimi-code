@@ -287,7 +287,7 @@ describe('runShell', () => {
     expect(mocks.kimiHarnessConstructor).toHaveBeenCalledWith(
       expect.objectContaining({
         identity: expect.objectContaining({
-          productName: 'kimi-code-cli',
+          productName: 'spyderbyte-cli',
           version: '1.2.3-test',
         }),
         sessionStartedProperties: { yolo: true, auto: false, plan: true, afk: false },
@@ -307,7 +307,7 @@ describe('runShell', () => {
       homeDir: '/tmp/kimi-code-test-home',
       deviceId: 'device-1',
       enabled: true,
-      appName: 'kimi-code-cli',
+      appName: 'spyderbyte-cli',
       version: '1.2.3-test',
       uiMode: 'shell',
       model: 'k2',
@@ -606,7 +606,7 @@ describe('runShell', () => {
     expect(mocks.detectTerminalTheme).toHaveBeenCalledOnce();
     const [, , startupInput] = mocks.kimiTuiConstructor.mock.calls[0]!;
     expect(startupInput).toMatchObject({
-      startupNotice: 'Invalid TUI config in ~/.kimi-code/tui.toml; using defaults.',
+      startupNotice: 'SpiderByte compatibility mode: the legacy Kimi engine is active. Platform services are unavailable; this was requested by KIMI_CODE_LEGACY_FLAG.\nInvalid TUI config in ~/.kimi-code/tui.toml; using defaults.',
       tuiConfig: {
         theme: 'auto',
         editorCommand: 'vim',
@@ -648,7 +648,7 @@ describe('runShell', () => {
     // tui.toml parse errors, so the same warning is not shown twice.
     const [, , startupInput] = mocks.kimiTuiConstructor.mock.calls[0]!;
     expect(startupInput).toMatchObject({
-      startupNotice: undefined,
+      startupNotice: 'SpiderByte compatibility mode: the legacy Kimi engine is active. Platform services are unavailable; this was requested by KIMI_CODE_LEGACY_FLAG.',
     });
   });
 
@@ -832,7 +832,7 @@ describe('runShell', () => {
       expect(mocks.harnessTrack).not.toHaveBeenCalledWith('exit', expect.anything());
       expect(mocks.shutdownTelemetry).toHaveBeenCalledOnce();
       expect(stdout.text()).toBe(' Bye!\n');
-      expect(stderr.text()).toContain(' To resume this session: kimi -r ses-1');
+      expect(stderr.text()).toContain(' To resume this session: spyderbyte -r ses-1');
     } finally {
       exitSpy.mockRestore();
       stdout.restore();
@@ -879,7 +879,7 @@ describe('runShell', () => {
         ExitCalled,
       );
 
-      expect(stderr.text()).toContain(' To resume this session: kimi -r ses-1');
+      expect(stderr.text()).toContain(' To resume this session: spyderbyte -r ses-1');
       expect(stderr.text()).toContain('open ');
       expect(stderr.text()).toContain(openedUrl);
     } finally {

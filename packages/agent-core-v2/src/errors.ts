@@ -49,6 +49,12 @@ import { MlErrors } from '#/workspace/ml/errors';
 import { PipelineErrors } from '#/workspace/pipelines/errors';
 import { ExecutionErrors } from '#/workspace/execution/errors';
 import { ServingErrors } from '#/workspace/serving/errors';
+import { WorkspaceUsageErrors } from '#/workspace/usage/errors';
+import { BudgetErrors } from '#/workspace/budgets/errors';
+import { GovernanceErrors } from '#/app/governance/errors';
+import { PlatformIdentityErrors } from '#/app/platformIdentity/errors';
+import { AuthorizationErrors } from '#/app/authorization/errors';
+import { PlatformPluginErrors } from '#/app/platformPlugins/errors';
 
 export * from '#/_base/errors/codes';
 export * from '#/_base/errors/errorMessage';
@@ -99,6 +105,12 @@ export { MlErrors } from '#/workspace/ml/errors';
 export { PipelineErrors } from '#/workspace/pipelines/errors';
 export { ExecutionErrors } from '#/workspace/execution/errors';
 export { ServingErrors } from '#/workspace/serving/errors';
+export { WorkspaceUsageErrors } from '#/workspace/usage/errors';
+export { BudgetErrors } from '#/workspace/budgets/errors';
+export { GovernanceErrors } from '#/app/governance/errors';
+export { PlatformIdentityErrors } from '#/app/platformIdentity/errors';
+export { AuthorizationErrors } from '#/app/authorization/errors';
+export { PlatformPluginErrors } from '#/app/platformPlugins/errors';
 
 export const ErrorCodes = {
   ...CoreErrors.codes,
@@ -146,6 +158,12 @@ export const ErrorCodes = {
   ...PipelineErrors.codes,
   ...ExecutionErrors.codes,
   ...ServingErrors.codes,
+  ...WorkspaceUsageErrors.codes,
+  ...BudgetErrors.codes,
+  ...GovernanceErrors.codes,
+  ...PlatformIdentityErrors.codes,
+  ...AuthorizationErrors.codes,
+  ...PlatformPluginErrors.codes,
 } as const;
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];

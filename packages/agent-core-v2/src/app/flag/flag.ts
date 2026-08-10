@@ -45,7 +45,12 @@ registerConfigSection(EXPERIMENTAL_SECTION, ExperimentalConfigSchema, {
   toToml: experimentalToToml,
 });
 
-export type ExperimentalFlagSource = 'master-env' | 'env' | 'config' | 'default';
+export type ExperimentalFlagSource =
+  | 'master-env'
+  | 'env'
+  | 'config'
+  | 'default'
+  | 'emergency-disable-env';
 
 export interface ExperimentalFeatureState {
   readonly id: FlagId;
@@ -53,6 +58,7 @@ export interface ExperimentalFeatureState {
   readonly description: string;
   readonly surface: FlagSurface;
   readonly env: string;
+  readonly emergencyDisableEnv?: string;
   readonly defaultEnabled: boolean;
   readonly enabled: boolean;
   readonly source: ExperimentalFlagSource;

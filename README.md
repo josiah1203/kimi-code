@@ -1,13 +1,13 @@
-# Kimi Code CLI
+# SpiderByte CLI
 
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE) [![Docs](https://img.shields.io/badge/docs-online-blue)](https://moonshotai.github.io/kimi-code/en/) <br>
 [Documentation](https://moonshotai.github.io/kimi-code/en/) · [Issues](https://github.com/MoonshotAI/kimi-code/issues) · [中文](README.zh-CN.md)
 
 ![Demo of using Kimi Code](./docs/media/intro.gif)
 
-## What is Kimi Code CLI
+## What is SpiderByte CLI
 
-Kimi Code CLI is an AI coding agent that runs in your terminal — it can read and edit code, run shell commands, search files, fetch web pages, and choose the next step based on the feedback it receives. It works out of the box with Moonshot AI’s Kimi models and can also be configured to use other compatible providers.
+SpiderByte is a governed, CLI/TUI-first workspace for coding, data, ML, and agent execution. It preserves the Kimi agent loop, transcript streaming, terminal, filesystem, provider adapters, MCP, ACP, and SDK surfaces while making Workspace, AgentSession, Run, ProviderConnection, ModelRef, Artifact, PolicyDecision, and UsageEvent the platform authorities.
 
 ## Install
 
@@ -30,8 +30,10 @@ irm https://code.kimi.com/kimi-code/install.ps1 | iex
 Then, run it with a new shell session:
 
 ```sh
-kimi --version
+spyderbyte --version
 ```
+
+`kimi` remains a compatibility alias during the Business release migration.
 
 For npm install, upgrade, uninstall, see [Getting Started](https://moonshotai.github.io/kimi-code/en/guides/getting-started).
 
@@ -41,10 +43,10 @@ Open a project and start the interactive UI:
 
 ```sh
 cd your-project
-kimi
+spyderbyte
 ```
 
-On first launch, run `/login` inside Kimi Code CLI and choose either Kimi Code OAuth or a Moonshot AI Open Platform API key. After login, try your first task:
+Use `spyderbyte configure` or `/provider` to connect a canonical provider, then try your first task:
 
 ```
 Take a look at this project and explain its main directories.
@@ -60,11 +62,13 @@ Take a look at this project and explain its main directories.
 - **Rich plugin ecosystem.** Install skills, MCP servers, and data sources from the marketplace or any GitHub repo, with each install's trust level surfaced up front.
 - **Subagents for focused, parallel work.** Dispatch built-in `coder`, `explore`, and `plan` subagents in isolated contexts while keeping the main conversation clean.
 - **Lifecycle hooks.** Run local commands at key points to gate risky tool calls, audit decisions, trigger desktop notifications, or connect to your own automation.
-- **Editor & IDE integration (ACP).** Drive a Kimi Code CLI session straight from Zed, JetBrains, or any [Agent Client Protocol](https://agentclientprotocol.com/) client with `kimi acp`.
+- **Governed data and ML.** Register datasets, run SQL and profiling, train and evaluate baseline models, and inspect artifacts and lineage through conversation.
+- **Business operations in the TUI.** Inspect Runs, providers, datasets, experiments, models, pipelines, automations, approvals, policies, execution targets, and usage without depending on the web client.
+- **Editor & IDE integration (ACP).** Drive a SpiderByte session straight from Zed, JetBrains, or any [Agent Client Protocol](https://agentclientprotocol.com/) client with `spyderbyte acp`.
 
 ## Use it in your editor (ACP)
 
-Kimi Code CLI speaks the [Agent Client Protocol](https://agentclientprotocol.com/), so ACP-compatible editors and IDEs (Zed, JetBrains, …) can drive a session over stdio. Log in once, then point your editor at the `kimi acp` subcommand — no extra login needed.
+SpiderByte speaks the [Agent Client Protocol](https://agentclientprotocol.com/), so ACP-compatible editors and IDEs (Zed, JetBrains, …) can drive a session over stdio. Point your editor at the `spyderbyte acp` subcommand; the `kimi acp` alias remains available for compatibility.
 
 For Zed, add this to `~/.config/zed/settings.json`:
 

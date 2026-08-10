@@ -185,12 +185,16 @@ export class ExperimentsSelectorComponent extends Container implements Focusable
 }
 
 function isLocked(feature: ExperimentalFeatureState): boolean {
-  return feature.source === 'env' || feature.source === 'master-env';
+  return feature.source === 'env' || feature.source === 'master-env' || feature.source === 'emergency-disable-env';
 }
 
 function featureDetail(feature: ExperimentalFeatureState): string {
   const source = sourceLabel(feature);
-  if (feature.source === 'env' || feature.source === 'master-env') {
+  if (
+    feature.source === 'env' ||
+    feature.source === 'master-env' ||
+    feature.source === 'emergency-disable-env'
+  ) {
     return `id ${feature.id} · ${source}`;
   }
   return `id ${feature.id} · ${source} · ${feature.env}`;
@@ -206,6 +210,8 @@ function sourceLabel(feature: ExperimentalFeatureState): string {
       return 'config';
     case 'default':
       return 'default';
+    case 'emergency-disable-env':
+      return `locked by ${feature.emergencyDisableEnv ?? 'emergency disable switch'}`;
   }
 }
 

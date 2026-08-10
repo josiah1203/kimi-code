@@ -1,5 +1,5 @@
 /**
- * Native v2 `kimi -p` (print mode) runner.
+ * Native v2 `spyderbyte -p` (print mode) runner.
  *
  * Unlike the v1 path (and the former `V2PromptHarness` / `V2Session` shim), this
  * runner talks to agent-core-v2's native DI services directly — no
@@ -34,6 +34,9 @@ import {
   ISessionIndex,
   ISessionLifecycleService,
   IWorkspaceLifecycleService,
+  IFlagService,
+  IPlatformModelBindingService,
+  IWorkspaceProviderConnectionService,
   ITelemetryService,
   PRINT_MAX_TURNS_DEFAULT,
   PRINT_WAIT_CEILING_S_DEFAULT,
@@ -81,6 +84,7 @@ import {
   requireConfiguredModel,
 } from '../run-prompt';
 import { createKimiCodeHostIdentity } from '../version';
+import { formatPlatformModeDiagnostic } from '../platform-mode';
 
 import { resolveOutputFormat } from '../options';
 import type { CLIOptions, PromptOutputFormat } from '../options';
@@ -150,6 +154,13 @@ export async function runV2Print(
 
   const configService = app.accessor.get(IConfigService);
   await configService.ready;
+  try {
+    const platformFeature = app.accessor.get(IFlagService).explain('platform_services');
+    stderr.write(`${formatPlatformModeDiagnostic(true, platformFeature)}\n`);
+  } catch {
+    // Minimal unit hosts may intentionally omit the flag service. Production
+    // bootstrap always contributes it, so diagnostics remain available there.
+  }
   // Print-mode config defaults (task timeouts / loop step cap / subagent
   // timeout → unbounded) before anything resolves a session; only keys the
   // user left unset are filled, in the memory layer.
@@ -338,7 +349,7 @@ async function resolveNativeSession(
     if (target.cwd !== undefined && resolve(target.cwd) !== resolve(workDir)) {
       stderr.write(
         `Session "${opts.session}" was created under a different directory.\n` +
-          `  cd "${target.cwd}" && kimi -r ${opts.session}\n\n`,
+          `  cd "${target.cwd}" && spyderbyte -r ${opts.session}\n\n`,
       );
       throw new Error(`Session "${opts.session}" was created under a different directory.`);
     }
@@ -375,20 +386,44 @@ async function resolveNativeSession(
         goalModel: configuredModel(opts.model, currentModel),
       };
     }
-    stderr.write(`No sessions to continue under "${workDir}"; starting a fresh session.\n`);
+    stderr.write(`No sessions to continue under "${workDir}"; starting a fresh SpiderByte session.\n`);
   }
 
-  const model = requireConfiguredModel(opts.model, defaultModel);
   const handler = await workspaceLifecycle.handlerFor({ root: workDir });
+  const canonicalDefault =
+    opts.model === undefined && defaultModel === undefined && platformServicesEnabled(app)
+      ? await findCanonicalDefault(handler)
+      : undefined;
+  const model = canonicalDefault === undefined
+    ? requireConfiguredModel(opts.model, defaultModel)
+    : undefined;
   const session = await handler.accessor.get(ISessionLifecycleService).create({
     workDir,
     additionalDirs: opts.addDirs?.length ? opts.addDirs : undefined,
-    mainAgentBinding: {
-      profile: agentProfileName ?? 'agent',
-      model,
-    },
+    mainAgentBinding:
+      canonicalDefault === undefined
+        ? {
+            profile: agentProfileName ?? 'agent',
+            model,
+          }
+        : undefined,
   });
   const agent = await ensureMainAgent(session);
+  if (canonicalDefault !== undefined) {
+    const binding = await agent.accessor.get(IPlatformModelBindingService).select({
+      connection_id: canonicalDefault.connection.id,
+      model: canonicalDefault.model,
+      fallback_connection_ids: [],
+    });
+    agent.accessor.get(IAgentPermissionModeService).setMode('auto');
+    return {
+      session,
+      agent,
+      restorePermission: async () => {},
+      telemetryModel: binding.model_alias,
+      goalModel: binding.model_alias,
+    };
+  }
   agent.accessor.get(IAgentPermissionModeService).setMode('auto');
   return {
     session,
@@ -397,6 +432,65 @@ async function resolveNativeSession(
     telemetryModel: model,
     goalModel: model,
   };
+}
+
+type WorkspaceProviderConnection = Awaited<
+  ReturnType<IWorkspaceProviderConnectionService['list']>
+>[number];
+
+function platformServicesEnabled(app: Scope): boolean {
+  try {
+    return app.accessor.get(IFlagService).explain('platform_services')?.enabled === true;
+  } catch {
+    return false;
+  }
+}
+
+async function findCanonicalDefault(
+  handler: Awaited<ReturnType<IWorkspaceLifecycleService['handlerFor']>>,
+): Promise<{ readonly connection: WorkspaceProviderConnection; readonly model: string } | undefined> {
+  try {
+    const connections = await handler.accessor.get(IWorkspaceProviderConnectionService).list();
+    const candidates = connections
+      .filter((connection) => connection.state !== 'revoked')
+      .flatMap((connection) => {
+        const model = stringMetadata(connection.metadata, 'default_model');
+        return model === undefined ? [] : [{ connection, model }];
+      })
+      .sort((left, right) => {
+        const stateDifference = connectionStateRank(left.connection) - connectionStateRank(right.connection);
+        if (stateDifference !== 0) return stateDifference;
+        const updatedDifference = right.connection.updated_at.localeCompare(left.connection.updated_at);
+        return updatedDifference !== 0 ? updatedDifference : right.connection.id.localeCompare(left.connection.id);
+      });
+    return candidates[0];
+  } catch {
+    // Compatibility-only or minimal hosts may not contribute platform
+    // connections. The caller will then use the explicit legacy model path
+    // and retain the existing no-model diagnostic when none is configured.
+    return undefined;
+  }
+}
+
+function connectionStateRank(connection: WorkspaceProviderConnection): number {
+  switch (connection.state) {
+    case 'active':
+      return 0;
+    case 'validated':
+      return 1;
+    case 'configured':
+      return 2;
+    default:
+      return 3;
+  }
+}
+
+function stringMetadata(
+  metadata: Readonly<Record<string, unknown>> | undefined,
+  key: string,
+): string | undefined {
+  const value = metadata?.[key];
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }
 
 async function runNativeTurn(
@@ -684,7 +778,7 @@ export interface PrintBackgroundPolicyInput {
 }
 
 /**
- * Apply the print-mode (`kimi -p`) background-resource policy after the main
+ * Apply the print-mode (`spyderbyte -p`) background-resource policy after the main
  * turn completes. A single loop re-evaluates the Session's live resources in
  * order on every round and stays alive while any of them is pending:
  *  - goal    : while a goal is `active`, keep waiting for its continuation

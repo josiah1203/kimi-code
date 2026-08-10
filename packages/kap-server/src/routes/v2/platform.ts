@@ -12,6 +12,12 @@ import {
   IWorkspacePolicyService,
   IWorkspaceProviderConnectionService,
   IWorkspaceProviderRuntimeService,
+  IWorkspaceUsageService,
+  IWorkspaceBudgetService,
+  IPlatformGovernanceService,
+  IPlatformIdentityService,
+  IPlatformAuthorizationService,
+  IPlatformPluginService,
   ProviderRuntimeError,
   ProviderRuntimeErrors,
   IWorkspaceResourceService,
@@ -49,6 +55,10 @@ import {
   resourceUpdateInputSchema,
   usageRecordCreateInputSchema,
   usageSummaryQuerySchema,
+  budgetConfigureInputSchema,
+  budgetReserveInputSchema,
+  budgetReleaseInputSchema,
+  budgetReconcileInputSchema,
   workspaceEntitlementUpdateInputSchema,
   workspaceMemberUpsertInputSchema,
   datasetCreateInputSchema,
@@ -70,6 +80,20 @@ import {
   modelPackageCreateInputSchema,
   servingEndpointCreateInputSchema,
   servingEndpointActionInputSchema,
+  organizationCreateInputSchema,
+  organizationMemberUpsertInputSchema,
+  projectCreateInputSchema,
+  projectBindingCreateInputSchema,
+  projectBindingRemoveInputSchema,
+  projectMemberUpsertInputSchema,
+  projectWorkspaceBindInputSchema,
+  platformIdentityDevicePollInputSchema,
+  platformIdentityPkceCompleteInputSchema,
+  platformAuthorizationEvaluateInputSchema,
+  platformPluginCommandInputSchema,
+  platformPluginConfigureInputSchema,
+  platformPluginDiscoverInputSchema,
+  platformPluginInstallInputSchema,
 } from '@moonshot-ai/protocol';
 import { z } from 'zod';
 
@@ -116,6 +140,11 @@ const pipelineParamsSchema = paramsSchema.extend({ pipeline_id: z.string().min(1
 const pipelineRunParamsSchema = paramsSchema.extend({ pipeline_run_id: z.string().min(1) });
 const packageParamsSchema = paramsSchema.extend({ package_id: z.string().min(1) });
 const endpointParamsSchema = paramsSchema.extend({ endpoint_id: z.string().min(1) });
+const reservationParamsSchema = paramsSchema.extend({ reservation_id: z.string().min(1) });
+const organizationParamsSchema = z.object({ organization_id: z.string().min(1) });
+const projectParamsSchema = z.object({ project_id: z.string().min(1) });
+const projectBindingParamsSchema = projectParamsSchema.extend({ binding_id: z.string().min(1) });
+const pluginParamsSchema = z.object({ plugin_id: z.string().min(1) });
 
 /**
  * Route handlers resolve the workspace lifecycle handle on every request. This
@@ -124,6 +153,163 @@ const endpointParamsSchema = paramsSchema.extend({ endpoint_id: z.string().min(1
  */
 export function registerPlatformRoutes(app: PlatformRouteHost, core: Scope): void {
   const opts = { preHandler: [] };
+
+  app.get('/auth/status', opts, async (req, reply) => {
+    await identityRequest(req, reply, core, z.object({}), (service) => service.status());
+  });
+  app.post('/auth/pkce/start', opts, async (req, reply) => {
+    await identityRequest(req, reply, core, z.object({}), (service) => service.startPkce());
+  });
+  app.post('/auth/pkce/complete', opts, async (req, reply) => {
+    await identityRequest(req, reply, core, z.object({}), (service) =>
+      service.completePkce(platformIdentityPkceCompleteInputSchema.parse(req.body)),
+    );
+  });
+  app.post('/auth/device/start', opts, async (req, reply) => {
+    await identityRequest(req, reply, core, z.object({}), (service) => service.startDevice());
+  });
+  app.post('/auth/device/poll', opts, async (req, reply) => {
+    await identityRequest(req, reply, core, z.object({}), (service) =>
+      service.pollDevice(platformIdentityDevicePollInputSchema.parse(req.body)),
+    );
+  });
+  app.post('/auth/logout', opts, async (req, reply) => {
+    await identityRequest(req, reply, core, z.object({}), (service) => service.logout());
+  });
+  app.post('/authorization/evaluate', opts, async (req, reply) => {
+    await authorizationRequest(req, reply, core, (service) =>
+      service.evaluate(platformAuthorizationEvaluateInputSchema.parse(req.body)),
+    );
+  });
+
+  app.get('/plugins', opts, async (req, reply) => {
+    await pluginRequest(req, reply, core, (service) => {
+      const query = z.strictObject({ project_id: z.string().min(1).optional() }).parse(req.query ?? {});
+      return service.list(query.project_id);
+    });
+  });
+  app.get('/plugins/:plugin_id', opts, async (req, reply) => {
+    await pluginRequest(req, reply, core, (service, params) => service.get(params.plugin_id), pluginParamsSchema);
+  });
+  app.post('/plugins/discover', opts, async (req, reply) => {
+    await pluginRequest(req, reply, core, (service) =>
+      service.discover(platformPluginDiscoverInputSchema.parse(req.body)),
+    );
+  });
+  app.post('/plugins', opts, async (req, reply) => {
+    await pluginRequest(req, reply, core, (service) =>
+      service.install(platformPluginInstallInputSchema.parse(req.body)),
+    );
+  });
+  app.post('/plugins/:plugin_id/configure', opts, async (req, reply) => {
+    await pluginRequest(req, reply, core, (service, params) =>
+      service.configure(
+        platformPluginConfigureInputSchema.parse(withPathField(req.body, 'plugin_id', params.plugin_id)),
+      ), pluginParamsSchema);
+  });
+  app.post('/plugins/:plugin_id/command', opts, async (req, reply) => {
+    await pluginRequest(req, reply, core, (service, params) =>
+      service.command(
+        platformPluginCommandInputSchema.parse(withPathField(req.body, 'plugin_id', params.plugin_id)),
+      ), pluginParamsSchema);
+  });
+
+  app.get('/organizations', opts, async (req, reply) => {
+    await governanceRequest(req, reply, core, z.object({}), (service) => service.listOrganizations());
+  });
+  app.post('/organizations', opts, async (req, reply) => {
+    await governanceRequest(req, reply, core, z.object({}), (service) =>
+      service.createOrganization(organizationCreateInputSchema.parse(req.body)),
+    );
+  });
+  app.post('/organizations/local', opts, async (req, reply) => {
+    await governanceRequest(req, reply, core, z.object({}), (service) => {
+      const body = z.strictObject({ actor_id: z.string().min(1).optional() }).parse(req.body ?? {});
+      return service.ensureLocalOrganization(body.actor_id);
+    });
+  });
+  app.get('/organizations/:organization_id', opts, async (req, reply) => {
+    await governanceRequest(req, reply, core, organizationParamsSchema, (service, params) =>
+      service.getOrganization(params.organization_id),
+    );
+  });
+  app.get('/organizations/:organization_id/members', opts, async (req, reply) => {
+    await governanceRequest(req, reply, core, organizationParamsSchema, (service, params) =>
+      service.listOrganizationMembers(params.organization_id),
+    );
+  });
+  app.post('/organizations/:organization_id/members', opts, async (req, reply) => {
+    await governanceRequest(req, reply, core, organizationParamsSchema, (service, params) =>
+      service.upsertOrganizationMember(
+        organizationMemberUpsertInputSchema.parse(withPathField(req.body, 'organization_id', params.organization_id)),
+      ),
+    );
+  });
+  app.get('/organizations/:organization_id/projects', opts, async (req, reply) => {
+    await governanceRequest(req, reply, core, organizationParamsSchema, (service, params) =>
+      service.listProjects(params.organization_id),
+    );
+  });
+  app.get('/projects', opts, async (req, reply) => {
+    await governanceRequest(req, reply, core, z.object({}), (service) => {
+      const query = z.strictObject({ organization_id: z.string().min(1).optional() }).parse(req.query ?? {});
+      return service.listProjects(query.organization_id);
+    });
+  });
+  app.post('/projects', opts, async (req, reply) => {
+    await governanceRequest(req, reply, core, z.object({}), (service) =>
+      service.createProject(projectCreateInputSchema.parse(req.body)),
+    );
+  });
+  app.get('/projects/:project_id', opts, async (req, reply) => {
+    await governanceRequest(req, reply, core, projectParamsSchema, (service, params) =>
+      service.getProject(params.project_id),
+    );
+  });
+  app.get('/projects/:project_id/members', opts, async (req, reply) => {
+    await governanceRequest(req, reply, core, projectParamsSchema, (service, params) =>
+      service.listProjectMembers(params.project_id),
+    );
+  });
+  app.post('/projects/:project_id/members', opts, async (req, reply) => {
+    await governanceRequest(req, reply, core, projectParamsSchema, (service, params) =>
+      service.upsertProjectMember(
+        projectMemberUpsertInputSchema.parse(withPathField(req.body, 'project_id', params.project_id)),
+      ),
+    );
+  });
+  app.post('/projects/:project_id/workspaces', opts, async (req, reply) => {
+    await governanceRequest(req, reply, core, projectParamsSchema, (service, params) =>
+      service.bindWorkspace(params.project_id, projectWorkspaceBindInputSchema.parse(req.body)),
+    );
+  });
+  app.get('/projects/:project_id/bindings', opts, async (req, reply) => {
+    await governanceRequest(req, reply, core, projectParamsSchema, (service, params) => {
+      const query = z.strictObject({ workspace_id: z.string().min(1).optional() }).parse(req.query ?? {});
+      return service.listProjectBindings(params.project_id, query.workspace_id);
+    });
+  });
+  app.post('/projects/:project_id/bindings', opts, async (req, reply) => {
+    await governanceRequest(req, reply, core, projectParamsSchema, (service, params) =>
+      service.bindProjectResource(
+        projectBindingCreateInputSchema.parse(withPathField(req.body, 'project_id', params.project_id)),
+      ),
+    );
+  });
+  app.post('/projects/:project_id/bindings/:binding_id/revoke', opts, async (req, reply) => {
+    await governanceRequest(req, reply, core, projectBindingParamsSchema, (service, params) =>
+      service.removeProjectBinding(
+        projectBindingRemoveInputSchema.parse(
+          withPathField(withPathField(req.body, 'project_id', params.project_id), 'binding_id', params.binding_id),
+        ),
+      ),
+    );
+  });
+  app.get('/workspaces/:workspace_id/platform/project', opts, async (req, reply) => {
+    await governanceRequest(req, reply, core, paramsSchema, (service, params) =>
+      service.projectForWorkspace(params.workspace_id),
+    );
+  });
 
   app.get('/workspaces/:workspace_id/platform/connections', opts, async (req, reply) => {
     await workspaceRequest(req, reply, core, paramsSchema, async (accessor) =>
@@ -616,12 +802,49 @@ export function registerPlatformRoutes(app: PlatformRouteHost, core: Scope): voi
   });
   app.post('/workspaces/:workspace_id/platform/commercial/usage', opts, async (req, reply) => {
     await workspaceRequest(req, reply, core, paramsSchema, async (accessor) =>
-      accessor.get(IWorkspaceCommercialService).recordUsage(usageRecordCreateInputSchema.parse(req.body)),
+      // Keep the released compatibility URL, but route it to the canonical
+      // Run-linked usage authority rather than the legacy commercial store.
+      accessor.get(IWorkspaceUsageService).recordUsage(usageRecordCreateInputSchema.parse(req.body)),
     );
   });
   app.get('/workspaces/:workspace_id/platform/commercial/usage/summary', opts, async (req, reply) => {
     await workspaceRequest(req, reply, core, paramsSchema, async (accessor) =>
-      accessor.get(IWorkspaceCommercialService).usageSummary(usageSummaryQuerySchema.parse(req.query ?? {})),
+      accessor.get(IWorkspaceUsageService).usageSummary(usageSummaryQuerySchema.parse(req.query ?? {})),
+    );
+  });
+
+  app.get('/workspaces/:workspace_id/platform/budgets', opts, async (req, reply) => {
+    await workspaceRequest(req, reply, core, paramsSchema, async (accessor) =>
+      accessor.get(IWorkspaceBudgetService).list(),
+    );
+  });
+  app.get('/workspaces/:workspace_id/platform/budgets/status', opts, async (req, reply) => {
+    await workspaceRequest(req, reply, core, paramsSchema, async (accessor) =>
+      accessor.get(IWorkspaceBudgetService).status(),
+    );
+  });
+  app.post('/workspaces/:workspace_id/platform/budgets', opts, async (req, reply) => {
+    await workspaceRequest(req, reply, core, paramsSchema, async (accessor) =>
+      accessor.get(IWorkspaceBudgetService).configure(budgetConfigureInputSchema.parse(req.body)),
+    );
+  });
+  app.post('/workspaces/:workspace_id/platform/budgets/reservations', opts, async (req, reply) => {
+    await workspaceRequest(req, reply, core, paramsSchema, async (accessor) =>
+      accessor.get(IWorkspaceBudgetService).reserve(budgetReserveInputSchema.parse(req.body)),
+    );
+  });
+  app.post('/workspaces/:workspace_id/platform/budgets/reservations/:reservation_id/release', opts, async (req, reply) => {
+    await workspaceRequest(req, reply, core, reservationParamsSchema, async (accessor, params) =>
+      accessor.get(IWorkspaceBudgetService).release(
+        budgetReleaseInputSchema.parse({ ...req.body as object, reservation_id: params.reservation_id }),
+      ),
+    );
+  });
+  app.post('/workspaces/:workspace_id/platform/budgets/reservations/:reservation_id/reconcile', opts, async (req, reply) => {
+    await workspaceRequest(req, reply, core, reservationParamsSchema, async (accessor, params) =>
+      accessor.get(IWorkspaceBudgetService).reconcile(
+        budgetReconcileInputSchema.parse({ ...req.body as object, reservation_id: params.reservation_id }),
+      ),
     );
   });
 
@@ -668,6 +891,13 @@ function registerConnectionCommand(
 
 function isSecretSetupBody(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && 'secret' in value;
+}
+
+function withPathField(value: unknown, field: string, fieldValue: string): Record<string, unknown> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return { [field]: fieldValue };
+  }
+  return { ...(value as Record<string, unknown>), [field]: fieldValue };
 }
 
 function registerPolicyCommand(
@@ -738,6 +968,137 @@ async function workspaceRequest<TParams extends z.ZodTypeAny>(
             path: issue.path.join('.'),
             message: issue.message,
           })),
+          req.id,
+        ),
+      );
+      return;
+    }
+    reply.send(mapPlatformError(error, req.id));
+  }
+}
+
+async function governanceRequest<TParams extends z.ZodTypeAny>(
+  req: PlatformRequest,
+  reply: PlatformReply,
+  core: Scope,
+  schema: TParams,
+  operation: (
+    service: IPlatformGovernanceService,
+    params: z.infer<TParams>,
+  ) => Promise<unknown>,
+): Promise<void> {
+  if (!core.accessor.get(IFlagService).enabled('platform_services')) {
+    reply.send(errEnvelope(ErrorCode.PLATFORM_DISABLED, 'platform services are disabled', req.id));
+    return;
+  }
+
+  try {
+    const params = schema.parse(req.params);
+    const data = await operation(core.accessor.get(IPlatformGovernanceService), params);
+    if (data === undefined) {
+      reply.send(errEnvelope(ErrorCode.PLATFORM_RESOURCE_NOT_FOUND, 'platform resource not found', req.id));
+      return;
+    }
+    reply.send(okEnvelope(data, req.id));
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      reply.send(
+        validationEnvelope(
+          error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })),
+          req.id,
+        ),
+      );
+      return;
+    }
+    reply.send(mapPlatformError(error, req.id));
+  }
+}
+
+async function identityRequest<TParams extends z.ZodTypeAny>(
+  req: PlatformRequest,
+  reply: PlatformReply,
+  core: Scope,
+  schema: TParams,
+  operation: (
+    service: IPlatformIdentityService,
+    params: z.infer<TParams>,
+  ) => Promise<unknown>,
+): Promise<void> {
+  if (!core.accessor.get(IFlagService).enabled('platform_services')) {
+    reply.send(errEnvelope(ErrorCode.PLATFORM_DISABLED, 'platform services are disabled', req.id));
+    return;
+  }
+  try {
+    const params = schema.parse(req.params);
+    const data = await operation(core.accessor.get(IPlatformIdentityService), params);
+    reply.send(okEnvelope(data, req.id));
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      reply.send(
+        validationEnvelope(
+          error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })),
+          req.id,
+        ),
+      );
+      return;
+    }
+    reply.send(mapPlatformError(error, req.id));
+  }
+}
+
+async function authorizationRequest(
+  req: PlatformRequest,
+  reply: PlatformReply,
+  core: Scope,
+  operation: (service: IPlatformAuthorizationService) => Promise<unknown>,
+): Promise<void> {
+  if (!core.accessor.get(IFlagService).enabled('platform_services')) {
+    reply.send(errEnvelope(ErrorCode.PLATFORM_DISABLED, 'platform services are disabled', req.id));
+    return;
+  }
+  try {
+    reply.send(okEnvelope(await operation(core.accessor.get(IPlatformAuthorizationService)), req.id));
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      reply.send(
+        validationEnvelope(
+          error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })),
+          req.id,
+        ),
+      );
+      return;
+    }
+    reply.send(mapPlatformError(error, req.id));
+  }
+}
+
+async function pluginRequest<TParams extends z.ZodTypeAny = z.ZodTypeAny>(
+  req: PlatformRequest,
+  reply: PlatformReply,
+  core: Scope,
+  operation: (
+    service: IPlatformPluginService,
+    params: z.infer<TParams>,
+  ) => Promise<unknown>,
+  schema?: TParams,
+): Promise<void> {
+  if (!core.accessor.get(IFlagService).enabled('platform_services')) {
+    reply.send(errEnvelope(ErrorCode.PLATFORM_DISABLED, 'platform services are disabled', req.id));
+    return;
+  }
+  try {
+    const params = (schema === undefined ? {} : schema.parse(req.params)) as z.infer<TParams>;
+    const data = await operation(core.accessor.get(IPlatformPluginService), params);
+    if (data === undefined) {
+      reply.send(errEnvelope(ErrorCode.PLATFORM_RESOURCE_NOT_FOUND, 'platform resource not found', req.id));
+      return;
+    }
+    reply.send(okEnvelope(data, req.id));
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      reply.send(
+        validationEnvelope(
+          error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })),
           req.id,
         ),
       );

@@ -53,6 +53,17 @@ registerProviderDefinition({
 });
 
 registerProviderDefinition({
+  id: 'openrouter',
+  baseProtocol: 'openai',
+  traits: [],
+  endpoint: {
+    apiKeyEnv: 'OPENROUTER_API_KEY',
+    baseUrlEnv: 'OPENROUTER_BASE_URL',
+    defaultBaseUrl: 'https://openrouter.ai/api/v1',
+  },
+});
+
+registerProviderDefinition({
   id: 'google-genai',
   baseProtocol: 'google-genai',
   traits: [

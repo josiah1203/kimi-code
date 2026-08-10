@@ -45,7 +45,7 @@ const WEB_BRIDGE_ENTRY: PluginMarketplaceEntry = {
   source: WEB_BRIDGE_URL,
   tier: 'official',
   homepage: WEB_BRIDGE_URL,
-  description: 'Control your real browser from Kimi Code — navigate, click, type, and screenshot',
+  description: 'Control your real browser from SpiderByte — navigate, click, type, and screenshot',
 };
 
 // Only the hardcoded pinned row should open the WebBridge install page. Match
@@ -235,7 +235,7 @@ export interface PluginInstallTrustConfirmOptions {
 /**
  * Confirmation shown before installing a third-party (unofficial) plugin.
  * Defaults to "Exit" so the user must explicitly switch to "Trust and install"
- * to proceed with a plugin that Kimi has not reviewed.
+ * to proceed with a plugin that SpiderByte has not reviewed.
  */
 export class PluginInstallTrustConfirmComponent extends ChoicePickerComponent {
   constructor(opts: PluginInstallTrustConfirmOptions) {
@@ -244,7 +244,7 @@ export class PluginInstallTrustConfirmComponent extends ChoicePickerComponent {
       hint: '↑↓ navigate · Enter/Space select · ←/Esc cancel',
       formatHint: mutedHintLine,
       notice:
-        '⚠️ This is a third-party plugin that Kimi has not reviewed. It can bundle MCP servers, ' +
+        '⚠️ This is a third-party plugin that SpiderByte has not reviewed. It can bundle MCP servers, ' +
         'skills, or files that run code and access your workspace. Install it only if you ' +
         'trust the source.',
       noticeTone: 'warning',

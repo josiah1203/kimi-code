@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "product": {
+    "name": "SpiderByte",
+    "primary_command": "spyderbyte",
+    "compatibility_commands": ["kimi"],
+    "implementation_identity": "Kimi-derived runtime"
+  },
+  "graduation_status": {
+    "status": "not-ready",
+    "code_implementation": "substantial local Kimi-plus-Aug platform slice exists, including local organization/project governance and budget reservations",
+    "consumer_integration": "partial; provider, Run, ML, governance, budgets, REST/WebSocket, SDK, Klient, MCP, and ACP paths are exercised",
+    "user_reachability": "partial; CLI/TUI/desktop branding is migrating, but external web source and documentation remain legacy-branded",
+    "verification": "controlled local tests pass; boundary, branding, licensing, hosted identity, live provider, and integration gates remain blocked",
+    "production_readiness": "blocked by commercial package coupling, unavailable hosted identity authority, missing hosted provider adapters, missing external frontend source, unresolved ownership, and absent Slack/Teams integrations"
+  },
+  "open_core": {
+    "packages": [
+      "apps/kimi-code",
+      "packages/agent-core-v2",
+      "packages/acp-adapter",
+      "packages/acp-server",
+      "packages/kaos",
+      "packages/kap-server",
+      "packages/klient",
+      "packages/kosong",
+      "packages/migration-legacy",
+      "packages/minidb",
+      "packages/node-sdk",
+      "packages/oauth",
+      "packages/pi-tui",
+      "packages/protocol",
+      "packages/telemetry",
+      "packages/transcript"
+    ],
+    "required_interfaces": [
+      "ProviderConnection",
+      "ModelRef",
+      "SecretStore",
+      "Organization",
+      "Project",
+      "Run",
+      "Artifact",
+      "Lineage",
+      "ExecutionTarget",
+      "Budget",
+      "SDK",
+      "REST",
+      "WebSocket",
+      "MCP",
+      "ACP"
+    ],
+    "external_frontend_source": {
+      "repository": "code-app",
+      "path": "apps/web",
+      "generated_bundle": "apps/kimi-code/dist-web",
+      "status": "not-present-in-this-repository"
+    },
+    "legacy_compatibility_paths": [
+      "apps/kimi-code/src/cli/v2",
+      "packages/acp-adapter/src",
+      "packages/acp-server/src",
+      "packages/migration-legacy/src",
+      "packages/node-sdk/src"
+    ]
+  },
+  "commercial": {
+    "package_prefixes": [
+      "@spyderbyte/commercial",
+      "@spyderbyte/enterprise",
+      "@spyderbyte/hosted"
+    ],
+    "implementation_paths": [
+      "packages/agent-core-v2/src/workspace/commercial"
+    ],
+    "public_contract_paths": [
+      "packages/kap-server/src/routes/v2/platform.ts",
+      "packages/klient/src/contract/global/platform.ts",
+      "packages/klient/src/core/facade/global.ts",
+      "packages/klient/src/transports/memory/serviceRegistry.ts"
+    ],
+    "capabilities": [
+      "hosted account tenancy",
+      "managed identity",
+      "hosted secret vaults",
+      "billing and invoices",
+      "managed provider proxy",
+      "managed workers",
+      "distributed scheduling",
+      "hosted object storage",
+      "organization-wide collaboration",
+      "SSO and SCIM",
+      "private networking",
+      "enterprise compliance",
+      "residency controls",
+      "private deployment automation"
+    ]
+  },
+  "providers": [
+    { "id": "kimi", "provider_type": "kimi", "protocols": ["openai", "anthropic"] },
+    { "id": "openai", "provider_type": "openai", "protocols": ["openai", "openai_responses"] },
+    { "id": "openrouter", "provider_type": "openrouter", "protocols": ["openai"] },
+    { "id": "anthropic", "provider_type": "anthropic", "protocols": ["anthropic"] },
+    { "id": "google", "provider_type": "google-genai", "protocols": ["google-genai"] },
+    { "id": "openai-compatible", "provider_type": "openai-compatible", "protocols": ["openai"] },
+    { "id": "local", "provider_type": "local", "protocols": ["openai"] },
+    { "id": "custom", "provider_type": "explicit", "protocols": ["configured"] }
+  ],
+  "provider_conformance": [
+    {
+      "provider": "kimi",
+      "status": "controlled-tested",
+      "evidence": "providerRuntimeService.test.ts matrix case",
+      "legacy_bypass": "legacy Kimi compatibility path remains available when platform mode is disabled"
+    },
+    {
+      "provider": "openai",
+      "status": "controlled-tested",
+      "evidence": "providerRuntimeService.test.ts matrix case",
+      "legacy_bypass": "platform runtime test does not call ProviderManager"
+    },
+    {
+      "provider": "openrouter",
+      "status": "controlled-tested",
+      "evidence": "providerRuntimeService.test.ts OpenRouter registry and endpoint case",
+      "legacy_bypass": "managed credentials and live provider calls remain outside the local conformance suite"
+    },
+    {
+      "provider": "anthropic",
+      "status": "controlled-tested",
+      "evidence": "providerRuntimeService.test.ts matrix case",
+      "legacy_bypass": "platform runtime test does not call ProviderManager"
+    },
+    {
+      "provider": "google",
+      "status": "controlled-tested",
+      "evidence": "providerRuntimeService.test.ts matrix case with Vertex options",
+      "legacy_bypass": "platform runtime test does not call ProviderManager"
+    },
+    {
+      "provider": "openai-compatible",
+      "status": "controlled-tested",
+      "evidence": "providerRuntimeService.test.ts matrix case",
+      "legacy_bypass": "platform runtime test does not call ProviderManager"
+    },
+    {
+      "provider": "local",
+      "status": "controlled-tested",
+      "evidence": "providerRuntimeService.test.ts matrix case plus unauthenticated endpoint test",
+      "legacy_bypass": "platform runtime test does not call ProviderManager"
+    },
+    {
+      "provider": "custom",
+      "status": "controlled-tested",
+      "evidence": "providerRuntimeService.test.ts configured protocol case",
+      "legacy_bypass": "platform runtime test does not call ProviderManager"
+    }
+  ],
+  "oauth_conformance": {
+    "account": {
+      "status": "adapter-controlled-tested-authority-unavailable",
+      "current": "SpiderByte account OAuth adapter in packages/oauth; hosted issuer and tenancy authority are not available in this checkout",
+      "required": "deployed SpiderByte account authority with organization/project membership and entitlement APIs; accountless local mode remains supported"
+    },
+    "provider_byok": {
+      "status": "controlled-tested",
+      "evidence": "canonical provider connection, opaque SecretRef, resolver, redaction, retry, and local endpoint tests"
+    },
+    "provider_oauth": {
+      "status": "unavailable",
+      "required": "provider-specific OAuth connection adapters and conformance tests"
+    }
+  },
+  "authority": [
+    {
+      "domain": "Provider connections",
+      "current_authority": "agent-core-v2 workspace/providerConnections",
+      "legacy_authority": "Kimi config provider records and ProviderManager paths",
+      "open_core_target": "ProviderConnection plus local SecretStore implementation",
+      "commercial_extension": "managed connection and vault adapters",
+      "required_migration": "route platform mode exclusively through ProviderConnection and ModelRef"
+    },
+    {
+      "domain": "Models",
+      "current_authority": "agent-core-v2 platformModelBinding plus kosong provider registry",
+      "legacy_authority": "Kimi config model catalog",
+      "open_core_target": "persisted ModelRef selected by the workspace or session",
+      "commercial_extension": "managed catalog and policy restrictions",
+      "required_migration": "remove platform-mode ProviderManager bypasses"
+    },
+    {
+      "domain": "Account identity",
+      "current_authority": "Kimi OAuth service",
+      "legacy_authority": "Kimi managed auth credentials",
+      "open_core_target": "accountless local mode with optional SpiderByte account adapter",
+      "commercial_extension": "SpiderByte tenancy, workspace membership, and entitlement service",
+      "required_migration": "separate account OAuth from provider authentication"
+    },
+    {
+      "domain": "BYOK secrets",
+      "current_authority": "app/secrets/platformSecretStore plus provider runtime boundary",
+      "legacy_authority": "provider config API keys and managed Kimi auth",
+      "open_core_target": "opaque SecretRefs resolved only by local SecretStore",
+      "commercial_extension": "vault or customer-managed KMS resolver",
+      "required_migration": "prove redaction across every public projection and log sink"
+    },
+    {
+      "domain": "Sessions",
+      "current_authority": "agent-core-v2 workspace/session lifecycle and transcript",
+      "legacy_authority": "Kimi harness sessions",
+      "open_core_target": "local Workspace and AgentSession with restart/replay",
+      "commercial_extension": "shared cloud sessions and collaboration",
+      "required_migration": "keep the local transcript contract authoritative"
+    },
+    {
+      "domain": "Runs",
+      "current_authority": "agent-core-v2 session/run plus platform child operations",
+      "legacy_authority": "ad-hoc tool/session metadata",
+      "open_core_target": "durable root Run with linked child operations",
+      "commercial_extension": "cross-workspace run sharing and managed execution",
+      "required_migration": "make every native ML and provider operation a linked child"
+    },
+    {
+      "domain": "Artifacts",
+      "current_authority": "agent-core-v2 workspace/artifacts",
+      "legacy_authority": "transient tool outputs and session files",
+      "open_core_target": "local content-addressed artifacts with expiry and lineage",
+      "commercial_extension": "hosted object storage and retention controls",
+      "required_migration": "verify restart, replay, and source lineage end to end"
+    },
+    {
+      "domain": "Policy/approvals",
+      "current_authority": "agent-core-v2 workspace/policy plus agent permission services",
+      "legacy_authority": "Kimi interactive approval paths",
+      "open_core_target": "local policy evaluation and approval primitives",
+      "commercial_extension": "organization policy inheritance and audit export",
+      "required_migration": "preserve policy decisions in root Run projections"
+    },
+    {
+      "domain": "Usage",
+      "current_authority": "agent-core-v2 local WorkspaceUsageService plus legacy commercial projection",
+      "legacy_authority": "managed Kimi quota paths",
+      "open_core_target": "local usage events and opt-in telemetry sinks",
+      "commercial_extension": "metering, quotas, and managed LLM usage",
+      "required_migration": "retire the legacy commercial projection after hosted adapters exist"
+    },
+    {
+      "domain": "Billing",
+      "current_authority": "none found in this checkout",
+      "legacy_authority": "managed Kimi account quota assumptions",
+      "open_core_target": "no billing dependency",
+      "commercial_extension": "subscriptions, invoices, and payment",
+      "required_migration": "keep billing out of Open Core packages and local startup"
+    },
+    {
+      "domain": "Workspaces",
+      "current_authority": "agent-core-v2 workspace context and durable services",
+      "legacy_authority": "local Kimi working-directory config",
+      "open_core_target": "local workspace identity and persistence scope",
+      "commercial_extension": "shared workspaces, roles, SSO, and SCIM",
+      "required_migration": "make accountless local workspace creation first-class"
+    },
+    {
+      "domain": "Execution",
+      "current_authority": "agent-core-v2 execution targets, leases, and local worker",
+      "legacy_authority": "governed shell/process execution",
+      "open_core_target": "local execution-target interface and local worker",
+      "commercial_extension": "managed workers, distributed scheduling, and dedicated targets",
+      "required_migration": "remove commercial usage dependency from local execution"
+    }
+  ]
+}

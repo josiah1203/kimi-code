@@ -8,7 +8,9 @@ export async function handleRunsCommand(host: SlashCommandHost, args = ''): Prom
   if (session === undefined) return;
   const runs = host.harness.getPlatformSessionRuns(session.id);
   if (runs === undefined) {
-    host.showError('Platform Runs are unavailable. Enable the experimental platform services on the v2 engine.');
+    host.showError(
+      'Platform Runs are unavailable. Inspect startup diagnostics; the default SpiderByte harness must not silently fall back.',
+    );
     return;
   }
 

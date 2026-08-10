@@ -43,6 +43,21 @@ export type { KimiHostIdentity, KimiIdentityOptions } from './identity';
 export { KIMI_CODE_FLOW_CONFIG } from './constants';
 
 export {
+  FileSpiderByteTokenStorage,
+  SpiderByteIdentityClient,
+  SpiderByteIdentityError,
+} from './spiderbyte-identity';
+export type {
+  SpiderByteAccountToken,
+  SpiderByteAuthorizationRequest,
+  SpiderByteDeviceAuthorization,
+  SpiderByteDevicePollResult,
+  SpiderByteIdentityConfig,
+  SpiderByteIdentityStatus,
+  SpiderByteTokenStorage,
+} from './spiderbyte-identity';
+
+export {
   applyManagedApiKeyProviderModels,
   applyManagedKimiCodeLogoutConfig,
   applyManagedKimiCodeConfig,

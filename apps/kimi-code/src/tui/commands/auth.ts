@@ -131,7 +131,7 @@ async function handleOpenPlatformLogin(
       error.status === 401
     ) {
       host.showStatus(
-        'Hint: If your API key was obtained from Kimi Code, please select "Kimi Code" instead.',
+        'Hint: If your API key was obtained from Kimi/Moonshot, please select the Kimi/Moonshot provider instead.',
       );
     }
     return;

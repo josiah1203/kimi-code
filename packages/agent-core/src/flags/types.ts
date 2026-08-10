@@ -12,6 +12,8 @@ export interface FlagDefinitionInput {
   readonly env: string;
   readonly default: boolean;
   readonly surface: FlagSurface;
+  /** Optional kill switch for a default-on feature during rollout. */
+  readonly emergencyDisableEnv?: string;
 }
 
 /** FlagId-typed view so consumers can fetch a definition by its literal id. */
@@ -23,7 +25,12 @@ export type ExperimentalFlagMap = Record<string, boolean>;
 /** User config overrides for experimental flags (flag id → enabled). */
 export type ExperimentalFlagConfig = Partial<Record<FlagId, boolean>>;
 
-export type ExperimentalFlagSource = 'master-env' | 'env' | 'config' | 'default';
+export type ExperimentalFlagSource =
+  | 'master-env'
+  | 'env'
+  | 'config'
+  | 'default'
+  | 'emergency-disable-env';
 
 export interface ExperimentalFeatureState {
   /** Feature id. Typed as `string` because this is a runtime snapshot that
@@ -34,6 +41,7 @@ export interface ExperimentalFeatureState {
   readonly description: string;
   readonly surface: FlagSurface;
   readonly env: string;
+  readonly emergencyDisableEnv?: string;
   readonly defaultEnabled: boolean;
   readonly enabled: boolean;
   readonly source: ExperimentalFlagSource;

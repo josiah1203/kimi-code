@@ -48,6 +48,7 @@ import { IAgentVideoResolverService } from '#/agent/media/videoResolver';
 import { IAgentUsageService } from '#/agent/usage/usage';
 import { IConfigService } from '#/app/config/config';
 import { IEventBus } from '#/app/event/eventBus';
+import { IFlagService } from '#/app/flag/flag';
 import {
   APIRequestTooLargeError,
   APIStatusError,
@@ -170,6 +171,8 @@ export const llmRequesterEmittedThinkingEffortWarningsKey = defineState<Set<stri
 export class AgentLLMRequesterService implements IAgentLLMRequesterService {
   declare readonly _serviceBrand: undefined;
 
+  private legacyProviderCompatibilityWarningEmitted = false;
+
   constructor(
     @IAgentContextMemoryService private readonly context: IAgentContextMemoryService,
     @IAgentContextProjectorService private readonly projector: IAgentContextProjectorService,
@@ -187,6 +190,8 @@ export class AgentLLMRequesterService implements IAgentLLMRequesterService {
     @IWireService private readonly wire: IWireService,
     @IEventBus private readonly eventBus: IEventBus,
     @IAgentStateService private readonly states: IAgentStateService,
+    @ref(IFlagService)
+    private readonly platformServicesFlag: LiveRef<IFlagService>,
     @ref(IPlatformModelBindingService)
     private readonly platformBinding: LiveRef<IPlatformModelBindingService>,
   ) {
@@ -603,6 +608,7 @@ export class AgentLLMRequesterService implements IAgentLLMRequesterService {
     const selectionError = bindingService?.selectionError();
     if (selectionError !== undefined) throw selectionError;
     const platformBinding = bindingService?.current();
+    this.warnIfLegacyProviderCompatibilityIsUsed(platformBinding);
     const turnConfig = this.resolveTurnConfig(overrides.source);
     const resolved = turnConfig?.resolved ?? this.resolveModelContext(platformBinding);
     const baseParams = turnConfig?.params ?? this.profile.resolveRequestParams();
@@ -655,6 +661,35 @@ export class AgentLLMRequesterService implements IAgentLLMRequesterService {
   private resolveTurnConfig(source: AgentLLMRequestSource | undefined): TurnRequestConfig | undefined {
     if (source?.type !== 'turn') return undefined;
     return this.getOrCreateTurnConfig(source.turnId);
+  }
+
+  private warnIfLegacyProviderCompatibilityIsUsed(
+    platformBinding: PlatformModelBinding | undefined,
+  ): void {
+    if (
+      platformBinding !== undefined ||
+      this.platformServicesFlag.current?.enabled('platform_services') !== true ||
+      this.legacyProviderCompatibilityWarningEmitted
+    ) {
+      return;
+    }
+    this.legacyProviderCompatibilityWarningEmitted = true;
+    const message =
+      'No canonical ProviderConnection/ModelRef is selected; this request is using the legacy profile as a compatibility adapter. Configure a provider with /provider before relying on the SpiderByte platform path.';
+    this.log.warn('legacy provider compatibility path used', {
+      compatibility: 'legacy-profile',
+      platformServices: true,
+    });
+    try {
+      this.eventBus.publish({
+        type: 'warning',
+        code: 'platform-legacy-provider-compatibility',
+        message,
+      });
+    } catch {
+      // A minimal host event bus may reject advisory events; the log remains
+      // the durable diagnostic in that composition.
+    }
   }
 
   private getOrCreateTurnConfig(turnId: number): TurnRequestConfig {

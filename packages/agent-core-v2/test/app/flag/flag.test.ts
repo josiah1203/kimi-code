@@ -31,6 +31,16 @@ const exampleFlag: FlagDefinitionInput = {
   surface: 'core',
 };
 
+const defaultOnFlag: FlagDefinitionInput = {
+  id: 'default_on_flag',
+  title: 'Default-on flag',
+  description: 'Default-on flag with an operator rollback switch.',
+  env: 'KIMI_CODE_EXPERIMENTAL_DEFAULT_ON_FLAG',
+  emergencyDisableEnv: 'KIMI_CODE_DISABLE_DEFAULT_ON_FLAG',
+  default: true,
+  surface: 'core',
+};
+
 describe('FlagRegistryService', () => {
   it('registers and resolves by id', () => {
     const reg = new FlagRegistryService();
@@ -134,6 +144,20 @@ describe('FlagService', () => {
     const state = flags.explain('example_flag');
     expect(state?.enabled).toBe(true);
     expect(state?.source).toBe('master-env');
+  });
+
+  it('lets an emergency disable switch win over the master enable switch', () => {
+    const { flags } = makeFlags({
+      [MASTER_ENV]: '1',
+      KIMI_CODE_DISABLE_DEFAULT_ON_FLAG: 'true',
+    });
+    flags.registry.register(defaultOnFlag);
+
+    expect(flags.explain('default_on_flag')).toMatchObject({
+      enabled: false,
+      source: 'emergency-disable-env',
+      emergencyDisableEnv: 'KIMI_CODE_DISABLE_DEFAULT_ON_FLAG',
+    });
   });
 
   it('refreshes overrides when the experimental config section changes', async () => {

@@ -49,6 +49,14 @@ import type {
 import type { CapabilityStatus } from '@moonshot-ai/agent-core-v2/app/capability/types';
 import type {
   Artifact,
+  Budget,
+  BudgetConfigureInput,
+  BudgetReconcileInput,
+  BudgetReleaseInput,
+  BudgetReservation,
+  BudgetReservationResult,
+  BudgetReserveInput,
+  BudgetStatus,
   Analysis,
   AnalysisCreateInput,
   ArtifactDownloadChunk,
@@ -130,6 +138,33 @@ import type {
   WorkspaceEntitlementUpdateInput,
   WorkspaceMember,
   WorkspaceMemberUpsertInput,
+  Organization,
+  OrganizationCreateInput,
+  OrganizationMember,
+  OrganizationMemberUpsertInput,
+  Project,
+  ProjectBinding,
+  ProjectBindingCreateInput,
+  ProjectBindingRemoveInput,
+  ProjectCreateInput,
+  ProjectMember,
+  ProjectMemberUpsertInput,
+  ProjectWorkspaceBindInput,
+  PlatformIdentityDevicePollInput,
+  PlatformIdentityDevicePollResult,
+  PlatformIdentityDeviceStart,
+  PlatformIdentityLogoutResult,
+  PlatformIdentityPkceCompleteInput,
+  PlatformIdentityPkceStart,
+  PlatformIdentityStatus,
+  PlatformAuthorizationDecision,
+  PlatformAuthorizationEvaluateInput,
+  PlatformPlugin,
+  PlatformPluginCommandInput,
+  PlatformPluginConfigureInput,
+  PlatformPluginDiscoverInput,
+  PlatformPluginInstallInput,
+  PlatformPluginManifest,
 } from '@moonshot-ai/protocol';
 
 /** Low-level caller the klient factory builds: routes + validates one service call. */
@@ -427,6 +462,61 @@ export interface GlobalCommercialFacade {
   usageSummary(workspaceId: string, query?: UsageSummaryQuery): Promise<UsageSummary>;
 }
 
+export interface GlobalUsageFacade {
+  recordUsage(workspaceId: string, input: UsageRecordCreateInput): Promise<UsageRecord>;
+  usageSummary(workspaceId: string, query?: UsageSummaryQuery): Promise<UsageSummary>;
+}
+
+export interface GlobalBudgetFacade {
+  list(workspaceId: string): Promise<readonly Budget[]>;
+  status(workspaceId: string): Promise<BudgetStatus>;
+  configure(workspaceId: string, input: BudgetConfigureInput): Promise<Budget>;
+  reserve(workspaceId: string, input: BudgetReserveInput): Promise<BudgetReservationResult>;
+  release(workspaceId: string, input: BudgetReleaseInput): Promise<BudgetReservation>;
+  reconcile(workspaceId: string, input: BudgetReconcileInput): Promise<BudgetReservation>;
+}
+
+export interface GlobalGovernanceFacade {
+  listOrganizations(): Promise<readonly Organization[]>;
+  getOrganization(id: string): Promise<Organization | undefined>;
+  listOrganizationMembers(id: string): Promise<readonly OrganizationMember[]>;
+  createOrganization(input: OrganizationCreateInput): Promise<Organization>;
+  upsertOrganizationMember(input: OrganizationMemberUpsertInput): Promise<OrganizationMember>;
+  listProjects(organizationId?: string): Promise<readonly Project[]>;
+  getProject(id: string): Promise<Project | undefined>;
+  listProjectMembers(id: string): Promise<readonly ProjectMember[]>;
+  createProject(input: ProjectCreateInput): Promise<Project>;
+  upsertProjectMember(input: ProjectMemberUpsertInput): Promise<ProjectMember>;
+  bindWorkspace(projectId: string, input: ProjectWorkspaceBindInput): Promise<Project>;
+  projectForWorkspace(workspaceId: string): Promise<Project | undefined>;
+  listProjectBindings(projectId: string, workspaceId?: string): Promise<readonly ProjectBinding[]>;
+  bindProjectResource(input: ProjectBindingCreateInput): Promise<ProjectBinding>;
+  removeProjectBinding(input: ProjectBindingRemoveInput): Promise<ProjectBinding>;
+  ensureLocalOrganization(actorId?: string): Promise<Organization>;
+}
+
+export interface GlobalPlatformIdentityFacade {
+  status(): Promise<PlatformIdentityStatus>;
+  startPkce(): Promise<PlatformIdentityPkceStart>;
+  completePkce(input: PlatformIdentityPkceCompleteInput): Promise<PlatformIdentityStatus>;
+  startDevice(): Promise<PlatformIdentityDeviceStart>;
+  pollDevice(input: PlatformIdentityDevicePollInput): Promise<PlatformIdentityDevicePollResult>;
+  logout(): Promise<PlatformIdentityLogoutResult>;
+}
+
+export interface GlobalPlatformAuthorizationFacade {
+  evaluate(input: PlatformAuthorizationEvaluateInput): Promise<PlatformAuthorizationDecision>;
+}
+
+export interface GlobalPlatformPluginsFacade {
+  list(projectId?: string): Promise<readonly PlatformPlugin[]>;
+  get(id: string): Promise<PlatformPlugin | undefined>;
+  discover(input: PlatformPluginDiscoverInput): Promise<PlatformPluginManifest>;
+  install(input: PlatformPluginInstallInput): Promise<PlatformPlugin>;
+  configure(input: PlatformPluginConfigureInput): Promise<PlatformPlugin>;
+  command(input: PlatformPluginCommandInput): Promise<PlatformPlugin>;
+}
+
 export interface GlobalPlatformEventsFacade {
   replay(workspaceId: string, afterSequence?: number, limit?: number): Promise<PlatformReplayPage>;
   /**
@@ -450,6 +540,7 @@ export interface PlatformEventSubscriptionOptions {
 export interface GlobalPlatformFacade {
   /** Resolve a workspace catalog id for a native Kimi work directory. */
   readonly workspaceIdForRoot?: (root: string) => Promise<string | undefined>;
+  readonly workspaces: GlobalWorkspacesFacade;
   readonly connections: GlobalProviderConnectionsFacade;
   readonly datasets: GlobalDatasetFacade;
   readonly ml: GlobalMlFacade;
@@ -461,6 +552,12 @@ export interface GlobalPlatformFacade {
   readonly executionTargets: GlobalExecutionTargetFacade;
   readonly automations: GlobalAutomationFacade;
   readonly commercial: GlobalCommercialFacade;
+  readonly usage: GlobalUsageFacade;
+  readonly budgets: GlobalBudgetFacade;
+  readonly governance: GlobalGovernanceFacade;
+  readonly identity: GlobalPlatformIdentityFacade;
+  readonly authorization: GlobalPlatformAuthorizationFacade;
+  readonly plugins: GlobalPlatformPluginsFacade;
   readonly platformEvents: GlobalPlatformEventsFacade;
 }
 
@@ -517,6 +614,9 @@ export interface GlobalFacade {
   readonly executionTargets: GlobalExecutionTargetFacade;
   readonly automations: GlobalAutomationFacade;
   readonly commercial: GlobalCommercialFacade;
+  readonly usage: GlobalUsageFacade;
+  readonly budgets: GlobalBudgetFacade;
+  readonly governance: GlobalGovernanceFacade;
   readonly platformEvents: GlobalPlatformEventsFacade;
   readonly platform: GlobalPlatformFacade;
   readonly hostFs: GlobalHostFsFacade;
@@ -575,6 +675,40 @@ export function createGlobalFacade(
       return { ...scalars, clientVersion: identity.version } as unknown as KlientEnvInfo;
     });
     return envPromise;
+  };
+
+  const identity: GlobalPlatformIdentityFacade = {
+    status: () =>
+      call('platformIdentityService', 'status', []) as Promise<PlatformIdentityStatus>,
+    startPkce: () =>
+      call('platformIdentityService', 'startPkce', []) as Promise<PlatformIdentityPkceStart>,
+    completePkce: (input: PlatformIdentityPkceCompleteInput) =>
+      call('platformIdentityService', 'completePkce', [input]) as Promise<PlatformIdentityStatus>,
+    startDevice: () =>
+      call('platformIdentityService', 'startDevice', []) as Promise<PlatformIdentityDeviceStart>,
+    pollDevice: (input: PlatformIdentityDevicePollInput) =>
+      call('platformIdentityService', 'pollDevice', [input]) as Promise<PlatformIdentityDevicePollResult>,
+    logout: () =>
+      call('platformIdentityService', 'logout', []) as Promise<PlatformIdentityLogoutResult>,
+  };
+
+  const authorization: GlobalPlatformAuthorizationFacade = {
+    evaluate: (input: PlatformAuthorizationEvaluateInput) =>
+      call('platformAuthorizationService', 'evaluate', [input]) as Promise<PlatformAuthorizationDecision>,
+  };
+
+  const platformPlugins: GlobalPlatformPluginsFacade = {
+    list: (projectId) =>
+      call('platformPluginService', 'list', trimTrailingUndefined([projectId])) as Promise<readonly PlatformPlugin[]>,
+    get: (id) => call('platformPluginService', 'get', [id]) as Promise<PlatformPlugin | undefined>,
+    discover: (input) =>
+      call('platformPluginService', 'discover', [input]) as Promise<PlatformPluginManifest>,
+    install: (input) =>
+      call('platformPluginService', 'install', [input]) as Promise<PlatformPlugin>,
+    configure: (input) =>
+      call('platformPluginService', 'configure', [input]) as Promise<PlatformPlugin>,
+    command: (input) =>
+      call('platformPluginService', 'command', [input]) as Promise<PlatformPlugin>,
   };
 
   const facade: Omit<GlobalFacade, 'platform'> = {
@@ -963,9 +1097,68 @@ export function createGlobalFacade(
       setEntitlement: (workspaceId, input) =>
         scoped({ workspaceId }, 'commercialService', 'setEntitlement', [input]) as Promise<WorkspaceEntitlement>,
       recordUsage: (workspaceId, input) =>
-        scoped({ workspaceId }, 'commercialService', 'recordUsage', [input]) as Promise<UsageRecord>,
+        // The commercial facade remains for compatibility; usage authority is
+        // the workspace usage service used by canonical Runs.
+        scoped({ workspaceId }, 'workspaceUsageService', 'recordUsage', [input]) as Promise<UsageRecord>,
       usageSummary: (workspaceId, query) =>
-        scoped({ workspaceId }, 'commercialService', 'usageSummary', trimTrailingUndefined([query])) as Promise<UsageSummary>,
+        scoped({ workspaceId }, 'workspaceUsageService', 'usageSummary', trimTrailingUndefined([query])) as Promise<UsageSummary>,
+    },
+
+    usage: {
+      recordUsage: (workspaceId, input) =>
+        scoped({ workspaceId }, 'workspaceUsageService', 'recordUsage', [input]) as Promise<UsageRecord>,
+      usageSummary: (workspaceId, query) =>
+        scoped({ workspaceId }, 'workspaceUsageService', 'usageSummary', trimTrailingUndefined([query])) as Promise<UsageSummary>,
+    },
+
+    budgets: {
+      list: (workspaceId) =>
+        scoped({ workspaceId }, 'workspaceBudgetService', 'list', []) as Promise<readonly Budget[]>,
+      status: (workspaceId) =>
+        scoped({ workspaceId }, 'workspaceBudgetService', 'status', []) as Promise<BudgetStatus>,
+      configure: (workspaceId, input) =>
+        scoped({ workspaceId }, 'workspaceBudgetService', 'configure', [input]) as Promise<Budget>,
+      reserve: (workspaceId, input) =>
+        scoped({ workspaceId }, 'workspaceBudgetService', 'reserve', [input]) as Promise<BudgetReservationResult>,
+      release: (workspaceId, input) =>
+        scoped({ workspaceId }, 'workspaceBudgetService', 'release', [input]) as Promise<BudgetReservation>,
+      reconcile: (workspaceId, input) =>
+        scoped({ workspaceId }, 'workspaceBudgetService', 'reconcile', [input]) as Promise<BudgetReservation>,
+    },
+
+    governance: {
+      listOrganizations: () =>
+        call('platformGovernanceService', 'listOrganizations', []) as Promise<readonly Organization[]>,
+      getOrganization: (id) =>
+        call('platformGovernanceService', 'getOrganization', [id]) as Promise<Organization | undefined>,
+      listOrganizationMembers: (id) =>
+        call('platformGovernanceService', 'listOrganizationMembers', [id]) as Promise<readonly OrganizationMember[]>,
+      createOrganization: (input) =>
+        call('platformGovernanceService', 'createOrganization', [input]) as Promise<Organization>,
+      upsertOrganizationMember: (input) =>
+        call('platformGovernanceService', 'upsertOrganizationMember', [input]) as Promise<OrganizationMember>,
+      listProjects: (organizationId) =>
+        call('platformGovernanceService', 'listProjects', trimTrailingUndefined([organizationId])) as Promise<readonly Project[]>,
+      getProject: (id) =>
+        call('platformGovernanceService', 'getProject', [id]) as Promise<Project | undefined>,
+      listProjectMembers: (id) =>
+        call('platformGovernanceService', 'listProjectMembers', [id]) as Promise<readonly ProjectMember[]>,
+      createProject: (input) =>
+        call('platformGovernanceService', 'createProject', [input]) as Promise<Project>,
+      upsertProjectMember: (input) =>
+        call('platformGovernanceService', 'upsertProjectMember', [input]) as Promise<ProjectMember>,
+      bindWorkspace: (projectId, input) =>
+        call('platformGovernanceService', 'bindWorkspace', [projectId, input]) as Promise<Project>,
+      projectForWorkspace: (workspaceId) =>
+        call('platformGovernanceService', 'projectForWorkspace', [workspaceId]) as Promise<Project | undefined>,
+      listProjectBindings: (projectId, workspaceId) =>
+        call('platformGovernanceService', 'listProjectBindings', trimTrailingUndefined([projectId, workspaceId])) as Promise<readonly ProjectBinding[]>,
+      bindProjectResource: (input) =>
+        call('platformGovernanceService', 'bindProjectResource', [input]) as Promise<ProjectBinding>,
+      removeProjectBinding: (input) =>
+        call('platformGovernanceService', 'removeProjectBinding', [input]) as Promise<ProjectBinding>,
+      ensureLocalOrganization: (actorId) =>
+        call('platformGovernanceService', 'ensureLocalOrganization', trimTrailingUndefined([actorId])) as Promise<Organization>,
     },
 
     platformEvents: {
@@ -1027,6 +1220,7 @@ export function createGlobalFacade(
         const workspaces = await facade.workspaces.list();
         return workspaces.find((workspace) => workspace.root === normalized)?.id;
       },
+      workspaces: facade.workspaces,
       connections: facade.connections,
       datasets: facade.datasets,
       ml: facade.ml,
@@ -1038,6 +1232,12 @@ export function createGlobalFacade(
       executionTargets: facade.executionTargets,
       automations: facade.automations,
       commercial: facade.commercial,
+      usage: facade.usage,
+      budgets: facade.budgets,
+      governance: facade.governance,
+      identity,
+      authorization,
+      plugins: platformPlugins,
       platformEvents: facade.platformEvents,
     },
   };

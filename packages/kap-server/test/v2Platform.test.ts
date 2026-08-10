@@ -167,6 +167,196 @@ describe('server /api/v2 platform surface', () => {
     expect(events.data?.next_sequence).toBeGreaterThan(0);
   });
 
+  it('serves the accountless organization, project, and workspace binding API', async () => {
+    const root = home as string;
+    const identityResponse = await authedFetch(server as RunningServer, base, '/api/v2/auth/status');
+    expect(await identityResponse.json()).toMatchObject({
+      code: 0,
+      data: { mode: 'local', authenticated: false, credential_class: 'account' },
+    });
+    const workspaceResponse = await authedFetch(server as RunningServer, base, '/api/v1/workspaces', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ root, name: 'governance-test' }),
+    });
+    const workspace = (await workspaceResponse.json()) as Envelope<WorkspaceWire>;
+    const workspaceId = workspace.data?.id as string;
+
+    const organizationResponse = await authedFetch(
+      server as RunningServer,
+      base,
+      '/api/v2/organizations/local',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ actor_id: 'local-admin' }),
+      },
+    );
+    const organization = (await organizationResponse.json()) as Envelope<{ id: string; mode: string }>;
+    expect(organization).toMatchObject({ code: 0, data: { mode: 'local' } });
+
+    const projectResponse = await authedFetch(server as RunningServer, base, '/api/v2/projects', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        request_id: 'governance_project_create',
+        actor_id: 'local-admin',
+        organization_id: organization.data?.id,
+        name: 'Governance test',
+      }),
+    });
+    const project = (await projectResponse.json()) as Envelope<{ id: string; workspace_ids: string[] }>;
+    expect(project).toMatchObject({ code: 0, data: { workspace_ids: [] } });
+
+    const bindResponse = await authedFetch(
+      server as RunningServer,
+      base,
+      `/api/v2/projects/${project.data?.id}/workspaces`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          request_id: 'governance_workspace_bind',
+          actor_id: 'local-admin',
+          workspace_id: workspaceId,
+        }),
+      },
+    );
+    const bound = (await bindResponse.json()) as Envelope<{ workspace_ids: string[] }>;
+    expect(bound).toMatchObject({ code: 0, data: { workspace_ids: [workspaceId] } });
+
+    const bindingResponse = await authedFetch(
+      server as RunningServer,
+      base,
+      `/api/v2/projects/${project.data?.id}/bindings`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          request_id: 'governance_project_binding',
+          actor_id: 'local-admin',
+          kind: 'llm_connection',
+          resource_id: 'connection_openrouter_managed',
+          role: 'default',
+          workspace_id: workspaceId,
+        }),
+      },
+    );
+    const binding = (await bindingResponse.json()) as Envelope<{
+      id: string;
+      project_id: string;
+      resource_id: string;
+      state: string;
+    }>;
+    expect(binding).toMatchObject({
+      code: 0,
+      data: {
+        project_id: project.data?.id,
+        resource_id: 'connection_openrouter_managed',
+        state: 'active',
+      },
+    });
+
+    const bindingsResponse = await authedFetch(
+      server as RunningServer,
+      base,
+      `/api/v2/projects/${project.data?.id}/bindings?workspace_id=${workspaceId}`,
+    );
+    expect(await bindingsResponse.json()).toMatchObject({
+      code: 0,
+      data: [expect.objectContaining({ id: binding.data?.id })],
+    });
+
+    const revokeResponse = await authedFetch(
+      server as RunningServer,
+      base,
+      `/api/v2/projects/${project.data?.id}/bindings/${binding.data?.id}/revoke`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ request_id: 'governance_project_binding_revoke', actor_id: 'local-admin' }),
+      },
+    );
+    expect(await revokeResponse.json()).toMatchObject({
+      code: 0,
+      data: { id: binding.data?.id, state: 'disabled' },
+    });
+
+    const authorizationResponse = await authedFetch(
+      server as RunningServer,
+      base,
+      '/api/v2/authorization/evaluate',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          request_id: 'governance_authorization_evaluate',
+          actor_id: 'local-admin',
+          project_id: project.data?.id,
+          workspace_id: workspaceId,
+          capability: 'run.execute',
+        }),
+      },
+    );
+    expect(await authorizationResponse.json()).toMatchObject({
+      code: 0,
+      data: { allowed: true, role: 'organization_owner' },
+    });
+
+    const pluginManifest = {
+      id: 'example.integration',
+      name: 'Example integration',
+      version: '1.0.0',
+      provider_type: 'example',
+      authentication: { kind: 'oauth2', scopes: ['messages:write'] },
+      commands: [{ id: 'run', name: 'Run', description: 'Run an operation', capability: 'run.execute' }],
+    };
+    const pluginResponse = await authedFetch(
+      server as RunningServer,
+      base,
+      '/api/v2/plugins',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          request_id: 'governance_plugin_install',
+          actor_id: 'local-admin',
+          project_id: project.data?.id,
+          manifest: pluginManifest,
+        }),
+      },
+    );
+    const plugin = (await pluginResponse.json()) as Envelope<{ id: string; state: string }>;
+    expect(plugin).toMatchObject({ code: 0, data: { state: 'installed' } });
+
+    const configurePluginResponse = await authedFetch(
+      server as RunningServer,
+      base,
+      `/api/v2/plugins/${plugin.data?.id}/configure`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          request_id: 'governance_plugin_configure',
+          actor_id: 'local-admin',
+          project_id: project.data?.id,
+          connection_id: 'connection_example_plugin',
+        }),
+      },
+    );
+    expect(await configurePluginResponse.json()).toMatchObject({
+      code: 0,
+      data: { id: plugin.data?.id, state: 'configured', connection_id: 'connection_example_plugin' },
+    });
+
+    const projectLookup = await authedFetch(
+      server as RunningServer,
+      base,
+      `/api/v2/workspaces/${workspaceId}/platform/project`,
+    );
+    expect(await projectLookup.json()).toMatchObject({ code: 0, data: { id: project.data?.id } });
+  });
+
   it('keeps the platform routes disabled unless the experimental flag is enabled', async () => {
     const disabledHome = await mkdtemp(join(tmpdir(), 'kimi-server-v2-platform-disabled-'));
     vi.stubEnv('KIMI_CODE_EXPERIMENTAL_PLATFORM_SERVICES', '0');
@@ -205,6 +395,52 @@ describe('server /api/v2 platform surface', () => {
       vi.stubEnv('KIMI_CODE_EXPERIMENTAL_PLATFORM_SERVICES', '1');
       await disabledServer.close();
       await rm(disabledHome, { recursive: true, force: true });
+    }
+  });
+
+  it('honors the emergency rollback even when platform activation is requested', async () => {
+    const rollbackHome = await mkdtemp(join(tmpdir(), 'kimi-server-v2-platform-rollback-'));
+    vi.stubEnv('KIMI_CODE_EXPERIMENTAL_PLATFORM_SERVICES', '1');
+    vi.stubEnv('KIMI_CODE_EXPERIMENTAL_FLAG', '1');
+    vi.stubEnv('KIMI_CODE_DISABLE_PLATFORM_SERVICES', '1');
+    const rollbackServer = await startServer({
+      hostIdentity: TEST_HOST_IDENTITY,
+      host: '127.0.0.1',
+      port: 0,
+      homeDir: rollbackHome,
+      logLevel: 'silent',
+    });
+
+    try {
+      const flagService = rollbackServer.core.accessor.get(IFlagService);
+      expect(flagService.enabled('platform_services')).toBe(false);
+      expect(flagService.explain('platform_services')).toMatchObject({
+        source: 'emergency-disable-env',
+        emergencyDisableEnv: 'KIMI_CODE_DISABLE_PLATFORM_SERVICES',
+      });
+
+      const workspaceResponse = await authedFetch(
+        rollbackServer,
+        `http://127.0.0.1:${rollbackServer.port}`,
+        '/api/v1/workspaces',
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ root: rollbackHome }),
+        },
+      );
+      const workspace = (await workspaceResponse.json()) as Envelope<WorkspaceWire>;
+      const platformResponse = await authedFetch(
+        rollbackServer,
+        `http://127.0.0.1:${rollbackServer.port}`,
+        `/api/v2/workspaces/${workspace.data?.id}/platform/connections`,
+      );
+      const envelope = (await platformResponse.json()) as Envelope<null>;
+      expect(platformResponse.status).toBe(200);
+      expect(envelope).toMatchObject({ code: 40301, data: null, request_id: expect.any(String) });
+    } finally {
+      await rollbackServer.close();
+      await rm(rollbackHome, { recursive: true, force: true });
     }
   });
 

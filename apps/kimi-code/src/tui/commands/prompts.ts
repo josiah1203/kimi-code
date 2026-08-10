@@ -129,7 +129,7 @@ export function promptApiKey(
 }
 
 export interface PlatformProviderOption {
-  readonly value: 'kimi' | 'openai' | 'anthropic' | 'google' | 'openai-compatible' | 'local' | 'custom';
+  readonly value: 'kimi' | 'openai' | 'anthropic' | 'google' | 'openrouter' | 'openai-compatible' | 'local' | 'custom';
   readonly label: string;
   readonly description?: string;
 }

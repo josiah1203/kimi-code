@@ -36,6 +36,7 @@ import { IAgentToolSelectService } from '#/agent/toolSelect/toolSelect';
 import { IAgentVideoResolverService } from '#/agent/media/videoResolver';
 import { IAgentUsageService } from '#/agent/usage/usage';
 import { IConfigService } from '#/app/config/config';
+import { IFlagService } from '#/app/flag/flag';
 import { type DomainEvent, IEventBus } from '#/app/event/eventBus';
 import {
   APIConnectionError,
@@ -143,6 +144,7 @@ function createService(
   options: {
     readonly thinkingLevel?: ThinkingEffort;
     readonly platformBinding?: Pick<IPlatformModelBindingService, 'current' | 'selectionError'>;
+    readonly platformServices?: boolean;
   } = {},
 ) {
   const ix = disposables.add(new TestInstantiationService());
@@ -219,6 +221,12 @@ function createService(
   ix.stub(IAgentProfileService, profile);
   ix.stub(IAgentUsageService, usage);
   ix.stub(IConfigService, config);
+  if (options.platformServices !== undefined) {
+    ix.stub(IFlagService, {
+      _serviceBrand: undefined,
+      enabled: () => options.platformServices === true,
+    } as unknown as IFlagService);
+  }
   ix.stub(ILogService, log);
   ix.stub(ITelemetryService, telemetry);
   ix.stub(IModelCatalog, {
@@ -318,6 +326,22 @@ describe('AgentLLMRequesterService platform model binding', () => {
     expect(result.message.content).toEqual([{ type: 'text', text: 'ok' }]);
     expect(platformCalls.value).toBe(1);
     expect(legacyCalls.value).toBe(0);
+  });
+
+  it('emits a compatibility warning when platform mode falls back to a legacy profile', async () => {
+    const calls = { value: 0 };
+    const { service, events } = createService(createRequester(calls, null), undefined, {
+      platformServices: true,
+    });
+
+    await service.request();
+
+    expect(events).toContainEqual({
+      type: 'warning',
+      code: 'platform-legacy-provider-compatibility',
+      message:
+        'No canonical ProviderConnection/ModelRef is selected; this request is using the legacy profile as a compatibility adapter. Configure a provider with /provider before relying on the SpiderByte platform path.',
+    });
   });
 });
 

@@ -16,10 +16,16 @@ import {
 } from '@moonshot-ai/kimi-code-sdk';
 import { resolve } from 'pathe';
 
-import { CLI_SHUTDOWN_TIMEOUT_MS, PROMPT_CLEANUP_TIMEOUT_MS } from '#/constant/app';
+import {
+  CLI_COMMAND_NAME,
+  CLI_SHUTDOWN_TIMEOUT_MS,
+  PRODUCT_NAME,
+  PROMPT_CLEANUP_TIMEOUT_MS,
+} from '#/constant/app';
 
 import { resolveAgentProfileSelection } from './agent-selection';
 import { isKimiV2Enabled } from './experimental-v2';
+import { formatPlatformModeDiagnostic } from './platform-mode';
 import { resolveOutputFormat } from './options';
 import type { CLIOptions, PromptOutputFormat } from './options';
 import {
@@ -115,6 +121,9 @@ export async function runPrompt(
   const promptProcess = io.process ?? process;
   const outputFormat = resolveOutputFormat(opts);
   const workDir = process.cwd();
+  if (outputFormat !== 'stream-json') {
+    stderr.write(`${formatPlatformModeDiagnostic(false, undefined)}\n`);
+  }
   const telemetryBootstrap = createCliTelemetryBootstrap();
   const telemetryClient: TelemetryClient = {
     track,
@@ -136,7 +145,7 @@ export async function runPrompt(
     },
     sessionStartedProperties: { yolo: false, plan: false, afk: true },
   });
-  log.info('kimi-code starting', {
+  log.info(`${PRODUCT_NAME.toLowerCase()} starting`, {
     version,
     uiMode: PROMPT_UI_MODE,
     nodeVersion: process.version,
@@ -309,7 +318,7 @@ async function resolvePromptSession(
       stderr.write(
         `${chalk.hex('#E8A838')(
           `Session "${opts.session}" was created under a different directory.\n` +
-            `  cd "${target.workDir}" && kimi -r ${opts.session}`,
+            `  cd "${target.workDir}" && ${CLI_COMMAND_NAME} -r ${opts.session}`,
         )}\n\n`,
       );
       throw new Error(

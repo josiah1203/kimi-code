@@ -19,7 +19,7 @@ import {
   withTelemetryContext,
 } from '@moonshot-ai/kimi-telemetry';
 
-import { CLI_SHUTDOWN_TIMEOUT_MS, CLI_UI_MODE } from '#/constant/app';
+import { CLI_SHUTDOWN_TIMEOUT_MS, CLI_UI_MODE, PRODUCT_NAME } from '#/constant/app';
 import { detectPendingMigration } from '#/migration/index';
 import type { TuiConfig } from '#/tui/config';
 import { loadTuiConfig, TuiConfigParseError } from '#/tui/config';
@@ -33,6 +33,7 @@ import { restoreTerminalModes } from '#/utils/terminal-restore';
 import type { CLIOptions } from './options';
 import { resolveAgentProfileSelection } from './agent-selection';
 import { isKimiV2Enabled } from './experimental-v2';
+import { formatPlatformModeDiagnostic, platformFeatureFrom } from './platform-mode';
 import { createCliTelemetryBootstrap, initializeCliTelemetry } from './telemetry';
 import { createKimiCodeHostIdentity } from './version';
 
@@ -89,12 +90,26 @@ export async function runShell(
     ? createKimiHarnessV2(harnessOptions)
     : createKimiHarness(harnessOptions);
   startupTrace('harness:created');
-  log.info('kimi-code starting', {
+  let platformModeNotice = formatPlatformModeDiagnostic(engineV2, undefined);
+  if (engineV2) {
+    try {
+      platformModeNotice = formatPlatformModeDiagnostic(
+        true,
+        platformFeatureFrom(await harness.getExperimentalFeatures()),
+      );
+    } catch (error) {
+      platformModeNotice =
+        'SpiderByte warning: the platform capability report could not be loaded. No legacy fallback was selected; inspect the diagnostics before continuing.';
+      log.warn('platform capability report unavailable', { error: String(error) });
+    }
+  }
+  log.info(`${PRODUCT_NAME.toLowerCase()} starting`, {
     version,
     uiMode: CLI_UI_MODE,
     nodeVersion: process.version,
     platform: `${process.platform}/${process.arch}`,
     workDir,
+    engine: engineV2 ? 'kimi-plus-aug' : 'legacy-kimi-compatibility',
   });
 
   await harness.ensureConfigFile();
@@ -114,6 +129,9 @@ export async function runShell(
   // by the TUI itself at `finishStartup` via `showConfigWarningsIfAny` —
   // folded into the dim startup notice they were too easy to miss.
   const configMs = Date.now() - configStartedAt;
+  const startupNotice = [platformModeNotice, configWarning].filter(
+    (notice): notice is string => notice !== undefined && notice.length > 0,
+  ).join('\n');
   // Resolve --agent/--agent-file once for the startup session; validateOptions
   // has already rejected them alongside --session/--continue.
   const agentProfile = await resolveAgentProfileSelection(opts, workDir);
@@ -124,7 +142,7 @@ export async function runShell(
     tuiConfig,
     version,
     workDir,
-    startupNotice: configWarning,
+    startupNotice,
     migrationPlan,
     migrateOnly: runOptions.migrateOnly,
     engineV2,
@@ -225,7 +243,7 @@ export async function runShell(
     process.stdout.write(`${gutter}Bye!\n`);
     const hints: string[] = [];
     if (sessionId !== '' && hasContent) {
-      hints.push(`${gutter}To resume this session: kimi -r ${sessionId}`);
+      hints.push(`${gutter}To resume this session: spyderbyte -r ${sessionId}`);
     }
     if (tui.exitOpenUrl !== undefined) {
       hints.push(`${gutter}open ${toTerminalHyperlink(tui.exitOpenUrl, tui.exitOpenUrl)}`);

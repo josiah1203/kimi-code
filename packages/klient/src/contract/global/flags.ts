@@ -15,9 +15,10 @@ export const experimentalFeatureStateSchema = z.object({
   description: z.string(),
   surface: z.enum(['core', 'tui', 'both']),
   env: z.string(),
+  emergencyDisableEnv: z.string().optional(),
   defaultEnabled: z.boolean(),
   enabled: z.boolean(),
-  source: z.enum(['master-env', 'env', 'config', 'default']),
+  source: z.enum(['master-env', 'env', 'config', 'default', 'emergency-disable-env']),
   configValue: z.boolean().optional(),
 });
 

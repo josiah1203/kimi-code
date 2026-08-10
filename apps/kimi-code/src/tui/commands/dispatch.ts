@@ -3,6 +3,7 @@ import type { DeviceAuthorization } from '@moonshot-ai/kimi-code-oauth';
 import type { KimiHarness, Session } from '@moonshot-ai/kimi-code-sdk';
 
 import type { ColorToken, ThemeName } from '#/tui/theme';
+import { PRODUCT_NAME } from '#/constant/app';
 
 import { LLM_NOT_SET_MESSAGE } from '../constant/kimi-tui';
 import type { AuthFlowController } from '../controllers/auth-flow';
@@ -44,6 +45,22 @@ import { parseSlashInput } from './parse';
 import { handlePluginsCommand } from './plugins';
 import { handleProviderCommand } from './provider';
 import { handleRunsCommand } from './runs';
+import {
+  handleArtifactsCommand,
+  handleAutomationsCommand,
+  handleDatasetsCommand,
+  handleExecutionTargetsCommand,
+  handleExperimentsCommand,
+  handleModelsCommand,
+  handleMembersCommand,
+  handleOrganizationCommand,
+  handlePipelinesCommand,
+  handlePolicyCommand,
+  handleProjectCommand,
+  handleConnectionsCommand,
+  handleBudgetsCommand,
+  handleWorkspaceCommand,
+} from './platform-admin';
 import {
   findBuiltInSlashCommand,
   resolveSlashCommandAvailability,
@@ -94,6 +111,22 @@ export { handleSwarmCommand } from './swarm';
 export { handleFeedbackCommand, showMcpServers, showStatusReport, showUsage } from './info';
 export { handlePluginsCommand } from './plugins';
 export { handleRunsCommand } from './runs';
+export {
+  handleArtifactsCommand,
+  handleAutomationsCommand,
+  handleDatasetsCommand,
+  handleExecutionTargetsCommand,
+  handleExperimentsCommand,
+  handleModelsCommand,
+  handleMembersCommand,
+  handleOrganizationCommand,
+  handlePipelinesCommand,
+  handlePolicyCommand,
+  handleProjectCommand,
+  handleConnectionsCommand,
+  handleBudgetsCommand,
+  handleWorkspaceCommand,
+} from './platform-admin';
 export { handleReloadCommand, handleReloadTuiCommand } from './reload';
 export { handleGoalCommand } from './goal';
 export {
@@ -382,7 +415,7 @@ async function handleBuiltInSlashCommand(
       host.showHelpPanel();
       return;
     case 'version':
-      host.showStatus(`Kimi Code v${host.state.appState.version}`);
+      host.showStatus(`${PRODUCT_NAME} v${host.state.appState.version}`);
       return;
     case 'new': {
       // A first-use lazy creation may still be in flight: wait it out so /new
@@ -453,6 +486,51 @@ async function handleBuiltInSlashCommand(
       return;
     case 'runs':
       await handleRunsCommand(host, args);
+      return;
+    case 'workspace':
+      await handleWorkspaceCommand(host, args);
+      return;
+    case 'project':
+      await handleProjectCommand(host);
+      return;
+    case 'organization':
+      await handleOrganizationCommand(host);
+      return;
+    case 'members':
+      await handleMembersCommand(host);
+      return;
+    case 'connections':
+      await handleConnectionsCommand(host);
+      return;
+    case 'budgets':
+      await handleBudgetsCommand(host);
+      return;
+    case 'policy':
+      await handlePolicyCommand(host, args);
+      return;
+    case 'targets':
+      await handleExecutionTargetsCommand(host);
+      return;
+    case 'artifacts':
+      await handleArtifactsCommand(host, args);
+      return;
+    case 'datasets':
+      await handleDatasetsCommand(host, args);
+      return;
+    case 'ml':
+      await handleExperimentsCommand(host, args);
+      return;
+    case 'models':
+      await handleModelsCommand(host, args);
+      return;
+    case 'pipelines':
+      await handlePipelinesCommand(host, args);
+      return;
+    case 'automations':
+      await handleAutomationsCommand(host, args);
+      return;
+    case 'approvals':
+      await handlePolicyCommand(host, 'decisions');
       return;
     case 'permission':
       showPermissionPicker(host);

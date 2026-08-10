@@ -46,13 +46,18 @@ import type { SlashCommandHost } from './dispatch';
 // ---------------------------------------------------------------------------
 
 export async function handleProviderCommand(host: SlashCommandHost, args = ''): Promise<void> {
-  if (args.trim().toLowerCase() === 'platform') {
-    await handlePlatformProviderConnection(host);
+  const mode = args.trim().toLowerCase();
+  if (mode === 'legacy') {
+    const options = buildProviderManagerOptions(host);
+    const component = new ProviderManagerComponent(options);
+    host.mountEditorReplacement(component);
     return;
   }
-  const options = buildProviderManagerOptions(host);
-  const component = new ProviderManagerComponent(options);
-  host.mountEditorReplacement(component);
+  if (mode !== '' && mode !== 'platform') {
+    host.showError('Usage: /provider [platform|legacy]. The canonical platform flow is the default.');
+    return;
+  }
+  await handlePlatformProviderConnection(host);
 }
 
 const PLATFORM_PROVIDER_OPTIONS = [
@@ -60,6 +65,7 @@ const PLATFORM_PROVIDER_OPTIONS = [
   { value: 'openai', label: 'OpenAI', description: 'OpenAI API models' },
   { value: 'anthropic', label: 'Anthropic', description: 'Claude API models' },
   { value: 'google', label: 'Google', description: 'Gemini API models' },
+  { value: 'openrouter', label: 'OpenRouter', description: 'Managed or BYOK routed models' },
   { value: 'openai-compatible', label: 'OpenAI-compatible', description: 'A compatible gateway or local server' },
   { value: 'local', label: 'Local endpoint', description: 'A local OpenAI-compatible model server' },
   { value: 'custom', label: 'Custom', description: 'An explicitly configured provider protocol' },
@@ -71,7 +77,9 @@ async function handlePlatformProviderConnection(host: SlashCommandHost): Promise
     ? undefined
     : await platform.workspaceIdForRoot(host.state.appState.workDir);
   if (platform === undefined || workspaceId === undefined) {
-    host.showError('Platform services are unavailable. Enable KIMI_CODE_EXPERIMENTAL_PLATFORM_SERVICES=1 and use the v2 engine.');
+    host.showError(
+      'Platform services are unavailable. Use the default v2 engine, or explicitly choose /provider legacy for config.toml compatibility.',
+    );
     return;
   }
 

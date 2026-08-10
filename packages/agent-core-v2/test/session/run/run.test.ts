@@ -111,6 +111,67 @@ describe('SessionRunService', () => {
     ).rejects.toMatchObject({ code: 'request.invalid', name: 'RunStateError' });
   });
 
+  it('prevents a parent Run from succeeding while a required child is incomplete', async () => {
+    const service = ix.get(ISessionRunService);
+    const parent = await service.create({ request_id: 'request_required_parent' });
+    const child = await service.create({
+      request_id: 'request_required_child',
+      parent_run_id: parent.id,
+      metadata: { required: true, operation: 'provider' },
+    });
+    await service.transition(parent.id, {
+      request_id: 'request_required_parent_running',
+      status: 'running',
+    });
+
+    await expect(
+      service.transition(parent.id, {
+        request_id: 'request_required_parent_premature_success',
+        status: 'succeeded',
+      }),
+    ).rejects.toMatchObject({ code: 'request.invalid' });
+
+    await service.transition(child.id, {
+      request_id: 'request_required_child_running',
+      status: 'running',
+    });
+    await service.transition(child.id, {
+      request_id: 'request_required_child_failed',
+      status: 'failed',
+      status_reason: 'provider rejected the request',
+    });
+    await expect(
+      service.transition(parent.id, {
+        request_id: 'request_required_parent_failed',
+        status: 'succeeded',
+      }),
+    ).resolves.toMatchObject({
+      status: 'failed',
+      status_reason: `required child Run ${child.id} ended with status failed`,
+    });
+  });
+
+  it('does not attach a required child after the parent has succeeded', async () => {
+    const service = ix.get(ISessionRunService);
+    const parent = await service.create({ request_id: 'request_completed_parent' });
+    await service.transition(parent.id, {
+      request_id: 'request_completed_parent_running',
+      status: 'running',
+    });
+    await service.transition(parent.id, {
+      request_id: 'request_completed_parent_succeeded',
+      status: 'succeeded',
+    });
+
+    await expect(
+      service.create({
+        request_id: 'request_late_required_child',
+        parent_run_id: parent.id,
+        metadata: { required: true },
+      }),
+    ).rejects.toMatchObject({ code: 'request.invalid' });
+  });
+
   it('includes the session identity on every lifecycle event for reconnect filtering', async () => {
     const service = ix.get(ISessionRunService);
     const created = await service.create({ request_id: 'request_event_identity' });

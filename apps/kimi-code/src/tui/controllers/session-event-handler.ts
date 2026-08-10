@@ -220,6 +220,11 @@ export class SessionEventHandler {
     });
     host.platformEventUnsubscribe?.();
     host.platformEventUnsubscribe = undefined;
+    // The platform event bridge is additive. A legacy or older SDK session
+    // may still provide the normal transcript event stream without exposing
+    // platform Run events; that session must remain usable in compatibility
+    // mode instead of failing startup while wiring an optional subscription.
+    if (typeof session.subscribePlatformEvents !== 'function') return;
     void session
       .subscribePlatformEvents(
         (event) => {

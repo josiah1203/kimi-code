@@ -1,13 +1,17 @@
-import { CLI_COMMAND_NAME } from '#/constant/app';
+import { CLI_COMMAND_NAME, PRODUCT_NAME, SPIDERBYTE_DOCS_URL } from '#/constant/app';
 import { registerMigrateCommand } from '#/migration/index';
 import { Command, InvalidArgumentError, Option } from 'commander';
 
 import type { CLIOptions } from './options';
 import { registerAcpCommand } from './sub/acp';
+import { registerAuthCommands } from './sub/auth';
+import { registerConfigureCommand } from './sub/configure';
 import { registerDoctorCommand } from './sub/doctor';
 import { registerExportCommand } from './sub/export';
 import { registerLoginCommand } from './sub/login';
 import { registerProviderCommand } from './sub/provider';
+import { registerPlatformCommands } from './sub/platform';
+import { registerRunCommand } from './sub/run';
 import { registerVisCommand } from './sub/vis';
 import { registerWebCommand } from './sub/web';
 
@@ -24,13 +28,13 @@ export function createProgram(
   onUpgrade: UpgradeCommandHandler = () => {},
 ): Command {
   const program = new Command(CLI_COMMAND_NAME)
-    .description('The Starting Point for Next-Gen Agents')
+    .description('SpiderByte: a governed, CLI/TUI-first workspace for agents, data, and ML')
     .version(version, '-V, --version')
     .allowUnknownOption(false)
     .configureHelp({ helpWidth: 100 })
     .helpOption('-h, --help', 'Show help.')
     .usage('[options] [command]')
-    .addHelpText('after', '\nDocumentation:        https://moonshotai.github.io/kimi-code/\n');
+    .addHelpText('after', `\nDocumentation:        ${SPIDERBYTE_DOCS_URL}\nCompatibility alias:  kimi\n`);
 
   program
     .addOption(
@@ -114,7 +118,11 @@ export function createProgram(
     .option('--plan', 'Start in plan mode.', false);
 
   registerExportCommand(program);
+  registerConfigureCommand(program, version);
+  registerAuthCommands(program);
+  registerRunCommand(program, onMain);
   registerProviderCommand(program);
+  registerPlatformCommands(program, version);
   registerAcpCommand(program);
   registerWebCommand(program);
   registerLoginCommand(program);
@@ -124,7 +132,7 @@ export function createProgram(
   program
     .command('upgrade')
     .alias('update')
-    .description('Upgrade Kimi Code to the latest version.')
+    .description(`Upgrade ${PRODUCT_NAME} to the latest version.`)
     .action(async () => {
       await onUpgrade();
     });

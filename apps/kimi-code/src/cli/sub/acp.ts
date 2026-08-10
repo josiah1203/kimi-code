@@ -45,7 +45,7 @@ export function registerAcpCommand(parent: Command): void {
 
   parent
     .command('acp')
-    .description('Run kimi-code as an Agent Client Protocol (ACP) server over stdio.')
+    .description('Run SpiderByte as an Agent Client Protocol (ACP) server over stdio.')
     .option(
       '--login',
       'Run the device-code login flow then exit (entry point for ACP terminal-auth).',
@@ -117,7 +117,7 @@ export function registerAcpCommand(parent: Command): void {
       };
       try {
         await runAcpServer(harness, {
-          agentInfo: { name: 'Kimi Code CLI', version: getVersion() },
+          agentInfo: { name: 'SpiderByte', version: getVersion() },
           slashCommands: resolveSlashCommands,
           ...(terminalAuthEnv ? { terminalAuthEnv } : {}),
           ...(legacyCommand !== undefined && legacyCommand.length > 0

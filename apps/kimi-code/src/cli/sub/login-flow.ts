@@ -31,7 +31,7 @@ export async function runLoginFlow(): Promise<never> {
         process.stderr.write(
           [
             '',
-            `Opening browser for Kimi device login: ${url}`,
+            `Opening browser for the managed provider device login: ${url}`,
             `If the browser did not open, paste the URL above and enter code: ${data.userCode}`,
             data.expiresIn !== null && data.expiresIn !== undefined
               ? `Code expires in ${data.expiresIn}s.`

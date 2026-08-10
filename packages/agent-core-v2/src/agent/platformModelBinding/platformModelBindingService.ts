@@ -309,6 +309,7 @@ class PlatformModelRequester implements ModelRequester {
             kind: 'provider_model_request',
             provider_connection_id: this.connectionId,
             model: this.modelName,
+            required: true,
           },
         });
         runId = run.id;

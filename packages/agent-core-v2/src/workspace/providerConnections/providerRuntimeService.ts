@@ -29,7 +29,8 @@ import {
 } from '#/kosong/provider/providerDefinition';
 import { IPlatformSecretStore } from '#/app/secrets/platformSecretStore';
 import { IWorkspacePolicyService } from '#/workspace/policy/policy';
-import { IWorkspaceCommercialService } from '#/workspace/commercial/commercial';
+import { IWorkspaceUsageService } from '#/workspace/usage/usage';
+import { IWorkspaceBudgetService } from '#/workspace/budgets/budget';
 import { IWorkspacePlatformEventService } from '#/workspace/platformEvents/platformEvents';
 import { IWorkspaceProviderConnectionService } from './providerConnection';
 import {
@@ -55,6 +56,7 @@ import {
   type ProviderConnectionUpdateWithSecretInput,
   type ProviderModel,
   type ProviderModelDiscovery,
+  type BudgetReservation,
 } from '@moonshot-ai/protocol';
 import type { PolicyDecision } from '@moonshot-ai/protocol';
 import { grandTotal, type TokenUsage } from '#/kosong/contract/usage';
@@ -74,8 +76,9 @@ export class WorkspaceProviderRuntimeService
     @IPlatformSecretStore private readonly secrets: IPlatformSecretStore,
     @IProtocolAdapterRegistry private readonly protocols: IProtocolAdapterRegistry,
     @IWorkspacePolicyService private readonly policy: IWorkspacePolicyService,
-    @IWorkspaceCommercialService private readonly commercial: IWorkspaceCommercialService,
+    @IWorkspaceUsageService private readonly usage: IWorkspaceUsageService,
     @IWorkspacePlatformEventService private readonly events: IWorkspacePlatformEventService,
+    @IWorkspaceBudgetService private readonly budgets?: IWorkspaceBudgetService,
   ) {
     super();
   }
@@ -330,10 +333,12 @@ export class WorkspaceProviderRuntimeService
       request_id: policyRequestId,
     });
     const resolved = await this.resolve(connection, selectedModel);
+    const budgetReservation = await this.reserveBudget(connection, selectedModel, request);
     return {
       connection,
       resolved,
       policyDecision,
+      budgetReservation,
       stream: this.requester(resolved).request(request.input, request.signal, request.params),
     };
   }
@@ -385,10 +390,12 @@ export class WorkspaceProviderRuntimeService
             duration_ms: Math.max(0, Date.now() - attemptStartedAt),
             usage,
           });
+          await this.reconcileBudget(prepared.budgetReservation, request, usage);
           return;
         } catch (error) {
           const safeError = safeProviderRequestError(error, prepared?.resolved.secret);
           lastError = safeError;
+          await this.releaseOrReconcileBudget(prepared?.budgetReservation, request, usage);
           if (prepared !== undefined) {
             await this.traceProviderRequest(
               prepared.connection,
@@ -498,21 +505,92 @@ export class WorkspaceProviderRuntimeService
     if (options.run_id === undefined || usage === undefined) return;
     const tokens = grandTotal(usage);
     const amount = tokens === 0 ? 0 : Math.max(0.01, tokens / 100_000);
-    await this.commercial.recordUsage({
+    await this.usage.recordUsage({
       request_id: `${options.request_id ?? `provider_usage_${ulid()}`}:usage`,
       actor_id: options.actor ?? 'agent',
       run_id: options.run_id,
-      meter: 'intelligence',
-      unit: 'intelligence_percent',
+      meter: isManagedConnection(connection) ? 'managed_llm' : 'intelligence',
+      unit: isManagedConnection(connection) ? 'units' : 'intelligence_percent',
       amount,
+      source: providerUsageSource(connection),
       metadata: {
         provider: connection.provider,
         connection_id: connection.id,
         model,
+        usage_source: providerUsageSource(connection),
         input_tokens: usage.inputOther + usage.inputCacheRead + usage.inputCacheCreation,
         output_tokens: usage.output,
       },
     });
+  }
+
+  private async reserveBudget(
+    connection: ProviderConnection,
+    model: string,
+    options: ProviderRuntimeOperationOptions,
+  ): Promise<BudgetReservation | undefined> {
+    if (this.budgets === undefined || options.run_id === undefined || !isManagedConnection(connection)) {
+      return undefined;
+    }
+    const result = await this.budgets.reserve({
+      request_id: `${options.request_id ?? `provider_${ulid()}`}:budget`,
+      actor_id: options.actor ?? 'agent',
+      run_id: options.run_id,
+      scope: 'run',
+      scope_id: options.run_id,
+      meter: 'managed_llm',
+      unit: 'units',
+      amount: estimatedProviderUnits(connection),
+      policy_decision_id: options.policy_decision_id,
+      metadata: { provider: connection.provider, connection_id: connection.id, model },
+    });
+    if (result.status === 'blocked') {
+      throw new ProviderRuntimeError(
+        ProviderRuntimeErrors.codes.PROVIDER_RUNTIME_POLICY_DENIED,
+        'provider request is blocked by the Run budget',
+        { connectionId: connection.id, model, reservationId: result.reservation.id },
+      );
+    }
+    if (result.status === 'approval_required') {
+      throw new ProviderRuntimeError(
+        ProviderRuntimeErrors.codes.PROVIDER_RUNTIME_POLICY_REQUIRED,
+        'provider request requires budget approval',
+        { connectionId: connection.id, model, reservationId: result.reservation.id },
+      );
+    }
+    return result.reservation;
+  }
+
+  private async reconcileBudget(
+    reservation: BudgetReservation | undefined,
+    options: ProviderRuntimeOperationOptions,
+    usage: TokenUsage | undefined,
+  ): Promise<void> {
+    if (reservation === undefined || this.budgets === undefined) return;
+    const tokens = usage === undefined ? 0 : grandTotal(usage);
+    await this.budgets.reconcile({
+      request_id: `${reservation.request_id}:reconcile`,
+      actor_id: options.actor ?? 'system',
+      reservation_id: reservation.id,
+      actual_amount: tokens,
+    });
+  }
+
+  private async releaseOrReconcileBudget(
+    reservation: BudgetReservation | undefined,
+    options: ProviderRuntimeOperationOptions,
+    usage: TokenUsage | undefined,
+  ): Promise<void> {
+    if (reservation === undefined || this.budgets === undefined) return;
+    if (usage !== undefined) {
+      await this.reconcileBudget(reservation, options, usage).catch(() => undefined);
+      return;
+    }
+    await this.budgets.release({
+      request_id: `${reservation.request_id}:release`,
+      actor_id: options.actor ?? 'system',
+      reservation_id: reservation.id,
+    }).catch(() => undefined);
   }
 
   /**
@@ -667,6 +745,7 @@ interface PreparedProviderRequest {
   readonly connection: ProviderConnection;
   readonly resolved: ResolvedProvider;
   readonly policyDecision: PolicyDecision;
+  readonly budgetReservation?: BudgetReservation;
   readonly stream: AsyncIterable<ModelRequestEvent>;
 }
 
@@ -835,6 +914,20 @@ function selectedModelFor(connection: ProviderConnection, requestedModel?: strin
 
 function allowsUnauthenticated(connection: ProviderConnection): boolean {
   return connection.provider === 'local' && connection.secret_ref === PLATFORM_NO_CREDENTIAL_SECRET_REF;
+}
+
+function isManagedConnection(connection: ProviderConnection): boolean {
+  return connection.metadata?.['billing_source'] === 'managed' || connection.metadata?.['managed'] === true;
+}
+
+function providerUsageSource(connection: ProviderConnection): 'managed' | 'byok' | 'local' {
+  if (connection.provider === 'local') return 'local';
+  return isManagedConnection(connection) ? 'managed' : 'byok';
+}
+
+function estimatedProviderUnits(connection: ProviderConnection): number {
+  const value = connection.metadata?.['estimated_units'];
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 1;
 }
 
 function redactError(error: unknown, secret?: string): string {

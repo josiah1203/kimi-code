@@ -85,6 +85,11 @@ export function defineKlientConformance(
       let workspaceId: string | undefined;
       try {
         const platform = target.klient.global.platform;
+        await expect(platform.identity.status()).resolves.toMatchObject({
+          mode: 'local',
+          authenticated: false,
+          credential_class: 'account',
+        });
         const workspace = await target.klient.global.workspaces.createOrTouch({
           root: workDir,
           name: 'platform-conformance',
@@ -134,6 +139,63 @@ export function defineKlientConformance(
           request_id: 'platform-connection-create',
         });
         liveSubscription.dispose();
+
+        const organization = await platform.governance.ensureLocalOrganization('conformance-owner');
+        const project = await platform.governance.createProject({
+          request_id: 'platform-project-create',
+          actor_id: 'conformance-owner',
+          organization_id: organization.id,
+          name: 'platform-conformance-project',
+        });
+        const boundProject = await platform.governance.bindWorkspace(project.id, {
+          request_id: 'platform-project-bind',
+          actor_id: 'conformance-owner',
+          workspace_id: workspace.id,
+        });
+        expect(boundProject.workspace_ids).toContain(workspace.id);
+        await expect(platform.governance.projectForWorkspace(workspace.id)).resolves.toMatchObject({
+          id: project.id,
+          organization_id: organization.id,
+        });
+
+        const projectBinding = await platform.governance.bindProjectResource({
+          request_id: 'platform-project-binding',
+          actor_id: 'conformance-owner',
+          project_id: project.id,
+          workspace_id: workspace.id,
+          kind: 'llm_connection',
+          resource_id: connection.id,
+          role: 'default',
+        });
+        expect(projectBinding).toMatchObject({
+          project_id: project.id,
+          workspace_id: workspace.id,
+          resource_id: connection.id,
+          state: 'active',
+        });
+        await expect(
+          platform.governance.listProjectBindings(project.id, workspace.id),
+        ).resolves.toEqual([projectBinding]);
+        await expect(platform.authorization.evaluate({
+          request_id: 'platform-authorization-owner',
+          actor_id: 'conformance-owner',
+          project_id: project.id,
+          workspace_id: workspace.id,
+          capability: 'run.execute',
+        })).resolves.toMatchObject({
+          allowed: true,
+          role: 'organization_owner',
+          project_id: project.id,
+          workspace_id: workspace.id,
+        });
+        await expect(
+          platform.governance.removeProjectBinding({
+            request_id: 'platform-project-binding-remove',
+            actor_id: 'conformance-owner',
+            project_id: project.id,
+            binding_id: projectBinding.id,
+          }),
+        ).resolves.toMatchObject({ id: projectBinding.id, state: 'disabled' });
       } finally {
         if (workspaceId !== undefined) await target.klient.global.workspaces.delete(workspaceId);
         await rm(workDir, { recursive: true, force: true });

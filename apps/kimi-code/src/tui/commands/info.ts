@@ -144,9 +144,49 @@ interface ManagedUsageResult {
   readonly error?: string;
 }
 
+interface PlatformUsageSummary {
+  readonly workspace_id: string;
+  readonly period_start: string;
+  readonly period_end: string;
+  readonly intelligence_percent: number;
+  readonly hosted_execution_seconds: number;
+  readonly customer_cloud_execution_seconds: number;
+  readonly managed_llm_units: number;
+  readonly managed_compute_seconds: number;
+  readonly artifact_storage_units: number;
+  readonly plugin_usage_units: number;
+  readonly record_count: number;
+}
+
+interface PlatformUsageResult {
+  readonly summary?: PlatformUsageSummary;
+  readonly error?: string;
+}
+
 export async function showUsage(host: SlashCommandHost): Promise<void> {
   const sessionUsage = await loadSessionUsageReport(host);
   const managedUsage = await loadManagedUsageReport(host);
+  const platformUsage = await loadPlatformUsageReport(host);
+  if (platformUsage.error !== undefined) {
+    host.showStatus(`SpiderByte platform usage unavailable: ${platformUsage.error}`);
+  } else if (platformUsage.summary !== undefined) {
+    const summary = platformUsage.summary;
+    host.showNotice(
+      'SpiderByte usage',
+      [
+        `workspace: ${summary.workspace_id}`,
+        `period: ${summary.period_start} → ${summary.period_end}`,
+        `intelligence: ${String(summary.intelligence_percent)}`,
+        `hosted execution seconds: ${String(summary.hosted_execution_seconds)}`,
+        `customer-cloud execution seconds: ${String(summary.customer_cloud_execution_seconds)}`,
+        `managed LLM units: ${String(summary.managed_llm_units)}`,
+        `managed compute seconds: ${String(summary.managed_compute_seconds)}`,
+        `artifact/storage units: ${String(summary.artifact_storage_units)}`,
+        `plugin/integration units: ${String(summary.plugin_usage_units)}`,
+        `records: ${String(summary.record_count)}`,
+      ].join('\n'),
+    );
+  }
   const reportArgs = {
     sessionUsage: sessionUsage.usage,
     sessionUsageError: sessionUsage.error,
@@ -230,6 +270,22 @@ async function loadRuntimeStatusReport(host: SlashCommandHost): Promise<RuntimeS
     return { status: await host.requireSession().getStatus() };
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+async function loadPlatformUsageReport(host: SlashCommandHost): Promise<PlatformUsageResult> {
+  const platform = host.harness.platform;
+  if (platform?.workspaceIdForRoot === undefined) {
+    return { error: 'canonical platform services are unavailable' };
+  }
+  try {
+    const workspaceId = await platform.workspaceIdForRoot(host.state.appState.workDir);
+    if (workspaceId === undefined) {
+      return { error: 'current directory is not a registered workspace' };
+    }
+    return { summary: await platform.usage.usageSummary(workspaceId) };
+  } catch (error) {
+    return { error: formatErrorMessage(error) };
   }
 }
 

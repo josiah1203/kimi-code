@@ -421,6 +421,7 @@ export const providerConnectionProviderSchema = z.enum([
   'openai',
   'anthropic',
   'google',
+  'openrouter',
   'openai-compatible',
   'local',
   'custom',
@@ -635,12 +636,19 @@ export const usageMeterSchema = z.enum([
   'intelligence',
   'hosted_execution',
   'customer_cloud_execution',
+  'managed_llm',
+  'managed_compute',
+  'artifact_storage',
+  'plugin_usage',
 ]);
 
 export type UsageMeter = z.infer<typeof usageMeterSchema>;
 
 export const usageUnitSchema = z.enum(['intelligence_percent', 'seconds', 'usd', 'units']);
 export type UsageUnit = z.infer<typeof usageUnitSchema>;
+
+export const usageSourceSchema = z.enum(['managed', 'byok', 'customer_cloud', 'local']);
+export type UsageSource = z.infer<typeof usageSourceSchema>;
 
 /** Customer-facing usage; model/tool token counters remain internal telemetry. */
 export const usageRecordSchema = z.strictObject({
@@ -650,6 +658,7 @@ export const usageRecordSchema = z.strictObject({
   meter: usageMeterSchema,
   unit: usageUnitSchema,
   amount: z.number().finite().nonnegative(),
+  source: usageSourceSchema.optional().default('local'),
   execution_target_id: executionTargetIdSchema.optional(),
   recorded_at: isoDateTimeSchema,
   period_start: isoDateTimeSchema.optional(),
@@ -879,13 +888,14 @@ export const usageRecordCreateInputSchema = z.strictObject({
   meter: usageMeterSchema,
   unit: usageUnitSchema,
   amount: z.number().finite().nonnegative(),
+  source: usageSourceSchema.optional().default('local'),
   execution_target_id: executionTargetIdSchema.optional(),
   period_start: isoDateTimeSchema.optional(),
   period_end: isoDateTimeSchema.optional(),
   metadata: platformMetadataSchema.optional(),
 });
 
-export type UsageRecordCreateInput = z.infer<typeof usageRecordCreateInputSchema>;
+export type UsageRecordCreateInput = z.input<typeof usageRecordCreateInputSchema>;
 
 export const usageSummarySchema = z.strictObject({
   workspace_id: workspaceIdSchema,
@@ -894,6 +904,10 @@ export const usageSummarySchema = z.strictObject({
   intelligence_percent: z.number().finite().nonnegative(),
   hosted_execution_seconds: z.number().finite().nonnegative(),
   customer_cloud_execution_seconds: z.number().finite().nonnegative(),
+  managed_llm_units: z.number().finite().nonnegative().default(0),
+  managed_compute_seconds: z.number().finite().nonnegative().default(0),
+  artifact_storage_units: z.number().finite().nonnegative().default(0),
+  plugin_usage_units: z.number().finite().nonnegative().default(0),
   record_count: z.number().int().nonnegative(),
 });
 

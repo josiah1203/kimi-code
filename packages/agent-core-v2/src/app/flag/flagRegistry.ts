@@ -20,6 +20,8 @@ export interface FlagDefinitionInput {
   readonly title: string;
   readonly description: string;
   readonly env: string;
+  /** An operator-only kill switch that takes precedence over every enable source. */
+  readonly emergencyDisableEnv?: string;
   readonly default: boolean;
   readonly surface: FlagSurface;
 }

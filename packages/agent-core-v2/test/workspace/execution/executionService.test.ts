@@ -10,7 +10,8 @@ import { IWorkspaceContext } from '#/workspace/workspaceContext/workspaceContext
 import { IWorkspaceExecutionTargetService } from '#/workspace/executionTargets/executionTarget';
 import { IWorkspaceExecutionService } from '#/workspace/execution/execution';
 import { WorkspaceExecutionService } from '#/workspace/execution/executionService';
-import { IWorkspaceCommercialService } from '#/workspace/commercial/commercial';
+import { IWorkspaceUsageService } from '#/workspace/usage/usage';
+import type { ExecutionTarget } from '@moonshot-ai/protocol';
 
 const context = {
   _serviceBrand: undefined,
@@ -28,6 +29,7 @@ describe('WorkspaceExecutionService', () => {
   let ix: TestInstantiationService;
   let created: Record<string, unknown>[];
   let documents: Map<string, unknown>;
+  let executionTarget: ExecutionTarget;
 
   beforeEach(() => {
     disposables = new DisposableStore();
@@ -44,9 +46,7 @@ describe('WorkspaceExecutionService', () => {
       acquire: () => ({ dispose: () => {} }),
     } as unknown as IAtomicDocumentStore);
     ix.stub(IWorkspaceContext, context);
-    ix.stub(IWorkspaceExecutionTargetService, {
-      _serviceBrand: undefined,
-      get: async () => ({
+    executionTarget = {
         id: 'target_customer_worker',
         workspace_id: context.workspaceId,
         name: 'customer worker',
@@ -58,7 +58,10 @@ describe('WorkspaceExecutionService', () => {
         created_at: '2026-08-09T00:00:00.000Z',
         updated_at: '2026-08-09T00:00:00.000Z',
         metadata: { worker_endpoint: 'https://worker.example.test/execute' },
-      }),
+      };
+    ix.stub(IWorkspaceExecutionTargetService, {
+      _serviceBrand: undefined,
+      get: async () => executionTarget,
       getLease: async () => ({
         id: 'lease_customer_worker',
         workspace_id: context.workspaceId,
@@ -71,12 +74,14 @@ describe('WorkspaceExecutionService', () => {
     });
     ix.stub(IPlatformSecretStore, {
       _serviceBrand: undefined,
-      get: async () => 'worker-secret',
+      get: async (ref: string) => ref === 'secret_modal'
+        ? JSON.stringify({ key: 'modal-key', secret: 'modal-secret' })
+        : 'worker-secret',
     });
-    ix.stub(IWorkspaceCommercialService, {
+    ix.stub(IWorkspaceUsageService, {
       _serviceBrand: undefined,
       recordUsage: async (input: Record<string, unknown>) => input,
-    } as unknown as IWorkspaceCommercialService);
+    } as unknown as IWorkspaceUsageService);
     ix.stub(IWorkspaceArtifactService, {
       _serviceBrand: undefined,
       get: async (id: string) => ['artifact_dataset', 'artifact_model'].includes(id)
@@ -146,7 +151,7 @@ describe('WorkspaceExecutionService', () => {
       ix.get(IWorkspaceExecutionTargetService),
       ix.get(IWorkspaceArtifactService),
       ix.get(IPlatformSecretStore),
-      ix.get(IWorkspaceCommercialService),
+      ix.get(IWorkspaceUsageService),
     );
     await expect(reloaded.execute(input)).resolves.toEqual(result);
     expect(fetch).toHaveBeenCalledTimes(1);
@@ -232,5 +237,55 @@ describe('WorkspaceExecutionService', () => {
 
     expect(result).toMatchObject({ status: 'succeeded' });
     expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('uses Modal key and secret headers from an opaque credential without exposing them in the payload', async () => {
+    executionTarget = {
+      ...executionTarget,
+      type: 'managed',
+      credential_ref: 'secret_modal',
+      metadata: { provider: 'modal', worker_endpoint: 'https://modal.example.test/execute' },
+    };
+    let request: Request | undefined;
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      request = new Request(input, init);
+      return new Response(JSON.stringify({ status: 'succeeded', output_artifacts: [] }), { status: 200 });
+    }));
+
+    await ix.get(IWorkspaceExecutionService).execute({
+      request_id: 'execution_modal',
+      run_id: 'run_execution',
+      target_id: executionTarget.id,
+      lease_id: 'lease_customer_worker',
+      operation: 'analysis',
+      payload: { dataset_id: 'dataset_sales' },
+    });
+
+    expect(request?.headers.get('Modal-Key')).toBe('modal-key');
+    expect(request?.headers.get('Modal-Secret')).toBe('modal-secret');
+    expect(request?.headers.get('authorization')).toBeNull();
+    const body = await request?.clone().text();
+    expect(body).not.toContain('modal-key');
+    expect(body).not.toContain('modal-secret');
+  });
+
+  it('rejects private endpoints for managed targets before dispatch', async () => {
+    executionTarget = {
+      ...executionTarget,
+      type: 'managed',
+      metadata: { provider: 'modal', worker_endpoint: 'https://127.0.0.1/execute' },
+    };
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+
+    await expect(ix.get(IWorkspaceExecutionService).execute({
+      request_id: 'execution_private_managed',
+      run_id: 'run_execution',
+      target_id: executionTarget.id,
+      lease_id: 'lease_customer_worker',
+      operation: 'analysis',
+      payload: {},
+    })).rejects.toMatchObject({ code: 'execution.target_unavailable' });
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

@@ -101,14 +101,21 @@ export class SessionRunService extends Disposable implements ISessionRunService 
       await this.ready;
       const existingId = this.requests[command.request_id];
       if (existingId !== undefined) return this.require(existingId);
-      if (
-        command.parent_run_id !== undefined &&
-        !this.runs.some((run) => run.id === command.parent_run_id)
-      ) {
+      const parentRun = command.parent_run_id === undefined
+        ? undefined
+        : this.runs.find((run) => run.id === command.parent_run_id);
+      if (command.parent_run_id !== undefined && parentRun === undefined) {
         throw new Error2(
           ErrorCodes.REQUEST_INVALID,
           `parent run not found: ${command.parent_run_id}`,
           { details: { parentRunId: command.parent_run_id } },
+        );
+      }
+      if (parentRun?.status === 'succeeded' && command.metadata?.['required'] === true) {
+        throw new Error2(
+          ErrorCodes.REQUEST_INVALID,
+          `cannot attach a required child Run to succeeded parent: ${parentRun.id}`,
+          { details: { parentRunId: parentRun.id } },
         );
       }
 
@@ -149,9 +156,29 @@ export class SessionRunService extends Disposable implements ISessionRunService 
       if (current === undefined) return undefined;
       const mapped = this.requests[command.request_id];
       if (mapped !== undefined) return this.require(mapped);
-      const sameStatus = current.status === command.status;
-      if (!sameStatus && !allowedTransitions[current.status].includes(command.status)) {
-        throw new RunStateError(id, current.status, command.status);
+      const requiredChild = command.status === 'succeeded'
+        ? findIncompleteRequiredChild(this.runs, id)
+        : undefined;
+      if (requiredChild !== undefined && !terminalStatuses.has(requiredChild.status)) {
+        throw new Error2(
+          ErrorCodes.REQUEST_INVALID,
+          `Run cannot succeed while required child Run ${requiredChild.id} is ${requiredChild.status}`,
+          {
+            details: {
+              runId: id,
+              childRunId: requiredChild.id,
+              childStatus: requiredChild.status,
+            },
+          },
+        );
+      }
+      const nextStatus: RunStatus = requiredChild === undefined ? command.status : 'failed';
+      const statusReason = requiredChild === undefined
+        ? command.status_reason
+        : `required child Run ${requiredChild.id} ended with status ${requiredChild.status}`;
+      const sameStatus = current.status === nextStatus;
+      if (!sameStatus && !allowedTransitions[current.status].includes(nextStatus)) {
+        throw new RunStateError(id, current.status, nextStatus);
       }
 
       const now = nowIsoDateTime();
@@ -171,18 +198,18 @@ export class SessionRunService extends Disposable implements ISessionRunService 
       const { status_reason: _currentReason, ...withoutReason } = current;
       const next = runSchema.parse({
         ...withoutReason,
-        status: command.status,
+        status: nextStatus,
         updated_at: now,
         ...patch,
-        ...(command.status_reason === undefined
+        ...(statusReason === undefined
           ? sameStatus && current.status_reason !== undefined
             ? { status_reason: current.status_reason }
             : {}
-          : { status_reason: command.status_reason }),
-        ...(command.status === 'running' && current.started_at === undefined
+          : { status_reason: statusReason }),
+        ...(nextStatus === 'running' && current.started_at === undefined
           ? { started_at: now }
           : {}),
-        ...(terminalStatuses.has(command.status) && current.completed_at === undefined
+        ...(terminalStatuses.has(nextStatus) && current.completed_at === undefined
           ? { completed_at: now }
           : {}),
       });
@@ -191,7 +218,7 @@ export class SessionRunService extends Disposable implements ISessionRunService 
         [command.request_id]: id,
       });
       await this.events.append({
-        event_type: runEventType(command.status),
+        event_type: runEventType(nextStatus),
         entity_type: 'run',
         entity_id: id,
         request_id: command.request_id,
@@ -199,7 +226,7 @@ export class SessionRunService extends Disposable implements ISessionRunService 
         state: next.status,
         payload: {
           agent_session_id: next.agent_session_id,
-          ...(command.status_reason === undefined ? {} : { reason: command.status_reason }),
+          ...(statusReason === undefined ? {} : { reason: statusReason }),
           ...(next.output_artifacts === undefined ? {} : { output_artifacts: next.output_artifacts }),
         },
       });
@@ -396,6 +423,14 @@ function assertSafeMetadata(metadata: Readonly<Record<string, unknown>> | undefi
       { details: { key: path } },
     );
   }
+}
+
+function findIncompleteRequiredChild(runs: readonly Run[], parentRunId: string): Run | undefined {
+  return runs.find((run) => (
+    run.parent_run_id === parentRunId
+    && run.metadata?.['required'] === true
+    && run.status !== 'succeeded'
+  ));
 }
 
 function runEventType(status: RunStatus): 'run.updated' | 'run.completed' | 'run.failed' | 'run.cancelled' {

@@ -36,6 +36,8 @@ import { ISessionRunService } from '#/session/run/run';
 import { IWorkspaceCommercialService } from '#/workspace/commercial/commercial';
 import { ISessionLifecycleService, type ISessionLifecycleService as SessionLifecycleService } from '#/workspace/sessionLifecycle/sessionLifecycle';
 import { WorkspaceCommercialService } from '#/workspace/commercial/commercialService';
+import { IWorkspaceUsageService } from '#/workspace/usage/usage';
+import { WorkspaceUsageService } from '#/workspace/usage/usageService';
 import { IWorkspaceContext } from '#/workspace/workspaceContext/workspaceContext';
 import type { IWorkspaceContext as WorkspaceContext } from '#/workspace/workspaceContext/workspaceContext';
 
@@ -110,6 +112,7 @@ describe('workspace platform services', () => {
     } as unknown as IWorkspaceExecutionService);
     ix.set(IWorkspacePipelineService, new SyncDescriptor(WorkspacePipelineService));
     ix.set(IWorkspaceCommercialService, new SyncDescriptor(WorkspaceCommercialService));
+    ix.set(IWorkspaceUsageService, new SyncDescriptor(WorkspaceUsageService));
 
     const prompt = {
       enqueue: async () => ({
@@ -426,6 +429,46 @@ describe('workspace platform services', () => {
     await expect(commercial.usageSummary()).resolves.toMatchObject({
       intelligence_percent: 12.5,
       record_count: 1,
+    });
+
+    const usage = ix.get(IWorkspaceUsageService);
+    await expect(
+      usage.recordUsage({
+        request_id: 'workspace_usage_intelligence',
+        actor_id: 'member_owner',
+        run_id: 'run_target',
+        meter: 'intelligence',
+        unit: 'intelligence_percent',
+        amount: 3.5,
+        metadata: { provider: 'example-provider' },
+      }),
+    ).resolves.toMatchObject({ meter: 'intelligence', amount: 3.5 });
+    await expect(usage.usageSummary()).resolves.toMatchObject({
+      intelligence_percent: 3.5,
+      record_count: 1,
+    });
+    await usage.recordUsage({
+      request_id: 'workspace_usage_managed_llm',
+      actor_id: 'member_owner',
+      run_id: 'run_target',
+      meter: 'managed_llm',
+      unit: 'units',
+      amount: 4,
+      source: 'managed',
+    });
+    await usage.recordUsage({
+      request_id: 'workspace_usage_managed_compute',
+      actor_id: 'member_owner',
+      run_id: 'run_target',
+      meter: 'managed_compute',
+      unit: 'seconds',
+      amount: 2,
+      source: 'managed',
+    });
+    await expect(usage.usageSummary()).resolves.toMatchObject({
+      managed_llm_units: 4,
+      managed_compute_seconds: 2,
+      record_count: 3,
     });
   });
 

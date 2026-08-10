@@ -420,7 +420,7 @@ async function confirmInstallTrust(
   label: string,
   official: boolean,
 ): Promise<boolean> {
-  // Kimi-built official plugins are trusted implicitly; anything else requires
+  // Official plugins are trusted implicitly; anything else requires
   // the user to explicitly opt in via the trust prompt.
   if (official) return true;
   return new Promise((resolveConfirmed) => {
@@ -734,7 +734,7 @@ async function removePlugin(host: SlashCommandHost, id: string): Promise<void> {
   host.showStatus(`Removed ${id}.`);
   if (isCapabilityPluginId(host, id)) {
     host.showStatus(
-      'Note: the runtime binaries were left untouched, but Kimi Code plugin wiring is disabled for new sessions. Restart Kimi Code before reinstalling from the Official tab.',
+      'Note: the runtime binaries were left untouched, but SpiderByte plugin wiring is disabled for new sessions. Restart SpiderByte before reinstalling from the Official tab.',
     );
     return;
   }
@@ -782,7 +782,7 @@ async function installPluginFromSource(
 const PLUGIN_RELOAD_HINT = 'Run /new or /reload to apply plugin changes.';
 
 const WEBBRIDGE_POST_INSTALL_MARKDOWN = [
-  '*Two steps left to use Kimi WebBridge:*',
+  '*Two steps left to use Kimi WebBridge with SpiderByte:*',
   '1. Install the browser extension',
   '',
   '   - [Chrome Web Store](https://chromewebstore.google.com/detail/kimi-webbridge/fldmhceldgbpfpkbgopacenieobmligc)',

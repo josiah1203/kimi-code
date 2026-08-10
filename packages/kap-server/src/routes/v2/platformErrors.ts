@@ -18,7 +18,7 @@ export function mapPlatformError(error: unknown, requestId: string): Envelope<nu
 }
 
 export function platformProtocolErrorCode(domainCode: string): ProtocolErrorCode {
-  if (domainCode === 'request.invalid') return ErrorCode.PLATFORM_STATE_INVALID;
+  if (domainCode === 'request.invalid' || domainCode.endsWith('.invalid')) return ErrorCode.PLATFORM_STATE_INVALID;
   if (domainCode.startsWith('provider_runtime.')) {
     if (domainCode.endsWith('.connection_not_found')) return ErrorCode.PLATFORM_RESOURCE_NOT_FOUND;
     if (domainCode.endsWith('.policy_denied')) return ErrorCode.PLATFORM_POLICY_DENIED;
@@ -27,6 +27,7 @@ export function platformProtocolErrorCode(domainCode: string): ProtocolErrorCode
     return ErrorCode.PLATFORM_STATE_INVALID;
   }
   if (domainCode === ErrorCodes.WORKSPACE_NOT_FOUND) return ErrorCode.WORKSPACE_NOT_FOUND;
+  if (domainCode === ErrorCodes.AUTHORIZATION_DENIED) return ErrorCode.PLATFORM_POLICY_DENIED;
   if (domainCode === ErrorCodes.SESSION_NOT_FOUND || domainCode.endsWith('.session_not_found')) {
     return ErrorCode.SESSION_NOT_FOUND;
   }
@@ -80,6 +81,7 @@ export function platformProtocolErrorCode(domainCode: string): ProtocolErrorCode
 
 export function platformProtocolErrorMessage(domainCode: string): string {
   if (domainCode === ErrorCodes.WORKSPACE_NOT_FOUND) return 'workspace not found';
+  if (domainCode === ErrorCodes.AUTHORIZATION_DENIED) return 'platform policy denied the request';
   if (domainCode.startsWith('provider_runtime.')) {
     if (domainCode.endsWith('.connection_not_found')) return 'provider connection not found';
     if (domainCode.endsWith('.policy_denied')) return 'platform policy denied the provider request';
@@ -111,7 +113,7 @@ export function platformProtocolErrorMessage(domainCode: string): string {
     return 'secret material must be represented by an opaque reference';
   }
   if (domainCode.startsWith('storage.')) return 'platform persistence failed';
-  if (domainCode.endsWith('.invalid_state')) return 'platform resource is in an invalid state';
+  if (domainCode.endsWith('.invalid_state') || domainCode.endsWith('.invalid')) return 'platform request is invalid';
   if (domainCode.endsWith('.invalid_input')) return 'platform request contains invalid ML input';
   if (domainCode.endsWith('.executor_unavailable')) return 'requested ML execution target is unavailable';
   if (domainCode.endsWith('.execution_failed')) return 'pipeline execution is unavailable or failed';

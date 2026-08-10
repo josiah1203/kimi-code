@@ -1,5 +1,5 @@
 /**
- * `kimi web` — run the local Kimi server (REST + WebSocket + web UI) in the
+ * `spyderbyte web` — run the local SpiderByte server (REST + WebSocket + web UI) in the
  * foreground and open the web UI in the default browser.
  *
  * The command itself is the runner (`kimi web` = start the server + open the
@@ -20,7 +20,7 @@ export function registerWebCommand(program: Command): void {
   const web = buildWebCommand(
     program
       .command('web')
-      .description('Run the local Kimi server and open the web UI.'),
+      .description('Run the local SpiderByte server and open the web UI.'),
   );
   registerRotateTokenCommand(web);
   registerDeprecatedServerCommand(program);

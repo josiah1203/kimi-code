@@ -856,7 +856,7 @@ export class KimiTUI {
               `${currentTheme.fg(
                 'warning',
                 `Session "${startup.sessionFlag}" was created under a different directory.\n` +
-                  `  cd "${target.workDir}" && kimi -r ${startup.sessionFlag}`,
+                  `  cd "${target.workDir}" && spyderbyte -r ${startup.sessionFlag}`,
               )}\n\n`,
             );
             throw new Error(
@@ -2674,7 +2674,7 @@ export class KimiTUI {
     openUrl(auth.verificationUriComplete);
     this.state.transcriptContainer.addChild(
       new DeviceCodeBoxComponent({
-        title: 'Sign in to Kimi Code',
+        title: `Sign in to ${PRODUCT_NAME}`,
         url: auth.verificationUriComplete,
         code: auth.userCode,
         hint: 'Press Ctrl-C to cancel',
@@ -3368,7 +3368,7 @@ export class KimiTUI {
   private showApprovalPanel(payload: ApprovalPanelData): void {
     this.patchLivePane({ pendingApproval: { data: payload } });
     notifyTerminalOnce(this.state, `approval:${payload.id}`, {
-      title: 'Kimi Code approval required',
+      title: `${PRODUCT_NAME} approval required`,
       body: payload.tool_name,
     });
     const panel = new ApprovalPanelComponent(
@@ -3435,7 +3435,7 @@ export class KimiTUI {
   private showQuestionDialog(payload: QuestionPanelData): void {
     this.patchLivePane({ pendingQuestion: { data: payload } });
     notifyTerminalOnce(this.state, `question:${payload.id}`, {
-      title: 'Kimi Code needs your answer',
+      title: `${PRODUCT_NAME} needs your answer`,
       body: payload.questions[0]?.question,
     });
     const dialog = new QuestionDialogComponent(

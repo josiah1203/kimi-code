@@ -258,6 +258,10 @@ export class WorkspaceCommercialService extends Disposable implements IWorkspace
       intelligence_percent: sumMeter(records, 'intelligence'),
       hosted_execution_seconds: sumMeter(records, 'hosted_execution'),
       customer_cloud_execution_seconds: sumMeter(records, 'customer_cloud_execution'),
+      managed_llm_units: sumMeter(records, 'managed_llm'),
+      managed_compute_seconds: sumMeter(records, 'managed_compute'),
+      artifact_storage_units: sumMeter(records, 'artifact_storage'),
+      plugin_usage_units: sumMeter(records, 'plugin_usage'),
       record_count: records.length,
     });
   }
@@ -346,10 +350,16 @@ function validateUsageUnit(input: UsageRecordCreateInput): void {
       'intelligence usage must use intelligence_percent',
     );
   }
-  if (input.meter !== 'intelligence' && input.unit !== 'seconds') {
+  if ((input.meter === 'hosted_execution' || input.meter === 'customer_cloud_execution' || input.meter === 'managed_compute') && input.unit !== 'seconds') {
     throw new CommercialServiceError(
       CommercialErrors.codes.COMMERCIAL_USAGE_INVALID,
       'execution usage must use seconds',
+    );
+  }
+  if ((input.meter === 'managed_llm' || input.meter === 'artifact_storage' || input.meter === 'plugin_usage') && input.unit !== 'units' && input.unit !== 'usd') {
+    throw new CommercialServiceError(
+      CommercialErrors.codes.COMMERCIAL_USAGE_INVALID,
+      'managed LLM, storage, and plugin usage must use units or usd',
     );
   }
 }

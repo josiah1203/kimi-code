@@ -17,10 +17,16 @@ import { IPlatformSecretStore } from '#/app/secrets/platformSecretStore';
 import { IAtomicDocumentStore } from '#/persistence/interface/atomicDocumentStore';
 import { IWorkspaceArtifactService } from '#/workspace/artifacts/artifact';
 import { IWorkspaceContext } from '#/workspace/workspaceContext/workspaceContext';
-import { IWorkspaceCommercialService } from '#/workspace/commercial/commercial';
+import { IWorkspaceUsageService } from '#/workspace/usage/usage';
+import { IWorkspaceBudgetService } from '#/workspace/budgets/budget';
 import { IWorkspaceExecutionTargetService } from '#/workspace/executionTargets/executionTarget';
 import { findSensitivePlatformMetadataPath } from '#/workspace/platformServices/metadata';
-import { artifactKindSchema, platformMetadataSchema, type ExecutionTarget } from '@moonshot-ai/protocol';
+import {
+  artifactKindSchema,
+  platformMetadataSchema,
+  type BudgetReservation,
+  type ExecutionTarget,
+} from '@moonshot-ai/protocol';
 
 import {
   IWorkspaceExecutionService,
@@ -86,7 +92,8 @@ export class WorkspaceExecutionService extends Disposable implements IWorkspaceE
     @IWorkspaceExecutionTargetService private readonly targets: IWorkspaceExecutionTargetService,
     @IWorkspaceArtifactService private readonly artifacts: IWorkspaceArtifactService,
     @IPlatformSecretStore private readonly secrets: IPlatformSecretStore,
-    @IWorkspaceCommercialService private readonly commercial: IWorkspaceCommercialService,
+    @IWorkspaceUsageService private readonly usage: IWorkspaceUsageService,
+    @IWorkspaceBudgetService private readonly budgets?: IWorkspaceBudgetService,
   ) {
     super();
     this.scope = `${context.persistenceScope}/platform`;
@@ -197,16 +204,19 @@ export class WorkspaceExecutionService extends Disposable implements IWorkspaceE
       );
     }
 
-    const endpoint = workerEndpoint(target.metadata);
+    const endpoint = workerEndpoint(target.metadata, target.type);
     const credential = await this.resolveCredential(target.credential_ref);
+    const budgetReservation = await this.reserveBudget(target, input);
     let response: WorkerResponse;
     try {
-      response = await this.callWorker(endpoint, credential, input, signal);
+      response = await this.callWorker(endpoint, credential, input, signal, target.metadata);
       // The remote call has completed, so charge the Run even if validating
       // or importing the worker's response fails below.
       await this.recordUsage(target.type, input, startedAt).catch(() => undefined);
+      await this.reconcileBudget(budgetReservation, startedAt);
     } catch (error) {
       await this.recordUsage(target.type, input, startedAt).catch(() => undefined);
+      await this.releaseBudget(budgetReservation);
       throw error;
     }
     if (response.status === 'failed') {
@@ -322,19 +332,83 @@ export class WorkspaceExecutionService extends Disposable implements IWorkspaceE
     input: WorkspaceExecutionRequest,
     startedAt: number,
   ): Promise<void> {
-    const meter = targetType === 'customer-managed' || targetType === 'customer-cloud'
-      ? 'customer_cloud_execution'
-      : 'hosted_execution';
-    await this.commercial.recordUsage({
+    const meter = targetType === 'managed'
+      ? 'managed_compute'
+      : targetType === 'customer-managed' || targetType === 'customer-cloud'
+        ? 'customer_cloud_execution'
+        : 'hosted_execution';
+    await this.usage.recordUsage({
       request_id: `${input.request_id}:usage`,
       actor_id: 'agent',
       run_id: input.run_id,
       meter,
       unit: 'seconds',
       amount: Math.max(0.001, (Date.now() - startedAt) / 1_000),
+      source: targetType === 'managed' ? 'managed' : targetType === 'customer-managed' || targetType === 'customer-cloud' ? 'customer_cloud' : 'local',
       execution_target_id: input.target_id,
-      metadata: { operation: input.operation, execution_target_type: targetType },
+      metadata: {
+        operation: input.operation,
+        execution_target_type: targetType,
+        usage_source: targetType === 'managed' ? 'managed' : 'customer_cloud',
+      },
     });
+  }
+
+  private async reserveBudget(
+    target: ExecutionTarget,
+    input: WorkspaceExecutionRequest,
+  ): Promise<BudgetReservation | undefined> {
+    if (this.budgets === undefined) return undefined;
+    const result = await this.budgets.reserve({
+      request_id: `${input.request_id}:budget`,
+      actor_id: 'agent',
+      run_id: input.run_id,
+      scope: 'workspace',
+      scope_id: this.context.workspaceId,
+      meter: target.type === 'managed' ? 'managed_compute' : 'customer_cloud_execution',
+      unit: 'seconds',
+      amount: estimatedExecutionSeconds(input),
+      policy_decision_id: input.policy_decision_id,
+      metadata: {
+        execution_target_id: target.id,
+        execution_target_type: target.type,
+        ...(typeof target.metadata?.['provider'] === 'string' ? { provider: target.metadata['provider'] } : {}),
+      },
+    });
+    if (result.status === 'blocked' || result.status === 'approval_required') {
+      throw new ExecutionServiceError(
+        ExecutionErrors.codes.EXECUTION_TARGET_UNAVAILABLE,
+        result.status === 'blocked'
+          ? 'execution is blocked by the Run budget'
+          : 'execution requires budget approval',
+        { targetId: target.id, reservationId: result.reservation.id, budgetStatus: result.status },
+      );
+    }
+    return result.reservation;
+  }
+
+  private async reconcileBudget(
+    reservation: BudgetReservation | undefined,
+    startedAt: number,
+  ): Promise<void> {
+    if (reservation === undefined || this.budgets === undefined) return;
+    await this.budgets.reconcile({
+      request_id: `${reservation.request_id}:reconcile`,
+      actor_id: 'system',
+      reservation_id: reservation.id,
+      actual_amount: Math.max(0.001, (Date.now() - startedAt) / 1_000),
+    });
+  }
+
+  private async releaseBudget(
+    reservation: BudgetReservation | undefined,
+  ): Promise<void> {
+    if (reservation === undefined || this.budgets === undefined) return;
+    await this.budgets.release({
+      request_id: `${reservation.request_id}:release`,
+      actor_id: 'system',
+      reservation_id: reservation.id,
+    }).catch(() => undefined);
   }
 
   private async callWorker(
@@ -342,11 +416,12 @@ export class WorkspaceExecutionService extends Disposable implements IWorkspaceE
     credential: string | undefined,
     input: WorkspaceExecutionRequest,
     signal: AbortSignal,
+    metadata: Readonly<Record<string, unknown>> | undefined,
   ): Promise<WorkerResponse> {
     let lastError: unknown;
     for (let attempt = 0; attempt <= WORKER_RETRY_COUNT; attempt += 1) {
       try {
-        return await this.callWorkerAttempt(endpoint, credential, input, signal);
+        return await this.callWorkerAttempt(endpoint, credential, input, signal, metadata);
       } catch (error) {
         lastError = error;
         if (signal.aborted || !isRetryableWorkerError(error) || attempt === WORKER_RETRY_COUNT) throw error;
@@ -365,6 +440,7 @@ export class WorkspaceExecutionService extends Disposable implements IWorkspaceE
     credential: string | undefined,
     input: WorkspaceExecutionRequest,
     signal: AbortSignal,
+    metadata: Readonly<Record<string, unknown>> | undefined,
   ): Promise<WorkerResponse> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), WORKER_TIMEOUT_MS);
@@ -372,8 +448,7 @@ export class WorkspaceExecutionService extends Disposable implements IWorkspaceE
     if (signal.aborted) controller.abort();
     signal.addEventListener('abort', abort, { once: true });
     try {
-      const headers: Record<string, string> = { 'content-type': 'application/json' };
-      if (credential !== undefined) headers['authorization'] = 'Bearer ' + credential;
+      const headers = workerHeaders(credential, metadata);
       const materializedPayload = await this.materializeInputArtifacts(input.payload);
       let response: Response;
       try {
@@ -582,7 +657,10 @@ function collectArtifactIds(
   return output;
 }
 
-function workerEndpoint(metadata: Readonly<Record<string, unknown>> | undefined): string {
+function workerEndpoint(
+  metadata: Readonly<Record<string, unknown>> | undefined,
+  targetType: ExecutionTarget['type'],
+): string {
   const value = metadata?.['worker_endpoint'];
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new ExecutionServiceError(
@@ -605,11 +683,89 @@ function workerEndpoint(metadata: Readonly<Record<string, unknown>> | undefined)
       'execution target worker endpoint must use http or https',
     );
   }
+  if (targetType !== 'customer-managed' && isPrivateNetworkHost(url.hostname)) {
+    throw new ExecutionServiceError(
+      ExecutionErrors.codes.EXECUTION_TARGET_UNAVAILABLE,
+      'hosted execution targets cannot use private-network worker endpoints',
+    );
+  }
+  if (targetType === 'managed' && url.protocol !== 'https:') {
+    throw new ExecutionServiceError(
+      ExecutionErrors.codes.EXECUTION_TARGET_UNAVAILABLE,
+      'managed execution targets must use https worker endpoints',
+    );
+  }
   return url.toString();
+}
+
+function workerHeaders(
+  credential: string | undefined,
+  metadata: Readonly<Record<string, unknown>> | undefined,
+): Record<string, string> {
+  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  if (credential === undefined) return headers;
+
+  const provider = metadata?.['provider'] ?? metadata?.['execution_provider'];
+  if (provider === 'modal') {
+    const modalCredential = parseModalCredential(credential);
+    if (modalCredential !== undefined) {
+      headers['Modal-Key'] = modalCredential.key;
+      headers['Modal-Secret'] = modalCredential.secret;
+      return headers;
+    }
+  }
+  headers['authorization'] = 'Bearer ' + credential;
+  return headers;
+}
+
+function parseModalCredential(value: string): { readonly key: string; readonly secret: string } | undefined {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined;
+    const record = parsed as Record<string, unknown>;
+    return typeof record['key'] === 'string' && record['key'].length > 0
+      && typeof record['secret'] === 'string' && record['secret'].length > 0
+      ? { key: record['key'], secret: record['secret'] }
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function isPrivateNetworkHost(hostname: string): boolean {
+  const host = hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  if (
+    host === 'localhost' ||
+    host.endsWith('.localhost') ||
+    host.endsWith('.local') ||
+    host.endsWith('.internal') ||
+    host === 'metadata.google.internal' ||
+    host === '0.0.0.0' ||
+    host === '::1' ||
+    host.startsWith('fc') ||
+    host.startsWith('fd') ||
+    host.startsWith('fe80:')
+  ) return true;
+  const octets = host.split('.').map(Number);
+  if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
+    return false;
+  }
+  const first = octets[0]!;
+  const second = octets[1]!;
+  return first === 10 ||
+    first === 127 ||
+    first === 169 && second === 254 ||
+    first === 192 && second === 168 ||
+    first === 172 && second >= 16 && second <= 31;
 }
 
 function hasCapability(capabilities: readonly string[], operation: string): boolean {
   return capabilities.includes(operation) || capabilities.includes('ml') || capabilities.includes('pipeline');
+}
+
+function estimatedExecutionSeconds(input: WorkspaceExecutionRequest): number {
+  const value = input.payload['estimated_seconds'];
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 1;
 }
 
 function assertSafeMetadata(metadata: Readonly<Record<string, unknown>>): void {
@@ -631,7 +787,7 @@ function assertArtifactDoesNotContainCredential(contentBase64: string, credentia
   } catch {
     return;
   }
-  if (decoded.includes(credential)) {
+  if (credentialSecrets(credential).some((secret) => decoded.includes(secret))) {
     throw new ExecutionServiceError(
       ExecutionErrors.codes.EXECUTION_SECRET_MATERIAL,
       'worker returned artifact content containing execution credentials',
@@ -645,7 +801,12 @@ function sanitizeMetadata(
 ): Record<string, unknown> | undefined {
   if (metadata === undefined) return undefined;
   const visit = (value: unknown): unknown => {
-    if (typeof value === 'string') return credential === undefined ? value : value.replaceAll(credential, '[REDACTED]');
+    if (typeof value === 'string') {
+      return credentialSecrets(credential).reduce(
+        (current, secret) => current.replaceAll(secret, '[REDACTED]'),
+        value,
+      );
+    }
     if (Array.isArray(value)) return value.map(visit);
     if (value !== null && typeof value === 'object') {
       return Object.fromEntries(Object.entries(value).map(([key, nested]) => [key, visit(nested)]));
@@ -660,11 +821,22 @@ function redactError(error: unknown, secret: string | undefined): string {
 }
 
 function redactText(value: string, secret: string | undefined): string {
-  const redacted = secret === undefined ? value : value.replaceAll(secret, '[REDACTED]');
+  const redacted = credentialSecrets(secret).reduce(
+    (current, valueToRedact) => current.replaceAll(valueToRedact, '[REDACTED]'),
+    value,
+  );
   return redacted
     .replace(/(authorization|api[-_ ]?key|token|password)\s*[:=]\s*[^,\s]+/gi, '$1=[REDACTED]')
     .replace(/\s+/g, ' ')
     .slice(0, 2_000);
+}
+
+function credentialSecrets(credential: string | undefined): readonly string[] {
+  if (credential === undefined) return [];
+  const values = [credential];
+  const modalCredential = parseModalCredential(credential);
+  if (modalCredential !== undefined) values.push(modalCredential.key, modalCredential.secret);
+  return values;
 }
 
 function executionFingerprint(input: WorkspaceExecutionRequest): string {

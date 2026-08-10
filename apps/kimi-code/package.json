@@ -1,7 +1,7 @@
 {
   "name": "@moonshot-ai/kimi-code",
   "version": "0.34.0",
-  "description": "The Starting Point for Next-Gen Agents",
+  "description": "SpiderByte: a governed, CLI/TUI-first workspace for agents, data, and ML",
   "license": "MIT",
   "author": "Moonshot AI",
   "homepage": "https://github.com/MoonshotAI/kimi-code/tree/main/apps/kimi-code#readme",
@@ -23,6 +23,7 @@
     "tui"
   ],
   "bin": {
+    "spyderbyte": "dist/main.mjs",
     "kimi": "dist/main.mjs"
   },
   "files": [
@@ -109,6 +110,6 @@
     "zod": "^4.3.6"
   },
   "engines": {
-    "node": ">=22.19.0"
+    "node": ">=24.15.0"
   }
 }

@@ -1,0 +1,2169 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "serialNumber": "urn:uuid:00000000-0000-4000-8000-000000000001",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-08-10T16:59:26.870Z",
+    "tools": [
+      {
+        "vendor": "SpiderByte",
+        "name": "generate-sbom.mjs",
+        "version": "1"
+      }
+    ],
+    "properties": [
+      {
+        "name": "org.spyderbyte.completeness",
+        "value": "workspace-manifest-inventory"
+      },
+      {
+        "name": "org.spyderbyte.release-gate",
+        "value": "requires-lockfile-license-resolution-and-source-ownership-review"
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "library",
+      "name": "@agentclientprotocol/sdk",
+      "version": "^0.23.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/acp-adapter"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@agentclientprotocol/sdk",
+      "version": "^1.3.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/acp-server"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@antfu/utils",
+      "version": "^9.3.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@anthropic-ai/sdk",
+      "version": "^0.95.2",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core-v2"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@base-ui/react",
+      "version": "^1.0.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@fastify/multipart",
+      "version": "^10.0.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/kap-server"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@fastify/swagger",
+      "version": "^9.7.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/kap-server"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@fontsource-variable/inter",
+      "version": "5.2.8",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@google/genai",
+      "version": "^1.49.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core-v2"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@hono/node-server",
+      "version": "^1.13.7",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/vis-server"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@jsquash/webp",
+      "version": "^1.5.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@mariozechner/clipboard",
+      "version": "^0.3.9",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "optionalDependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@modelcontextprotocol/sdk",
+      "version": "^1.29.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/acp-adapter",
+      "version": "0.3.6",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "packages/acp-adapter"
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/acp-server",
+      "version": "0.0.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "packages/acp-server"
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/agent-core-v2",
+      "version": "0.3.1",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "packages/agent-core-v2"
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/agent-core-v2",
+      "version": "workspace:^",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/acp-server"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/agent-core",
+      "version": "0.15.7",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "packages/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/agent-core",
+      "version": "workspace:^",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/acp-adapter"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/kaos",
+      "version": "0.1.6",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "packages/kaos"
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/kaos",
+      "version": "workspace:^",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/acp-adapter"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/kap-server",
+      "version": "0.2.1",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "packages/kap-server"
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/kimi-code-oauth",
+      "version": "0.3.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "packages/oauth"
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/kimi-code-oauth",
+      "version": "workspace:^",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/kimi-code-sdk",
+      "version": "0.15.3",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "packages/node-sdk"
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/kimi-code-sdk",
+      "version": "workspace:^",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/acp-adapter"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/kimi-code",
+      "version": "0.34.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "apps/kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/kimi-inspect",
+      "version": "0.0.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "apps/kimi-inspect"
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/kimi-telemetry",
+      "version": "0.1.1",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "packages/telemetry"
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/klient",
+      "version": "0.1.1",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "packages/klient"
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/klient",
+      "version": "workspace:^",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/acp-server"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/kosong",
+      "version": "0.5.5",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "packages/kosong"
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/kosong",
+      "version": "workspace:^",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/migration-legacy",
+      "version": "0.1.16",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "packages/migration-legacy"
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/migration-legacy",
+      "version": "workspace:^",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/minidb",
+      "version": "0.2.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "packages/minidb"
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/minidb",
+      "version": "workspace:*",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/kap-server"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/minidb",
+      "version": "workspace:^",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core-v2"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/monorepo",
+      "version": "0.1.1",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "."
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/pi-tui",
+      "version": "0.80.8",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "packages/pi-tui"
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/protocol",
+      "version": "0.5.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "packages/protocol"
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/protocol",
+      "version": "workspace:^",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/acp-server"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/transcript",
+      "version": "0.0.1",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "packages/transcript"
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/transcript",
+      "version": "workspace:^",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/kap-server"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/tree-sitter-bash",
+      "version": "0.1.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "packages/tree-sitter-bash"
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/tree-sitter-bash",
+      "version": "workspace:^",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core-v2"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/vis-server",
+      "version": "0.1.1",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "apps/vis/server"
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/vis-web",
+      "version": "0.1.1",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "apps/vis/web"
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@moonshot-ai/vis",
+      "version": "0.1.1",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "apps/vis"
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@mozilla/readability",
+      "version": "^0.6.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@radix-ui/react-accordion",
+      "version": "^1.2.12",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@tabler/icons-react",
+      "version": "^3.36.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@tanstack/react-query",
+      "version": "^5.74.4",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/kimi-inspect"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@tanstack/react-virtual",
+      "version": "^3.13.5",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/vis-web"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "ahooks",
+      "version": "^3.9.6",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "ajv-formats",
+      "version": "^3.0.1",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "ajv",
+      "version": "^8.18.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "bcryptjs",
+      "version": "^2.4.3",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/kap-server"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "chokidar",
+      "version": "^4.0.3",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "class-variance-authority",
+      "version": "^0.7.1",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "clsx",
+      "version": "^2.1.1",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "cmdk",
+      "version": "^1.1.1",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "diff",
+      "version": "^8.0.2",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "fastify",
+      "version": "^5.1.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/kap-server"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "fuse.js",
+      "version": "^7.1.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "get-east-asian-width",
+      "version": "1.6.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/pi-tui"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "heic-to",
+      "version": "^1.0.2",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "hono",
+      "version": "^4.7.7",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/vis-server"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "ignore",
+      "version": "^5.3.2",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "immer",
+      "version": "^11.1.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "jimp",
+      "version": "^1.6.1",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "js-yaml",
+      "version": "^4.1.1",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "katex",
+      "version": "^0.17.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "kimi-code-docs",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "docs"
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "MIT"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "kimi-code",
+      "version": "0.6.7",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.path",
+          "value": "apps/vscode"
+        },
+        {
+          "name": "org.spyderbyte.license.declared",
+          "value": "Apache-2.0"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "linkedom",
+      "version": "^0.18.12",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "marked",
+      "version": "18.0.5",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/pi-tui"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "mermaid",
+      "version": "^11.15.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code-docs"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "next-themes",
+      "version": "^0.4.6",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "node-pty",
+      "version": "^1.1.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "nunjucks",
+      "version": "^3.2.4",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "open",
+      "version": "^10.2.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "openai",
+      "version": "^6.34.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core-v2"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "pathe",
+      "version": "^2.0.3",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "picomatch",
+      "version": "^4.0.4",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "pino",
+      "version": "^9.5.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/kap-server"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "proper-lockfile",
+      "version": "^4.1.2",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "radix-ui",
+      "version": "^1.4.3",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "react-dom",
+      "version": "^19.1.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/kimi-inspect"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "react-markdown",
+      "version": "^10.1.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "react-router-dom",
+      "version": "^7.5.2",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/vis-web"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "react-scroll-to-bottom",
+      "version": "^4.2.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "react-syntax-highlighter",
+      "version": "^16.1.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "react",
+      "version": "^19.1.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/kimi-inspect"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "regexp.escape",
+      "version": "^2.0.1",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "rehype-katex",
+      "version": "^7.0.1",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "remark-gfm",
+      "version": "^4.0.1",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "remark-math",
+      "version": "^6.0.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "retry",
+      "version": "0.13.1",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "shadcn",
+      "version": "^3.6.2",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "smol-toml",
+      "version": "^1.6.1",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "socks",
+      "version": "^2.8.9",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "sonner",
+      "version": "^2.0.7",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "ssh2",
+      "version": "^1.17.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/kaos"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "tailwind-merge",
+      "version": "^3.4.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "tar",
+      "version": "^7.5.13",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "tw-animate-css",
+      "version": "^1.4.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "ulid",
+      "version": "^3.0.1",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "undici",
+      "version": "^7.27.1",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "vitepress-plugin-llms",
+      "version": "^1.10.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code-docs"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "vitepress-plugin-mermaid",
+      "version": "^2.0.17",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code-docs"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "ws",
+      "version": "^8.18.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/kap-server"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "yauzl",
+      "version": "^3.3.0",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "yazl",
+      "version": "^3.3.1",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core-v2"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "zod-to-json-schema",
+      "version": "^3.25.2",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/kosong"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "zod",
+      "version": "^4.3.6",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/agent-core"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "zod",
+      "version": "catalog:",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "@moonshot-ai/kap-server"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "zustand",
+      "version": "^5",
+      "properties": [
+        {
+          "name": "org.spyderbyte.source.package",
+          "value": "kimi-code"
+        },
+        {
+          "name": "org.spyderbyte.source.section",
+          "value": "dependencies"
+        },
+        {
+          "name": "org.spyderbyte.license.status",
+          "value": "resolve-from-lockfile-and-upstream-before-release"
+        }
+      ]
+    }
+  ]
+}

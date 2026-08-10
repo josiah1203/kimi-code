@@ -13,7 +13,7 @@ import { runLoginFlow } from './login-flow';
 export function registerLoginCommand(parent: Command): void {
   parent
     .command('login')
-    .description('Authenticate with Kimi Code CLI via the device-code flow.')
+    .description('Sign in to the managed Kimi provider (compatibility auth; SpiderByte account login is not yet available).')
     .action(async () => {
       await runLoginFlow();
     });

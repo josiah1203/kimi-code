@@ -1,12 +1,12 @@
-# @moonshot-ai/kimi-code
+# SpiderByte CLI
 
 > The Starting Point for Next-Gen Agents
 
 [![npm](https://img.shields.io/npm/v/@moonshot-ai/kimi-code)](https://www.npmjs.com/package/@moonshot-ai/kimi-code) [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)  [![Docs](https://img.shields.io/badge/docs-online-blue)](https://moonshotai.github.io/kimi-code/en/)
 
-## What is Kimi Code CLI
+## What is SpiderByte CLI
 
-Kimi Code CLI is an AI coding agent that runs in your terminal. It can read and edit code, run shell commands, search files, fetch web pages, and choose the next step based on the feedback it receives. It works out of the box with Moonshot AI's Kimi models and can also be configured to use other compatible providers.
+SpiderByte is a governed, CLI/TUI-first workspace for coding, data, ML, and agent execution. It can read and edit code, run shell commands, search files, register datasets, train baseline models, and preserve durable Runs, artifacts, and lineage. Kimi remains an available provider and compatibility implementation underneath.
 
 ## Install
 
@@ -29,12 +29,14 @@ irm https://code.kimi.com/kimi-code/install.ps1 | iex
 Then run it with a new Terminal session:
 
 ```sh
-kimi --version
+spyderbyte --version
 ```
+
+`kimi` remains available as a compatibility alias during the Business release migration.
 
 ### Alternative: npm
 
-If you prefer npm, use Node.js 22.19.0 or later:
+If you prefer npm, use Node.js 24.15.0 or later:
 
 ```sh
 npm install -g @moonshot-ai/kimi-code
@@ -54,10 +56,10 @@ Open a project and start the interactive UI:
 
 ```sh
 cd your-project
-kimi
+spyderbyte
 ```
 
-On first launch, run `/login` inside Kimi Code CLI and choose either Kimi Code OAuth or a Kimi Platform API key. After login, try a first task:
+For a provider connection, use `spyderbyte configure` or `/provider` in the TUI. Local accountless mode and BYOK connections are supported; shared Business workspaces require SpiderByte account access. After configuration, try a first task:
 
 ```
 Take a look at this project and explain the main directories.
@@ -69,6 +71,8 @@ Take a look at this project and explain the main directories.
 - **Blazing-fast startup.** The TUI is ready in milliseconds, so opening a session never feels heavy.
 - **Polished TUI.** A carefully tuned interface designed for long, focused agent sessions.
 - **Video input.** Drop a screen recording or demo clip into the chat — let the agent watch instead of typing out what's hard to describe in words.
+- **Native governed data/ML.** Ask SpiderByte to analyze a CSV, train a baseline model, evaluate it, and show the resulting artifacts and lineage.
+- **Durable operations.** Inspect Runs, datasets, experiments, models, artifacts, policies, approvals, execution targets, and usage from the TUI.
 - **AI-native MCP configuration.** Add, edit, and authenticate Model Context Protocol servers conversationally via `/mcp-config` — no hand-editing JSON.
 - **Subagents for focused, parallel work.** Dispatch built-in `coder`, `explore`, and `plan` subagents in isolated context windows; the main conversation stays clean.
 - **Lifecycle hooks.** Run local commands at key points — gate risky tool calls, audit decisions, fire desktop notifications, wire into your own automation.
