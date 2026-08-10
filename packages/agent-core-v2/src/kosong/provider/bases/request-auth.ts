@@ -14,8 +14,15 @@ export function requireProviderApiKey(
   providerName: string,
   auth: ProviderRequestAuth | undefined,
   defaultApiKey?: string,
+  allowUnauthenticated = false,
 ): string {
   const apiKey = auth?.apiKey ?? defaultApiKey;
+  if (allowUnauthenticated && (apiKey === undefined || apiKey.length === 0)) {
+    // The OpenAI SDK requires a non-empty constructor value even when a
+    // local-compatible server ignores Authorization. This sentinel is not a
+    // credential and is never persisted or exposed by the platform layer.
+    return 'kimi-local-no-auth';
+  }
   if (apiKey === undefined || apiKey.length === 0) {
     throw new ChatProviderError(
       `${providerName}: apiKey is required. Provide it via the constructor options, the provider's API-key environment variable, options.auth.apiKey on each request, or an OAuth login.`,

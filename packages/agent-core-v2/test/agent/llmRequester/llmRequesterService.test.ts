@@ -26,6 +26,7 @@ import {
 import { AgentContextProjectorService } from '#/agent/contextProjector/contextProjectorService';
 import { AgentLLMRequesterService } from '#/agent/llmRequester/llmRequesterService';
 import { IAgentLLMRequesterService } from '#/agent/llmRequester/llmRequester';
+import { IPlatformModelBindingService, type PlatformModelBinding } from '#/agent/platformModelBinding/platformModelBinding';
 import { IAgentTokenCountingService } from '#/agent/tokenCounting/tokenCounting';
 import { IAgentProfileService } from '#/agent/profile/profile';
 import { IAgentStateService } from '#/agent/state/agentState';
@@ -141,6 +142,7 @@ function createService(
     | undefined,
   options: {
     readonly thinkingLevel?: ThinkingEffort;
+    readonly platformBinding?: Pick<IPlatformModelBindingService, 'current' | 'selectionError'>;
   } = {},
 ) {
   const ix = disposables.add(new TestInstantiationService());
@@ -157,6 +159,8 @@ function createService(
     }),
     resolveRequestParams: () => ({}),
     getSystemPrompt: () => 'system',
+    getEffectiveThinkingLevel: () => thinkingLevel,
+    hasProvider: () => true,
     data: () => ({
       cwd: '',
       modelAlias: 'm',
@@ -226,6 +230,9 @@ function createService(
   ix.stub(IModelService, {
     get: () => undefined,
   });
+  if (options.platformBinding !== undefined) {
+    ix.stub(IPlatformModelBindingService, options.platformBinding);
+  }
   const records: WireRecord[] = [];
   registerTestAgentWire(ix, 'wire/llm-requester', {
     log: recordingWireLog(records),
@@ -270,6 +277,47 @@ describe('AgentLLMRequesterService measured anchors', () => {
 
     expect(measuredCalls).toHaveLength(1);
     expect(measuredCalls[0]?.usage.inputOther).toBe(40);
+  });
+});
+
+describe('AgentLLMRequesterService platform model binding', () => {
+  it('routes ordinary chat through the selected platform model even when a legacy profile provider exists', async () => {
+    const legacyCalls = { value: 0 };
+    const platformCalls = { value: 0 };
+    const legacyRequester = createRequester(legacyCalls, null);
+    const platformBaseRequester = createRequester(platformCalls, null);
+    const platformModel: Model = {
+      ...platformBaseRequester.model,
+      id: 'platform-model',
+      name: 'platform-model',
+      providerName: 'platform-provider',
+    };
+    const platformRequester: ModelRequester = {
+      ...platformBaseRequester,
+      model: platformModel,
+    };
+    const binding: PlatformModelBinding = {
+      connection_id: 'connection_platform',
+      provider: 'platform-provider',
+      model: 'platform-model',
+      model_ref: { provider_connection_id: 'connection_platform', model: 'platform-model' },
+      model_alias: 'platform:connection_platform/platform-model',
+      model_definition: platformModel,
+      requester: platformRequester,
+      fallback_connection_ids: [],
+    };
+    const { service } = createService(legacyRequester, undefined, {
+      platformBinding: {
+        current: () => binding,
+        selectionError: () => undefined,
+      },
+    });
+
+    const result = await service.request();
+
+    expect(result.message.content).toEqual([{ type: 'text', text: 'ok' }]);
+    expect(platformCalls.value).toBe(1);
+    expect(legacyCalls.value).toBe(0);
   });
 });
 

@@ -59,6 +59,10 @@ export const ErrorCode = {
   SKILL_NOT_FOUND: 40415,
   /** tool_call_id 不存在，或该调用没有对应的 plan（非 ExitPlanMode） */
   TOOL_CALL_NOT_FOUND: 40416,
+  /** platform backend is disabled by the experimental feature flag */
+  PLATFORM_DISABLED: 40301,
+  /** a platform entity is not present in the addressed workspace */
+  PLATFORM_RESOURCE_NOT_FOUND: 40418,
 
   /** session 有正在进行的 prompt，拒绝新请求 */
   SESSION_BUSY: 40901,
@@ -101,6 +105,18 @@ export const ErrorCode = {
   FS_ALREADY_EXISTS: 40919,
   /** goal 只允许主 agent 使用 */
   GOAL_UNSUPPORTED_AGENT: 40920,
+  /** platform mutation conflicts with the current durable state */
+  PLATFORM_CONFLICT: 40923,
+  /** platform mutation is invalid for the current durable state */
+  PLATFORM_STATE_INVALID: 40924,
+
+  /** platform policy denied the requested capability */
+  PLATFORM_POLICY_DENIED: 40302,
+  /** platform policy requires an approval before execution */
+  PLATFORM_APPROVAL_REQUIRED: 40303,
+
+  /** platform secret or credential reference is invalid or unsafe */
+  PLATFORM_SECRET_INVALID: 42201,
 
   /** approval 60s 超时 */
   APPROVAL_EXPIRED: 41001,
@@ -175,6 +191,8 @@ export const ErrorCodeReason: Readonly<Record<ErrorCode, string>> = {
   [ErrorCode.TERMINAL_NOT_FOUND]: 'terminal.not_found',
   [ErrorCode.SKILL_NOT_FOUND]: 'skill.not_found',
   [ErrorCode.TOOL_CALL_NOT_FOUND]: 'tool_call.not_found',
+  [ErrorCode.PLATFORM_DISABLED]: 'platform.disabled',
+  [ErrorCode.PLATFORM_RESOURCE_NOT_FOUND]: 'platform.resource_not_found',
 
   [ErrorCode.SESSION_BUSY]: 'session.busy',
   [ErrorCode.APPROVAL_ALREADY_RESOLVED]: 'approval.already_resolved',
@@ -197,6 +215,11 @@ export const ErrorCodeReason: Readonly<Record<ErrorCode, string>> = {
   [ErrorCode.GOAL_OBJECTIVE_TOO_LONG]: 'goal.objective_too_long',
   [ErrorCode.FS_ALREADY_EXISTS]: 'fs.already_exists',
   [ErrorCode.GOAL_UNSUPPORTED_AGENT]: 'goal.unsupported_agent',
+  [ErrorCode.PLATFORM_CONFLICT]: 'platform.conflict',
+  [ErrorCode.PLATFORM_STATE_INVALID]: 'platform.state_invalid',
+  [ErrorCode.PLATFORM_POLICY_DENIED]: 'platform.policy_denied',
+  [ErrorCode.PLATFORM_APPROVAL_REQUIRED]: 'platform.approval_required',
+  [ErrorCode.PLATFORM_SECRET_INVALID]: 'platform.secret_invalid',
 
   [ErrorCode.APPROVAL_EXPIRED]: 'approval.expired',
   [ErrorCode.QUESTION_EXPIRED]: 'question.expired',

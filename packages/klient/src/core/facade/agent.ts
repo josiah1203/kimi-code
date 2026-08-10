@@ -17,6 +17,7 @@ import type { IAgentTaskService } from '@moonshot-ai/agent-core-v2/agent/task/ta
 import type { IAgentUsageService } from '@moonshot-ai/agent-core-v2/agent/usage/usage';
 import type { ContentPart } from '@moonshot-ai/agent-core-v2/kosong/contract/message';
 import type { PermissionMode } from '@moonshot-ai/agent-core-v2/agent/permissionPolicy/types';
+import type { PlatformModelSelection } from '@moonshot-ai/protocol';
 
 import type { ScopeRef } from '../channel.js';
 import type { ScopedCaller } from './session.js';
@@ -59,6 +60,9 @@ export interface AgentFacade {
   cancelShellCommand(input: { commandId: string }): Promise<void>;
   getModel(): Promise<string>;
   setModel(model: string): Promise<SetModelResult>;
+  getPlatformModelSelection(): Promise<PlatformModelSelection | undefined>;
+  selectPlatformModel(input: PlatformModelSelection): Promise<PlatformModelSelection>;
+  clearPlatformModelSelection(): Promise<void>;
   getThinking(): Promise<ThinkingLevel>;
   setThinking(level: string): Promise<void>;
   setPermission(mode: PermissionMode): Promise<void>;
@@ -105,6 +109,12 @@ export function createAgentFacade(call: ScopedCaller, scope: ScopeRef): AgentFac
     getModel: () => call(scope, 'agentProfileService', 'getModel', []) as Promise<string>,
     setModel: (model) =>
       call(scope, 'agentProfileService', 'setModel', [model]) as Promise<SetModelResult>,
+    getPlatformModelSelection: () =>
+      call(scope, 'agentPlatformModelBindingService', 'getSelection', []) as Promise<PlatformModelSelection | undefined>,
+    selectPlatformModel: (input) =>
+      call(scope, 'agentPlatformModelBindingService', 'selectProjection', [input]) as Promise<PlatformModelSelection>,
+    clearPlatformModelSelection: () =>
+      call(scope, 'agentPlatformModelBindingService', 'clear', []) as Promise<void>,
     getThinking: () =>
       call(scope, 'agentProfileService', 'getEffectiveThinkingLevel', []) as Promise<ThinkingLevel>,
     setThinking: (level) =>

@@ -32,6 +32,7 @@
 import { createHash } from 'node:crypto';
 import { LifecycleScope } from '#/app/scopes';
 import { ScopeActivation, registerScopedService } from '#/_base/di/scope';
+import { ref, type LiveRef } from '#/_base/di/instantiation';
 import { defineState } from '#/_base/state/stateRegistry';
 import { IAgentContextMemoryService } from '#/agent/contextMemory/contextMemory';
 import {
@@ -70,6 +71,10 @@ import {
 } from '#/kosong/model/modelRequester';
 import type { ModelOverrides } from '#/kosong/model/model.types';
 import { IModelService } from '#/kosong/model/model';
+import {
+  IPlatformModelBindingService,
+  type PlatformModelBinding,
+} from '#/agent/platformModelBinding/platformModelBinding';
 import { completionBudgetParams, resolveCompletionBudget } from '#/kosong/model/completionBudget';
 import { resolveThinkingKeep, type ThinkingConfig } from '#/kosong/model/thinking';
 import { THINKING_SECTION } from '#/app/kosongConfig/configSection';
@@ -182,6 +187,8 @@ export class AgentLLMRequesterService implements IAgentLLMRequesterService {
     @IWireService private readonly wire: IWireService,
     @IEventBus private readonly eventBus: IEventBus,
     @IAgentStateService private readonly states: IAgentStateService,
+    @ref(IPlatformModelBindingService)
+    private readonly platformBinding: LiveRef<IPlatformModelBindingService>,
   ) {
     this.states.register(llmRequesterLastConfigLogSignatureKey);
     this.states.register(llmRequesterTurnConfigsKey);
@@ -215,9 +222,18 @@ export class AgentLLMRequesterService implements IAgentLLMRequesterService {
   }
 
   prepareTurnConfig(turnId: number): PreparedTurnRequestConfig | undefined {
-    if (!this.profile.hasProvider()) return undefined;
+    const bindingService = this.platformBinding.current;
+    const selectionError = bindingService?.selectionError();
+    if (selectionError !== undefined) throw selectionError;
+    const binding = bindingService?.current();
+    if (!this.profile.hasProvider() && binding === undefined) return undefined;
     const config = this.getOrCreateTurnConfig(turnId);
-    return { thinkingEffort: config.resolved.thinkingLevel };
+    return {
+      thinkingEffort:
+        binding === undefined
+          ? config.resolved.thinkingLevel
+          : thinkingEffortFor(binding.model_definition, config.resolved.thinkingLevel),
+    };
   }
 
   async request(
@@ -273,7 +289,9 @@ export class AgentLLMRequesterService implements IAgentLLMRequesterService {
     if (isAbortError(error) || signal?.aborted === true) return;
     const payload: LogContext = {
       ...logFieldsForSource(overrides.source),
-      model: this.profile.data().modelAlias ?? 'unknown',
+      model: this.platformBinding.current?.current()?.model_alias
+        ?? this.profile.data().modelAlias
+        ?? 'unknown',
       ...retryErrorFields(error),
     };
     this.log.warn('llm request failed', payload);
@@ -287,7 +305,8 @@ export class AgentLLMRequesterService implements IAgentLLMRequesterService {
     requestTraceId?: string,
   ): string | undefined {
     if (isAbortError(error) || signal?.aborted === true) return requestTraceId;
-    const modelAlias = this.profile.data().modelAlias;
+    const modelAlias = this.platformBinding.current?.current()?.model_alias
+      ?? this.profile.data().modelAlias;
     const model = this.tryGetModel();
     const traceId = requestTraceId ?? apiTraceId(error);
     const classification = classifyApiError(unwrapErrorCause(error));
@@ -315,6 +334,8 @@ export class AgentLLMRequesterService implements IAgentLLMRequesterService {
   }
 
   private tryGetModel(): Model | undefined {
+    const platformModel = this.platformBinding.current?.current()?.model_definition;
+    if (platformModel !== undefined) return platformModel;
     const modelAlias = this.profile.data().modelAlias;
     if (modelAlias === undefined) return undefined;
     try {
@@ -578,31 +599,51 @@ export class AgentLLMRequesterService implements IAgentLLMRequesterService {
   }
 
   private resolveRequest(overrides: AgentLLMRequestOverrides): ResolvedLLMRequest {
+    const bindingService = this.platformBinding.current;
+    const selectionError = bindingService?.selectionError();
+    if (selectionError !== undefined) throw selectionError;
+    const platformBinding = bindingService?.current();
     const turnConfig = this.resolveTurnConfig(overrides.source);
-    const resolved = turnConfig?.resolved ?? this.profile.resolveModelContext();
+    const resolved = turnConfig?.resolved ?? this.resolveModelContext(platformBinding);
     const baseParams = turnConfig?.params ?? this.profile.resolveRequestParams();
+    const model = platformBinding?.model_definition ?? this.modelCatalog.get(resolved.modelAlias);
+    const modelContext =
+      platformBinding === undefined
+        ? resolved
+        : {
+            ...resolved,
+            modelAlias: platformBinding.model_alias,
+            modelCapabilities: model.capabilities,
+            maxOutputSize: model.maxOutputSize,
+            alwaysThinking: model.alwaysThinking,
+          };
     const budgetParams = completionBudgetParams({
       budget: resolveCompletionBudget({
-        maxOutputSize: overrides.maxOutputSize ?? resolved.maxOutputSize,
-        reservedContextSize: resolved.reservedContextSize,
+        maxOutputSize: overrides.maxOutputSize ?? modelContext.maxOutputSize,
+        reservedContextSize: modelContext.reservedContextSize,
         maxCompletionTokensCap:
           this.config.get<ModelOverrides>('modelOverrides')?.maxCompletionTokens,
       }),
-      capability: resolved.modelCapabilities,
+      capability: modelContext.modelCapabilities,
       usedContextTokens:
         overrides.messages === undefined
           ? this.tokenCounting.get().measured
           : undefined,
     });
-    const requester = this.modelCatalog.getRequester(resolved.modelAlias);
+    const requester = platformBinding?.requester ?? this.modelCatalog.getRequester(resolved.modelAlias);
+    const modelAlias = platformBinding?.model_alias ?? resolved.modelAlias;
+    const thinkingEffort =
+      platformBinding === undefined
+        ? resolved.thinkingLevel
+        : thinkingEffortFor(model, resolved.thinkingLevel);
 
     const messages = overrides.messages ?? this.context.get();
     return {
       requester,
-      model: requester.model,
-      params: { ...baseParams, ...budgetParams },
-      modelAlias: resolved.modelAlias,
-      thinkingEffort: resolved.thinkingLevel,
+      model,
+      params: { ...baseParams, thinkingEffort, ...budgetParams },
+      modelAlias,
+      thinkingEffort,
       systemPrompt: overrides.systemPrompt ?? turnConfig?.systemPrompt ?? this.profile.getSystemPrompt(),
       tools: [...(overrides.tools ?? this.defaultTools())],
       messages: [...messages],
@@ -622,14 +663,33 @@ export class AgentLLMRequesterService implements IAgentLLMRequesterService {
     }
     let snapshot = this.turnConfigs.get(turnId);
     if (snapshot === undefined) {
+      const binding = this.platformBinding.current?.current();
       snapshot = {
-        resolved: this.profile.resolveModelContext(),
+        resolved: this.resolveModelContext(binding),
         params: this.profile.resolveRequestParams(),
         systemPrompt: this.profile.getSystemPrompt(),
       };
       this.turnConfigs.set(turnId, snapshot);
     }
     return snapshot;
+  }
+
+  private resolveModelContext(binding: PlatformModelBinding | undefined): ProfileModelContext {
+    if (binding === undefined) {
+      return this.profile.resolveModelContext();
+    }
+    return {
+      modelAlias: binding.model_alias,
+      modelCapabilities: binding.model_definition.capabilities,
+      maxOutputSize: binding.model_definition.maxOutputSize,
+      alwaysThinking: binding.model_definition.alwaysThinking,
+      thinkingLevel: thinkingEffortFor(
+        binding.model_definition,
+        this.profile.getEffectiveThinkingLevel(),
+      ),
+      reservedContextSize: undefined,
+      compactionTriggerRatio: undefined,
+    };
   }
 
   private logRequest(input: LLMRequestLogInput): void {
@@ -735,6 +795,18 @@ export class AgentLLMRequesterService implements IAgentLLMRequesterService {
         deferred: tool.deferred,
       }));
   }
+}
+
+function thinkingEffortFor(model: Model, configured: ThinkingEffort): ThinkingEffort {
+  if (
+    configured === 'off' ||
+    model.supportEfforts === undefined ||
+    model.supportEfforts.length === 0 ||
+    model.supportEfforts.includes(configured)
+  ) {
+    return configured;
+  }
+  return (model.defaultEffort ?? 'off') as ThinkingEffort;
 }
 
 class MutableLLMRequestTrace implements LLMRequestTrace {

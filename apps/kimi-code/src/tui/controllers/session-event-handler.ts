@@ -30,6 +30,7 @@ import type {
   TurnStepStartedEvent,
   TokenUsage,
   WarningEvent,
+  PlatformLifecycleEvent,
 } from '@moonshot-ai/kimi-code-sdk';
 
 import { MoonLoader } from '../components/chrome/moon-loader';
@@ -94,6 +95,7 @@ export interface SessionEventHost {
   session: Session | undefined;
   aborted: boolean;
   sessionEventUnsubscribe: (() => void) | undefined;
+  platformEventUnsubscribe?: (() => void) | undefined;
   readonly streamingUI: StreamingUIController;
 
   requireSession(): Session;
@@ -216,7 +218,76 @@ export class SessionEventHandler {
       }
       this.handleEvent(event, sendQueued);
     });
+    host.platformEventUnsubscribe?.();
+    host.platformEventUnsubscribe = undefined;
+    void session
+      .subscribePlatformEvents(
+        (event) => {
+          void this.handlePlatformRunEvent(event, session);
+        },
+        {
+          entityTypes: ['run'],
+          onError: (error) => {
+            if (host.session === session && !host.aborted) {
+              host.showStatus(`Platform Run updates unavailable: ${error.message}`, 'warning');
+            }
+          },
+        },
+      )
+      .then((unsubscribe) => {
+        if (host.session !== session || host.aborted) {
+          unsubscribe?.();
+          return;
+        }
+        host.platformEventUnsubscribe = unsubscribe;
+      })
+      .catch((error: unknown) => {
+        if (host.session !== session || host.aborted) return;
+        host.showStatus(
+          `Platform Run replay unavailable: ${error instanceof Error ? error.message : String(error)}`,
+          'warning',
+        );
+      });
     void this.syncMcpServerStatusSnapshot(session);
+  }
+
+  private async handlePlatformRunEvent(
+    event: PlatformLifecycleEvent,
+    session: Session,
+  ): Promise<void> {
+    const { host } = this;
+    if (host.session !== session || host.aborted) return;
+    const run = await session.platformRuns?.get(event.entity_id);
+    // Ordinary Kimi prompt Runs remain invisible in the platform projection;
+    // only Runs carrying platform metadata belong in this status stream.
+    if (run?.metadata === undefined || Object.keys(run.metadata).length === 0) return;
+
+    const eventType = event.event_type;
+    if (
+      eventType !== 'run.created'
+      && eventType !== 'run.completed'
+      && eventType !== 'run.failed'
+      && eventType !== 'run.cancelled'
+    ) {
+      if (event.state !== 'awaiting_approval') return;
+    }
+    const state = event.state ?? eventType.slice('run.'.length);
+    const artifactValue = event.payload?.['output_artifacts'];
+    const artifactCount = Array.isArray(artifactValue) ? artifactValue.length : 0;
+    const artifacts = artifactCount === 0
+      ? ''
+      : ` · ${artifactCount} artifact${artifactCount === 1 ? '' : 's'}`;
+    const color = eventType === 'run.failed'
+      ? 'error'
+      : eventType === 'run.cancelled' || state === 'awaiting_approval'
+        ? 'warning'
+        : eventType === 'run.completed'
+          ? 'success'
+          : undefined;
+    const label = state === 'awaiting_approval'
+      ? 'awaiting approval'
+      : state;
+    host.showStatus(`Platform Run ${event.entity_id} ${label}${artifacts}`, color);
   }
 
   async syncMcpServerStatusSnapshot(session: Session): Promise<void> {

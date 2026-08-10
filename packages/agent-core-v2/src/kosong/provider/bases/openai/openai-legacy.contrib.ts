@@ -40,6 +40,7 @@ registerProtocolBase({
           config.apiKey ??
           firstProcessEnv(endpoint?.apiKeyEnv) ??
           (endpoint === undefined ? undefined : ''),
+        allowUnauthenticated: config.providerOptions?.allowUnauthenticated,
         baseUrl:
           config.baseUrl ?? firstProcessEnv(endpoint?.baseUrlEnv) ?? endpoint?.defaultBaseUrl,
         defaultHeaders: traitDefaultHeaders(traits),

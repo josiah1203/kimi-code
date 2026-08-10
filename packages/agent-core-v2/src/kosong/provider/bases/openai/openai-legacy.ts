@@ -118,6 +118,7 @@ export interface OpenAIChatCompletionsHooks {
 
 export interface OpenAILegacyOptions {
   apiKey?: string | undefined;
+  allowUnauthenticated?: boolean;
   baseUrl?: string | undefined;
   model: string;
   stream?: boolean | undefined;
@@ -504,6 +505,7 @@ export class OpenAILegacyChatProvider implements ChatProvider {
   private readonly _model: string;
   private readonly _stream: boolean;
   private readonly _apiKey: string | undefined;
+  private readonly _allowUnauthenticated: boolean;
   private readonly _baseUrl: string | undefined;
   private readonly _defaultHeaders: Record<string, string> | undefined;
   private readonly _reasoningKeyDialect: ReasoningKeyDialect;
@@ -524,6 +526,7 @@ export class OpenAILegacyChatProvider implements ChatProvider {
   constructor(options: OpenAILegacyOptions) {
     const apiKey = options.apiKey ?? process.env['OPENAI_API_KEY'];
     this._apiKey = apiKey === undefined || apiKey.length === 0 ? undefined : apiKey;
+    this._allowUnauthenticated = options.allowUnauthenticated === true;
     this._baseUrl = options.baseUrl ?? 'https://api.openai.com/v1';
     this._defaultHeaders = options.defaultHeaders;
     this._model = options.model;
@@ -545,7 +548,11 @@ export class OpenAILegacyChatProvider implements ChatProvider {
     this._httpClient = options.httpClient;
     this._clientFactory = options.clientFactory;
 
-    this._client = this._apiKey === undefined ? undefined : this._buildClient(this._apiKey);
+    this._client = this._apiKey === undefined
+      ? this._allowUnauthenticated
+        ? this._buildClient('kimi-local-no-auth')
+        : undefined
+      : this._buildClient(this._apiKey);
 
     const uploadVideo = this._hooks?.uploadVideo;
     if (uploadVideo !== undefined) {
@@ -743,7 +750,15 @@ export class OpenAILegacyChatProvider implements ChatProvider {
       { cachedClient: this._client, clientFactory: this._clientFactory },
       auth,
       (a) =>
-        this._buildClient(requireProviderApiKey('OpenAILegacyChatProvider', a, this._apiKey), a),
+        this._buildClient(
+          requireProviderApiKey(
+            'OpenAILegacyChatProvider',
+            a,
+            this._apiKey,
+            this._allowUnauthenticated,
+          ),
+          a,
+        ),
     );
   }
 

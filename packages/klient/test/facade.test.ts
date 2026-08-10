@@ -469,6 +469,56 @@ describe('event hub', () => {
     expect(channel.subscriptions[0]?.dispose).toHaveBeenCalledTimes(1);
   });
 
+  it('subscribes to filtered platform lifecycle events through the workspace facade', async () => {
+    const channel = new FakeChannel();
+    const klient = createKlientFromChannel(channel);
+    const seen: unknown[] = [];
+    const errors: Error[] = [];
+    const workspaceId = 'wd_conformance_000000000000';
+    const subscription = klient.global.platform.platformEvents.subscribe(
+      workspaceId,
+      (event) => seen.push(event),
+      { entityTypes: ['run'], onError: (error) => errors.push(error) },
+    );
+
+    expect(channel.subscriptions).toHaveLength(1);
+    expect(channel.subscriptions[0]?.scope).toEqual({ workspaceId });
+    expect(channel.subscriptions[0]?.source).toEqual({
+      kind: 'emitter',
+      service: 'platformEvents',
+      event: 'onDidChange',
+    });
+
+    const runEvent = {
+      event_id: 'event_1',
+      event_type: 'run.state_changed',
+      entity_type: 'run',
+      entity_id: 'run_1',
+      workspace_id: workspaceId,
+      sequence: 1,
+      occurred_at: '2026-08-09T00:00:00.000Z',
+      actor: 'agent',
+      state: 'running',
+    };
+    channel.emit(0, runEvent);
+    channel.emit(0, {
+      ...runEvent,
+      event_id: 'event_2',
+      sequence: 2,
+      event_type: 'artifact.created',
+      entity_type: 'artifact',
+      entity_id: 'artifact_1',
+    });
+    channel.emit(0, { invalid: true });
+    await tick();
+
+    expect(seen).toEqual([runEvent]);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toBeInstanceOf(Error);
+    subscription.dispose();
+    expect(channel.subscriptions[0]?.dispose).toHaveBeenCalledTimes(1);
+  });
+
   it('forwards the newly registered agent stream events and validates payloads', async () => {
     const channel = new FakeChannel();
     const klient = createKlientFromChannel(channel);

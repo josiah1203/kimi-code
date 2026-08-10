@@ -9,6 +9,7 @@ import type {
 import type { Kaos } from '@moonshot-ai/kaos';
 import type { KimiHostIdentity, OAuthRefreshOutcome } from '@moonshot-ai/kimi-code-oauth';
 import type { ContentPart } from '@moonshot-ai/kosong';
+import type { KimiPlatformClient } from '#/platform';
 
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | { readonly [key: string]: JsonValue };
@@ -112,6 +113,8 @@ export interface KimiHarnessOptions {
   readonly telemetry?: TelemetryClient | undefined;
   readonly onOAuthRefresh?: ((outcome: OAuthRefreshOutcome) => void) | undefined;
   readonly sessionStartedProperties?: TelemetryProperties;
+  /** Optional canonical platform facade for compatibility hosts using v1 RPC. */
+  readonly platform?: KimiPlatformClient;
 }
 
 export interface CreateSessionOptions {

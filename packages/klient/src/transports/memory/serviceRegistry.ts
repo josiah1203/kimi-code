@@ -40,6 +40,21 @@ import { IAgentTaskService } from '@moonshot-ai/agent-core-v2/agent/task/task';
 import { IAgentUsageService } from '@moonshot-ai/agent-core-v2/agent/usage/usage';
 import { IAgentMcpService } from '@moonshot-ai/agent-core-v2/agent/mcp/mcp';
 import { IAgentFullCompactionService } from '@moonshot-ai/agent-core-v2/agent/fullCompaction/fullCompaction';
+import { IPlatformModelBindingService } from '@moonshot-ai/agent-core-v2/agent/platformModelBinding/platformModelBinding';
+import { IWorkspaceProviderConnectionService } from '@moonshot-ai/agent-core-v2/workspace/providerConnections/providerConnection';
+import { IWorkspaceProviderRuntimeService } from '@moonshot-ai/agent-core-v2/workspace/providerConnections/providerRuntime';
+import { IWorkspacePolicyService } from '@moonshot-ai/agent-core-v2/workspace/policy/policy';
+import { IWorkspaceResourceService } from '@moonshot-ai/agent-core-v2/workspace/resources/resource';
+import { IWorkspaceArtifactService } from '@moonshot-ai/agent-core-v2/workspace/artifacts/artifact';
+import { IWorkspaceExecutionTargetService } from '@moonshot-ai/agent-core-v2/workspace/executionTargets/executionTarget';
+import { IWorkspaceExecutionService } from '@moonshot-ai/agent-core-v2/workspace/execution/execution';
+import { IWorkspaceAutomationService } from '@moonshot-ai/agent-core-v2/workspace/automations/automation';
+import { IWorkspaceCommercialService } from '@moonshot-ai/agent-core-v2/workspace/commercial/commercial';
+import { IWorkspacePlatformEventService } from '@moonshot-ai/agent-core-v2/workspace/platformEvents/platformEvents';
+import { IWorkspaceDatasetService } from '@moonshot-ai/agent-core-v2/workspace/datasets/dataset';
+import { IWorkspaceMlService } from '@moonshot-ai/agent-core-v2/workspace/ml/ml';
+import { IWorkspacePipelineService } from '@moonshot-ai/agent-core-v2/workspace/pipelines/pipeline';
+import { IWorkspaceServingService } from '@moonshot-ai/agent-core-v2/workspace/serving/serving';
 
 /** Wire service name (decorator id string) → token. */
 export const serviceTokens: Readonly<Record<string, ServiceIdentifier<unknown>>> = {
@@ -55,6 +70,20 @@ export const serviceTokens: Readonly<Record<string, ServiceIdentifier<unknown>>>
   flagService: IFlagService,
   pluginService: IPluginService,
   capabilityService: ICapabilityService,
+  providerConnectionService: IWorkspaceProviderConnectionService,
+  providerRuntimeService: IWorkspaceProviderRuntimeService,
+  policyService: IWorkspacePolicyService,
+  resourceService: IWorkspaceResourceService,
+  artifactService: IWorkspaceArtifactService,
+  executionTargetService: IWorkspaceExecutionTargetService,
+  executionService: IWorkspaceExecutionService,
+  automationService: IWorkspaceAutomationService,
+  commercialService: IWorkspaceCommercialService,
+  platformEvents: IWorkspacePlatformEventService,
+  datasetService: IWorkspaceDatasetService,
+  mlService: IWorkspaceMlService,
+  pipelineService: IWorkspacePipelineService,
+  servingService: IWorkspaceServingService,
   hostFolderBrowser: IHostFolderBrowser,
   bootstrapService: IBootstrapService,
   workspaceLifecycleService: IWorkspaceLifecycleService,
@@ -74,6 +103,7 @@ export const serviceTokens: Readonly<Record<string, ServiceIdentifier<unknown>>>
   agentTaskService: IAgentTaskService,
   agentMcpService: IAgentMcpService,
   agentFullCompactionService: IAgentFullCompactionService,
+  agentPlatformModelBindingService: IPlatformModelBindingService,
 };
 
 export { IEventService };

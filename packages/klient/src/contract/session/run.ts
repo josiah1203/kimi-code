@@ -9,6 +9,8 @@ import { z } from 'zod';
 import { maybe } from '../helpers.js';
 import {
   runCreateInputSchema,
+  runActionInputSchema,
+  runForkInputSchema,
   runIdSchema,
   runSchema,
   runTransitionInputSchema,
@@ -21,6 +23,26 @@ export const sessionRunContract = {
   create: { input: z.tuple([runCreateInputSchema]), output: runSchema },
   transition: {
     input: z.tuple([runIdSchema, runTransitionInputSchema]),
+    output: maybe(runSchema),
+  },
+  resume: {
+    input: z.tuple([runIdSchema, runActionInputSchema]),
+    output: maybe(runSchema),
+  },
+  cancel: {
+    input: z.tuple([runIdSchema, runActionInputSchema]),
+    output: maybe(runSchema),
+  },
+  retry: {
+    input: z.tuple([runIdSchema, runActionInputSchema]),
+    output: maybe(runSchema),
+  },
+  rerun: {
+    input: z.tuple([runIdSchema, runActionInputSchema]),
+    output: maybe(runSchema),
+  },
+  fork: {
+    input: z.tuple([runIdSchema, runForkInputSchema]),
     output: maybe(runSchema),
   },
 } satisfies ServiceContract;

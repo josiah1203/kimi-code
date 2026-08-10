@@ -43,6 +43,7 @@ import { handleAddDirCommand } from './add-dir';
 import { parseSlashInput } from './parse';
 import { handlePluginsCommand } from './plugins';
 import { handleProviderCommand } from './provider';
+import { handleRunsCommand } from './runs';
 import {
   findBuiltInSlashCommand,
   resolveSlashCommandAvailability,
@@ -92,6 +93,7 @@ export {
 export { handleSwarmCommand } from './swarm';
 export { handleFeedbackCommand, showMcpServers, showStatusReport, showUsage } from './info';
 export { handlePluginsCommand } from './plugins';
+export { handleRunsCommand } from './runs';
 export { handleReloadCommand, handleReloadTuiCommand } from './reload';
 export { handleGoalCommand } from './goal';
 export {
@@ -447,7 +449,10 @@ async function handleBuiltInSlashCommand(
       await handleEffortCommand(host, args);
       return;
     case 'provider':
-      await handleProviderCommand(host);
+      await handleProviderCommand(host, args);
+      return;
+    case 'runs':
+      await handleRunsCommand(host, args);
       return;
     case 'permission':
       showPermissionPicker(host);

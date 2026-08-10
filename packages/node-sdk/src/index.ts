@@ -1,6 +1,8 @@
 export { KimiHarness } from '#/kimi-harness';
 export type { KimiHarnessRuntimeOptions } from '#/kimi-harness';
 export { Session } from '#/session';
+export type { SessionOptions, SessionPlatformEventOptions } from '#/session';
+export type { PlatformLifecycleEvent } from '@moonshot-ai/protocol';
 export { KimiAuthFacade } from '#/auth';
 export { createKimiHarness, SDKRpcClient, type SDKRpcClientOptions } from '#/sdk-rpc-client';
 export {

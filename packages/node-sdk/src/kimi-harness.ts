@@ -1,4 +1,5 @@
 import type { Kaos } from '@moonshot-ai/kaos';
+import type { SessionRunsFacade } from '@moonshot-ai/klient';
 import {
   ErrorCodes,
   KimiError,
@@ -10,6 +11,7 @@ import {
 import { capabilityRpc, Session } from '#/session';
 import type { KimiAuthFacade } from '#/auth';
 import type { SDKRpcClientBase } from '#/rpc';
+import type { KimiPlatformClient } from '#/platform';
 import type {
   AuthenticateMcpServerOptions,
   CapabilityStatus,
@@ -60,6 +62,10 @@ export interface KimiHarnessRuntimeOptions {
    * leave it undefined and ingestion falls back to env/built-in defaults.
    */
   readonly imageLimits?: ImageLimits | undefined;
+  /** Canonical workspace platform facade; present for v2 in-process hosts. */
+  readonly platform?: KimiPlatformClient;
+  /** Optional v2 session-scoped Run facade; undefined for v1/daemon hosts. */
+  readonly platformSessionRuns?: (sessionId: string) => SessionRunsFacade;
 }
 
 export class KimiHarness {
@@ -80,6 +86,8 @@ export class KimiHarness {
    * daemon-client hosts, where the env var / built-in defaults apply.
    */
   readonly imageLimits: ImageLimits | undefined;
+  readonly platform: KimiPlatformClient | undefined;
+  readonly platformSessionRuns: ((sessionId: string) => SessionRunsFacade) | undefined;
 
   constructor(
     private readonly rpc: SDKRpcClientBase,
@@ -95,6 +103,8 @@ export class KimiHarness {
     this.closeImpl = options.onClose;
     this.sessionStartedProperties = options.sessionStartedProperties ?? {};
     this.imageLimits = options.imageLimits;
+    this.platform = options.platform;
+    this.platformSessionRuns = options.platformSessionRuns;
   }
 
   get sessions(): ReadonlyMap<string, Session> {
@@ -128,6 +138,8 @@ export class KimiHarness {
       workDir: summary.workDir,
       summary,
       rpc: this.rpc,
+      platform: this.platform,
+      platformRuns: this.platformSessionRuns?.(summary.id),
       onClose: () => {
         this.activeSessions.delete(summary.id);
       },
@@ -163,6 +175,8 @@ export class KimiHarness {
       workDir: summary.workDir,
       summary,
       rpc: this.rpc,
+      platform: this.platform,
+      platformRuns: this.platformSessionRuns?.(summary.id),
       onClose: () => {
         this.activeSessions.delete(summary.id);
       },
@@ -193,6 +207,8 @@ export class KimiHarness {
       workDir: summary.workDir,
       summary,
       rpc: this.rpc,
+      platform: this.platform,
+      platformRuns: this.platformSessionRuns?.(summary.id),
       onClose: () => {
         this.activeSessions.delete(summary.id);
       },
@@ -216,6 +232,8 @@ export class KimiHarness {
       workDir: summary.workDir,
       summary,
       rpc: this.rpc,
+      platform: this.platform,
+      platformRuns: this.platformSessionRuns?.(summary.id),
       onClose: () => {
         this.activeSessions.delete(summary.id);
       },
@@ -228,6 +246,15 @@ export class KimiHarness {
 
   getSession(id: string): Session | undefined {
     return this.activeSessions.get(id);
+  }
+
+  /**
+   * Return the canonical v2 session Run facade when this harness is backed by
+   * an in-process v2 engine. Older daemon/v1 hosts return `undefined` and keep
+   * their existing Session API unchanged.
+   */
+  getPlatformSessionRuns(sessionId: string): SessionRunsFacade | undefined {
+    return this.platformSessionRuns?.(sessionId);
   }
 
   async closeSession(id: string): Promise<void> {

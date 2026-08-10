@@ -21,6 +21,7 @@ import {
   type SwarmModeTrigger,
 } from '@moonshot-ai/agent-core';
 import type { Kaos } from '@moonshot-ai/kaos';
+import type { PlatformModelSelection } from '@moonshot-ai/protocol';
 
 import type { ApprovalHandler, QuestionHandler } from '#/events';
 import type {
@@ -98,6 +99,10 @@ export interface SetSessionModelRpcInput extends SessionIdRpcInput {
 export interface SetSessionModelRpcResult {
   readonly model: string;
   readonly providerName?: string | undefined;
+}
+
+export interface SessionPlatformModelSelectionRpcInput extends SessionIdRpcInput {
+  readonly selection: PlatformModelSelection;
 }
 
 export interface SetSessionThinkingRpcInput extends SessionIdRpcInput {
@@ -471,6 +476,31 @@ export abstract class SDKRpcClientBase {
       agentId: this.interactiveAgentId,
       model: input.model,
     });
+  }
+
+  async getPlatformModelSelection(
+    _input: SessionIdRpcInput,
+  ): Promise<PlatformModelSelection | undefined> {
+    throw new KimiError(
+      ErrorCodes.NOT_IMPLEMENTED,
+      'Platform model selection requires the agent-core-v2 engine.',
+    );
+  }
+
+  async selectPlatformModel(
+    _input: SessionPlatformModelSelectionRpcInput,
+  ): Promise<PlatformModelSelection> {
+    throw new KimiError(
+      ErrorCodes.NOT_IMPLEMENTED,
+      'Platform model selection requires the agent-core-v2 engine.',
+    );
+  }
+
+  async clearPlatformModelSelection(_input: SessionIdRpcInput): Promise<void> {
+    throw new KimiError(
+      ErrorCodes.NOT_IMPLEMENTED,
+      'Platform model selection requires the agent-core-v2 engine.',
+    );
   }
 
   async setThinking(input: SetSessionThinkingRpcInput): Promise<void> {

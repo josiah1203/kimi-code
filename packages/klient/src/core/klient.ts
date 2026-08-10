@@ -12,7 +12,13 @@ import { sessionEvents, type SessionEventPayloads } from '#/contract/session/eve
 import { agentEvents, type AgentEventPayloads } from '#/contract/agent/events';
 import type { EventRegistration, StreamingProcedureContract } from '#/contract/types';
 import { EventHub, type KlientEvents } from './events/hub.js';
-import { createGlobalFacade, type GlobalFacade, type ScopedCaller, type ScopedStreamCaller } from './facade/global.js';
+import {
+  createGlobalFacade,
+  type GlobalFacade,
+  type ScopedCaller,
+  type ScopedListenCaller,
+  type ScopedStreamCaller,
+} from './facade/global.js';
 import { createSessionFacade, type SessionFacade } from './facade/session.js';
 import { createAgentFacade, type AgentFacade } from './facade/agent.js';
 import { parseChunk, parseInput, parseOutput } from './validation.js';
@@ -96,6 +102,9 @@ export function createKlientFromChannel(
     };
   };
 
+  const listen: ScopedListenCaller = (scope, source, handler, onError) =>
+    channel.listen(scope, source, handler, onError);
+
   const hubs = new Set<{ close(): void }>();
   const makeHub = <TPayloadMap extends object>(
     scope: ScopeRef,
@@ -107,7 +116,7 @@ export function createKlientFromChannel(
   };
 
   return {
-    global: createGlobalFacade(call, callStream),
+    global: createGlobalFacade(call, callStream, listen),
     events: makeHub<KlientEventPayloads>({}, globalEvents),
     session(sessionId: string): SessionHandle {
       const scope: ScopeRef = { sessionId };

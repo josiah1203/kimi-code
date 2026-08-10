@@ -128,6 +128,93 @@ export function promptApiKey(
   });
 }
 
+export interface PlatformProviderOption {
+  readonly value: 'kimi' | 'openai' | 'anthropic' | 'google' | 'openai-compatible' | 'local' | 'custom';
+  readonly label: string;
+  readonly description?: string;
+}
+
+/** Provider picker used by the experimental platform connection flow. */
+export function promptPlatformProviderSelection(
+  host: SlashCommandHost,
+  options: readonly PlatformProviderOption[],
+): Promise<PlatformProviderOption['value'] | undefined> {
+  return new Promise((resolve) => {
+    const picker = new ChoicePickerComponent({
+      title: 'Add platform provider connection',
+      options,
+      onSelect: (value) => {
+        host.restoreEditor();
+        resolve(options.find((option) => option.value === value)?.value);
+      },
+      onCancel: () => {
+        host.restoreEditor();
+        resolve(undefined);
+      },
+    });
+    host.mountEditorReplacement(picker);
+  });
+}
+
+/** Single-line masked/unmasked input for platform connection metadata. */
+export function promptPlatformConnectionValue(
+  host: SlashCommandHost,
+  title: string,
+  subtitleLines: readonly string[],
+  options: { readonly mask?: boolean; readonly emptyHint?: string } = {},
+): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    const dialog = new ApiKeyInputDialogComponent(
+      title,
+      subtitleLines,
+      (result: ApiKeyInputResult) => {
+        host.restoreEditor();
+        resolve(result.kind === 'ok' ? result.value : undefined);
+      },
+      options,
+    );
+    host.mountEditorReplacement(dialog);
+  });
+}
+
+/** Credential setup for platform connections, including unauthenticated local endpoints. */
+export function promptPlatformCredential(
+  host: SlashCommandHost,
+  platformName: string,
+  subtitleLines: readonly string[],
+): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    const picker = new ChoicePickerComponent({
+      title: `Credentials for ${platformName}`,
+      options: [
+        {
+          value: 'api-key',
+          label: 'API key',
+          description: 'Store an opaque credential reference in the platform vault',
+        },
+        {
+          value: 'none',
+          label: 'No credential',
+          description: 'Use an explicitly configured unauthenticated local endpoint',
+        },
+      ],
+      onSelect: (value) => {
+        host.restoreEditor();
+        if (value === 'none') {
+          resolve('');
+          return;
+        }
+        void promptApiKey(host, platformName, subtitleLines).then(resolve);
+      },
+      onCancel: () => {
+        host.restoreEditor();
+        resolve(undefined);
+      },
+    });
+    host.mountEditorReplacement(picker);
+  });
+}
+
 /**
  * Asks for the provider endpoint the catalog did not declare (or declared
  * only as an env placeholder) — required for catalog imports whose protocol

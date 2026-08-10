@@ -26,7 +26,13 @@ import type {
   SessionMetaPatch,
 } from '@moonshot-ai/agent-core-v2/session/sessionMetadata/sessionMetadata';
 import type { SkillSummary } from '@moonshot-ai/agent-core-v2/app/skillCatalog/types';
-import type { Run, RunCreateInput, RunTransitionInput } from '../../contract/platform.js';
+import type {
+  Run,
+  RunActionInput,
+  RunCreateInput,
+  RunForkInput,
+  RunTransitionInput,
+} from '../../contract/platform.js';
 
 import type { ScopeRef } from '../channel.js';
 import type { McpServerConfig } from '../../contract/mcp.js';
@@ -83,6 +89,11 @@ export interface SessionRunsFacade {
   get(id: string): Promise<Run | undefined>;
   create(input: RunCreateInput): Promise<Run>;
   transition(id: string, input: RunTransitionInput): Promise<Run | undefined>;
+  resume(id: string, input: RunActionInput): Promise<Run | undefined>;
+  cancel(id: string, input: RunActionInput): Promise<Run | undefined>;
+  retry(id: string, input: RunActionInput): Promise<Run | undefined>;
+  rerun(id: string, input: RunActionInput): Promise<Run | undefined>;
+  fork(id: string, input: RunForkInput): Promise<Run | undefined>;
 }
 
 /**
@@ -244,6 +255,16 @@ export function createSessionFacade(call: ScopedCaller, sessionId: string): Sess
         call(scope, 'sessionRunService', 'create', [input]) as Promise<Run>,
       transition: (id, input) =>
         call(scope, 'sessionRunService', 'transition', [id, input]) as Promise<Run | undefined>,
+      resume: (id, input) =>
+        call(scope, 'sessionRunService', 'resume', [id, input]) as Promise<Run | undefined>,
+      cancel: (id, input) =>
+        call(scope, 'sessionRunService', 'cancel', [id, input]) as Promise<Run | undefined>,
+      retry: (id, input) =>
+        call(scope, 'sessionRunService', 'retry', [id, input]) as Promise<Run | undefined>,
+      rerun: (id, input) =>
+        call(scope, 'sessionRunService', 'rerun', [id, input]) as Promise<Run | undefined>,
+      fork: (id, input) =>
+        call(scope, 'sessionRunService', 'fork', [id, input]) as Promise<Run | undefined>,
     },
 
     agents: async () => {

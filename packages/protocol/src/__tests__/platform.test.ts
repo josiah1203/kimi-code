@@ -4,10 +4,15 @@ import {
   agentSessionSchema,
   artifactSchema,
   executionTargetSchema,
+  executionTargetCreateInputSchema,
   platformCommandAcceptedSchema,
   platformLifecycleEventSchema,
   platformWorkspaceSchema,
+  policyDecisionAuditInputSchema,
+  policyEvaluateInputSchema,
   policyDecisionSchema,
+  policyRuleSchema,
+  providerConnectionCreateInputSchema,
   providerConnectionSchema,
   resourceSchema,
   runCreateInputSchema,
@@ -236,5 +241,62 @@ describe('platform contracts', () => {
     ).toMatchObject({ status: 'running' });
     expect(() => runCreateInputSchema.parse({ metadata: {} })).toThrow();
     expect(() => runTransitionInputSchema.parse({ status: 'cancelled' })).toThrow();
+  });
+
+  it('requires reference-only provider commands and typed policy inputs', () => {
+    expect(
+      providerConnectionCreateInputSchema.parse({
+        request_id: 'request_connection',
+        name: 'OpenAI',
+        provider: 'openai',
+        scope: 'workspace',
+        secret_ref: 'secret_openai',
+      }),
+    ).toMatchObject({ capabilities: [] });
+    expect(() =>
+      providerConnectionCreateInputSchema.parse({
+        request_id: 'request_connection',
+        name: 'OpenAI',
+        provider: 'openai',
+        scope: 'workspace',
+        secret_ref: 'sk-live-key',
+      }),
+    ).toThrow();
+
+    expect(
+      policyRuleSchema.parse({
+        capability: 'deploy',
+        effect: 'approval_required',
+        reason: 'Production changes require review.',
+      }).effect,
+    ).toBe('approval_required');
+    expect(
+      policyEvaluateInputSchema.parse({
+        request_id: 'request_policy',
+        capability: 'deploy',
+        action: 'production:deploy',
+        requested_by: 'agent',
+      }).requested_by,
+    ).toBe('agent');
+    expect(policyDecisionAuditInputSchema.parse({ request_id: 'request_audit' })).toMatchObject({
+      request_id: 'request_audit',
+    });
+
+    expect(
+      executionTargetCreateInputSchema.parse({
+        request_id: 'request_target',
+        name: 'customer worker',
+        type: 'customer-managed',
+        locality: 'customer-region',
+        credential_ref: 'secret_worker',
+      }),
+    ).toMatchObject({ credential_ref: 'secret_worker' });
+    expect(() => executionTargetCreateInputSchema.parse({
+      request_id: 'request_target',
+      name: 'customer worker',
+      type: 'customer-managed',
+      locality: 'customer-region',
+      credential_ref: 'credential_worker',
+    })).toThrow();
   });
 });

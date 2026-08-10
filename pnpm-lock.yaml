@@ -771,6 +771,9 @@ importers:
       '@moonshot-ai/minidb':
         specifier: workspace:*
         version: link:../minidb
+      '@moonshot-ai/protocol':
+        specifier: workspace:^
+        version: link:../protocol
       '@moonshot-ai/transcript':
         specifier: workspace:^
         version: link:../transcript

@@ -60,6 +60,7 @@ import { SessionEventBroadcaster } from './transport/ws/v1/sessionEventBroadcast
 import type { ConfigWarningItem } from './transport/ws/v1/events';
 import { FsWatchBridge } from './transport/ws/v1/fsWatchBridge';
 import { registerWsV1, WS_PATH as WS_PATH_V1 } from './transport/ws/v1/registerWsV1';
+import { registerPlatformWs, WS_PATH_V2_PLATFORM } from './transport/ws/v2/platformWs';
 import { getServerVersion } from './version';
 import { classify } from './security/bindClassify';
 import {
@@ -78,6 +79,7 @@ import {
 } from './services/telemetry';
 import { TranscriptService } from './services/transcript/transcriptService';
 import { ModelCatalogRefreshScheduler } from './services/modelCatalog/modelCatalogRefreshScheduler';
+import { PlatformAutomationScheduler } from './services/automationScheduler';
 import { createAuthFailureLimiter } from './middleware/rateLimit';
 import {
   createAuthTokenService,
@@ -299,6 +301,15 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
     core.accessor.get(IConfigService),
     logger,
   );
+  const platformAutomationScheduler = new PlatformAutomationScheduler(core, (error, workspaceId) => {
+    logger.warn(
+      {
+        workspaceId,
+        err: error instanceof Error ? error.message : String(error),
+      },
+      'workspace automation tick failed',
+    );
+  });
 
   // Sync the workspace catalog from the legacy session index once at startup,
   // so sessions created by the v1 TUI surface as workspaces on the very first
@@ -372,6 +383,7 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
   }
 
   const close = async (): Promise<void> => {
+    platformAutomationScheduler.stop();
     await app.close();
     configWarningSubscription.dispose();
     authFailureLimiter?.dispose();
@@ -524,6 +536,7 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
     fsWatchBridge,
     logger,
   });
+  const wssV2Platform = registerPlatformWs(core);
 
   const handleUpgrade = async (
     req: IncomingMessage,
@@ -532,7 +545,9 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
   ): Promise<void> => {
     const url = req.url ?? '';
     const isV1 = url === WS_PATH_V1 || url.startsWith(`${WS_PATH_V1}?`);
-    if (!isV1) {
+    const isV2Platform =
+      url === WS_PATH_V2_PLATFORM || url.startsWith(`${WS_PATH_V2_PLATFORM}?`);
+    if (!isV1 && !isV2Platform) {
       socket.destroy();
       return;
     }
@@ -601,7 +616,13 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
     }
 
     (socket as Socket).setNoDelay(true);
-    wssV1.handleUpgrade(req, socket, head, (ws) => wssV1.emit('connection', ws, req));
+    if (isV1) {
+      wssV1.handleUpgrade(req, socket, head, (ws) => wssV1.emit('connection', ws, req));
+    } else {
+      wssV2Platform.handleUpgrade(req, socket, head, (ws) =>
+        wssV2Platform.emit('connection', ws, req),
+      );
+    }
   };
   app.server.on('upgrade', (req, socket, head) => {
     void handleUpgrade(req, socket, head).catch((error: unknown) =>
@@ -612,6 +633,7 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
   app.addHook('onClose', async () => {
     connectionRegistry.closeAll('server shutting down');
     wssV1.close();
+    wssV2Platform.close();
     await broadcaster.close();
   });
 
@@ -678,6 +700,7 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
       'provider-model catalog auto-refresh failed to start',
     );
   });
+  platformAutomationScheduler.start();
 
   return { app, core, connectionRegistry, authTokenService, host, port: boundPort, close };
 }

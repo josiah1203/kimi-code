@@ -129,6 +129,7 @@
 import { randomUUID } from 'node:crypto';
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import type { PlatformModelSelection } from '@moonshot-ai/protocol';
 
 import {
   ensureConfigFile,
@@ -176,6 +177,7 @@ import {
   IAgentSkillService,
   IAgentSwarmService,
   IAgentTaskService,
+  IPlatformModelBindingService,
   IAgentTokenCountingService,
   IBootstrapService,
   IConfigService,
@@ -252,6 +254,7 @@ import {
   type SessionPromptRpcInput,
   type SetSessionModelRpcInput,
   type SetSessionModelRpcResult,
+  type SessionPlatformModelSelectionRpcInput,
   type SetSessionPermissionRpcInput,
   type SetSessionPlanModeRpcInput,
   type SetSessionSwarmModeRpcInput,
@@ -1376,6 +1379,25 @@ export class SDKRpcClientV2 extends SDKRpcClientBase {
     return agent.setModel(input.model);
   }
 
+  override async getPlatformModelSelection(
+    input: SessionIdRpcInput,
+  ): Promise<PlatformModelSelection | undefined> {
+    const agent = await this.agentScope(input.sessionId);
+    return agent.accessor.get(IPlatformModelBindingService).selectionProjection();
+  }
+
+  override async selectPlatformModel(
+    input: SessionPlatformModelSelectionRpcInput,
+  ): Promise<PlatformModelSelection> {
+    const agent = await this.agentScope(input.sessionId);
+    return agent.accessor.get(IPlatformModelBindingService).selectProjection(input.selection);
+  }
+
+  override async clearPlatformModelSelection(input: SessionIdRpcInput): Promise<void> {
+    const agent = await this.agentScope(input.sessionId);
+    agent.accessor.get(IPlatformModelBindingService).clear();
+  }
+
   /**
    * Through the agent scope (`IAgentProfileService.setThinking`) — no klient
    * facade exists. Same registry-driven strictness as v1's
@@ -1495,7 +1517,11 @@ export class SDKRpcClientV2 extends SDKRpcClientBase {
       facade.getUsage(),
     ]);
     const profile = agent.accessor.get(IAgentProfileService).data();
-    const capability = profile.modelCapabilities;
+    const platformBinding = agent.accessor.get(IPlatformModelBindingService).current();
+    // Platform selection is the canonical model authority once present. The
+    // legacy profile remains a compatibility fallback for ordinary sessions,
+    // but status must reflect the provider/model that the requester will use.
+    const capability = platformBinding?.model_definition.capabilities ?? profile.modelCapabilities;
     const maxContextTokens = capability.max_input_tokens ?? capability.max_context_tokens;
     const contextTokens = context.tokenCount;
     // Deliberately unclamped, same as the base class (>100% is the documented
@@ -1504,7 +1530,7 @@ export class SDKRpcClientV2 extends SDKRpcClientBase {
     const hasUsage =
       usage.byModel !== undefined || usage.total !== undefined || usage.currentTurn !== undefined;
     return {
-      model: profile.modelAlias,
+      model: platformBinding?.model_alias ?? profile.modelAlias,
       thinkingEffort: profile.thinkingLevel,
       permission: agent.accessor.get(IAgentPermissionModeService).mode,
       planMode: plan !== null,
@@ -2318,6 +2344,8 @@ export function createKimiHarnessV2(options: KimiHarnessOptions): KimiHarness {
     // v1-core-owned ingestion limits; the v2 engine has no equivalent yet, so
     // ingestion falls back to env / built-in defaults like daemon-client hosts.
     imageLimits: undefined,
+    platform: rpc.klient.global.platform,
+    platformSessionRuns: (sessionId) => rpc.klient.session(sessionId).runs,
     sessionStartedProperties: options.sessionStartedProperties,
   });
 }

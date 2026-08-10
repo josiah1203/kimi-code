@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { platformModelSelectionSchema } from '@moonshot-ai/protocol';
 
 import { maybe, noResult } from '../helpers.js';
 import type { ServiceContract } from '../types.js';
@@ -31,6 +32,16 @@ export const agentProfileContract = {
   setModel: { input: z.tuple([z.string()]), output: setModelResultSchema },
   setThinking: { input: z.tuple([z.string()]), output: noResult },
   getEffectiveThinkingLevel: { input: z.tuple([]), output: z.string() },
+} satisfies ServiceContract;
+
+/** Secret-free platform provider/model selection for the interactive agent. */
+export const agentPlatformModelBindingContract = {
+  getSelection: { input: z.tuple([]), output: maybe(platformModelSelectionSchema) },
+  selectProjection: {
+    input: z.tuple([platformModelSelectionSchema]),
+    output: platformModelSelectionSchema,
+  },
+  clear: { input: z.tuple([]), output: noResult },
 } satisfies ServiceContract;
 
 export const agentUsageContract = {

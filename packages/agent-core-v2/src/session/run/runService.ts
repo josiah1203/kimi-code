@@ -16,14 +16,20 @@ import { ScopeActivation, registerScopedService } from '#/_base/di/scope';
 import { Emitter, type Event } from '#/_base/event';
 import { IAtomicDocumentStore } from '#/persistence/interface/atomicDocumentStore';
 import { ISessionContext } from '#/session/sessionContext/sessionContext';
+import { IWorkspacePlatformEventService } from '#/workspace/platformEvents/platformEvents';
 import { Error2, ErrorCodes } from '#/errors';
+import { findSensitivePlatformMetadataPath } from '#/workspace/platformServices/metadata';
 import {
   nowIsoDateTime,
+  runActionInputSchema,
   runCreateInputSchema,
+  runForkInputSchema,
   runSchema,
   runTransitionInputSchema,
   type Run,
+  type RunActionInput,
   type RunCreateInput,
+  type RunForkInput,
   type RunStatus,
   type RunTransitionInput,
 } from '@moonshot-ai/protocol';
@@ -36,13 +42,18 @@ const RUNS_DOCUMENT_VERSION = 1;
 const runsDocumentSchema = z.strictObject({
   version: z.literal(RUNS_DOCUMENT_VERSION),
   runs: z.array(runSchema),
+  requests: z.record(z.string(), z.string()).default({}),
 });
 
 const allowedTransitions: Readonly<Record<RunStatus, readonly RunStatus[]>> = {
   queued: ['planning', 'running', 'failed', 'cancelled'],
   planning: ['awaiting_approval', 'running', 'failed', 'cancelled'],
   awaiting_approval: ['running', 'failed', 'cancelled'],
-  running: ['succeeded', 'failed', 'cancelled'],
+  // A platform service can discover an approval gate after it has started
+  // resolving inputs (for example, a dataset or execution-target policy).
+  // Preserve that durable state instead of leaving the Run stuck in
+  // `running` when the tool projects the gate into the transcript.
+  running: ['succeeded', 'failed', 'cancelled', 'awaiting_approval'],
   succeeded: [],
   failed: [],
   cancelled: [],
@@ -59,11 +70,13 @@ export class SessionRunService extends Disposable implements ISessionRunService 
   private readonly changes = this._register(new Emitter<Run>());
   private readonly scope: string;
   private runs: readonly Run[] = [];
+  private requests: Record<string, string> = {};
   private mutationQueue: Promise<void> = Promise.resolve();
 
   constructor(
     @IAtomicDocumentStore private readonly store: IAtomicDocumentStore,
     @ISessionContext private readonly context: ISessionContext,
+    @IWorkspacePlatformEventService private readonly events: IWorkspacePlatformEventService,
   ) {
     super();
     this.scope = context.scope('platform');
@@ -83,8 +96,11 @@ export class SessionRunService extends Disposable implements ISessionRunService 
 
   async create(input: RunCreateInput): Promise<Run> {
     const command = runCreateInputSchema.parse(input);
+    assertSafeMetadata(command.metadata);
     return this.enqueue(async () => {
       await this.ready;
+      const existingId = this.requests[command.request_id];
+      if (existingId !== undefined) return this.require(existingId);
       if (
         command.parent_run_id !== undefined &&
         !this.runs.some((run) => run.id === command.parent_run_id)
@@ -106,7 +122,19 @@ export class SessionRunService extends Disposable implements ISessionRunService 
         updated_at: now,
         ...command,
       });
-      await this.replace([...this.runs, run]);
+      await this.replace([...this.runs, run], {
+        ...this.requests,
+        [command.request_id]: run.id,
+      });
+      await this.events.append({
+        event_type: 'run.created',
+        entity_type: 'run',
+        entity_id: run.id,
+        request_id: command.request_id,
+        actor: 'agent',
+        state: run.status,
+        payload: { agent_session_id: run.agent_session_id },
+      });
       this.changes.fire(run);
       return run;
     });
@@ -114,23 +142,42 @@ export class SessionRunService extends Disposable implements ISessionRunService 
 
   async transition(id: string, input: RunTransitionInput): Promise<Run | undefined> {
     const command = runTransitionInputSchema.parse(input);
+    assertSafeMetadata(command.metadata);
     return this.enqueue(async () => {
       await this.ready;
       const current = this.runs.find((run) => run.id === id);
       if (current === undefined) return undefined;
-      if (current.status === command.status) return current;
-      if (!allowedTransitions[current.status].includes(command.status)) {
+      const mapped = this.requests[command.request_id];
+      if (mapped !== undefined) return this.require(mapped);
+      const sameStatus = current.status === command.status;
+      if (!sameStatus && !allowedTransitions[current.status].includes(command.status)) {
         throw new RunStateError(id, current.status, command.status);
       }
 
       const now = nowIsoDateTime();
-      const { status_reason: _previousReason, ...withoutReason } = current;
+      // Optional transition fields are patches, not replacements.  Tool
+      // helpers normally update only the status, and dropping metadata or
+      // artifact/target references at each phase would make the durable Run
+      // unusable for replay and inspection.
+      const patch: Partial<Run> = {};
+      if (command.plan !== undefined) patch.plan = command.plan;
+      if (command.input_resources !== undefined) patch.input_resources = command.input_resources;
+      if (command.output_artifacts !== undefined) patch.output_artifacts = command.output_artifacts;
+      if (command.policy_decision_ids !== undefined) patch.policy_decision_ids = command.policy_decision_ids;
+      if (command.execution_target_id !== undefined) patch.execution_target_id = command.execution_target_id;
+      if (command.metadata !== undefined) {
+        patch.metadata = { ...(current.metadata ?? {}), ...command.metadata };
+      }
+      const { status_reason: _currentReason, ...withoutReason } = current;
       const next = runSchema.parse({
         ...withoutReason,
         status: command.status,
         updated_at: now,
+        ...patch,
         ...(command.status_reason === undefined
-          ? {}
+          ? sameStatus && current.status_reason !== undefined
+            ? { status_reason: current.status_reason }
+            : {}
           : { status_reason: command.status_reason }),
         ...(command.status === 'running' && current.started_at === undefined
           ? { started_at: now }
@@ -139,9 +186,160 @@ export class SessionRunService extends Disposable implements ISessionRunService 
           ? { completed_at: now }
           : {}),
       });
-      await this.replace(this.runs.map((run) => (run.id === id ? next : run)));
+      await this.replace(this.runs.map((run) => (run.id === id ? next : run)), {
+        ...this.requests,
+        [command.request_id]: id,
+      });
+      await this.events.append({
+        event_type: runEventType(command.status),
+        entity_type: 'run',
+        entity_id: id,
+        request_id: command.request_id,
+        actor: 'agent',
+        state: next.status,
+        payload: {
+          agent_session_id: next.agent_session_id,
+          ...(command.status_reason === undefined ? {} : { reason: command.status_reason }),
+          ...(next.output_artifacts === undefined ? {} : { output_artifacts: next.output_artifacts }),
+        },
+      });
       this.changes.fire(next);
       return next;
+    });
+  }
+
+  async cancel(id: string, input: RunActionInput): Promise<Run | undefined> {
+    const command = runActionInputSchema.parse(input);
+    return this.transition(id, {
+      request_id: command.request_id,
+      status: 'cancelled',
+      status_reason: 'cancelled_by_request',
+      metadata: command.metadata,
+    });
+  }
+
+  async resume(id: string, input: RunActionInput): Promise<Run | undefined> {
+    const command = runActionInputSchema.parse(input);
+    return this.transition(id, {
+      request_id: command.request_id,
+      status: 'running',
+      metadata: command.metadata,
+    });
+  }
+
+  async retry(id: string, input: RunActionInput): Promise<Run | undefined> {
+    return this.createChild(id, runActionInputSchema.parse(input), 'retry');
+  }
+
+  async rerun(id: string, input: RunActionInput): Promise<Run | undefined> {
+    return this.createChild(id, runActionInputSchema.parse(input), 'rerun');
+  }
+
+  async fork(id: string, input: RunForkInput): Promise<Run | undefined> {
+    const command = runForkInputSchema.parse(input);
+    assertSafeMetadata(command.metadata);
+    return this.enqueue(async () => {
+      await this.ready;
+      const source = this.runs.find((run) => run.id === id);
+      if (source === undefined) return undefined;
+      const existingId = this.requests[command.request_id];
+      if (existingId !== undefined) return this.require(existingId);
+      const run = this.materializeChild(source, {
+        request_id: command.request_id,
+        plan: command.plan,
+        input_resources: command.input_resources,
+        execution_target_id: command.execution_target_id,
+        metadata: {
+          ...source.metadata,
+          ...command.metadata,
+        },
+      });
+      await this.replace([...this.runs, run], {
+        ...this.requests,
+        [command.request_id]: run.id,
+      });
+      await this.events.append({
+        event_type: 'run.created',
+        entity_type: 'run',
+        entity_id: run.id,
+        request_id: command.request_id,
+        actor: 'agent',
+        state: run.status,
+        payload: { agent_session_id: run.agent_session_id, parent_run_id: source.id },
+      });
+      this.changes.fire(run);
+      return run;
+    });
+  }
+
+  private async createChild(
+    id: string,
+    command: RunActionInput,
+    operation: 'retry' | 'rerun',
+  ): Promise<Run | undefined> {
+    return this.enqueue(async () => {
+      await this.ready;
+      const source = this.runs.find((run) => run.id === id);
+      if (source === undefined) return undefined;
+      const existingId = this.requests[command.request_id];
+      if (existingId !== undefined) return this.require(existingId);
+      if (!terminalStatuses.has(source.status)) {
+        throw new Error2(
+          ErrorCodes.REQUEST_INVALID,
+          `${operation} requires a terminal Run: ${id}`,
+          { details: { runId: id, status: source.status } },
+        );
+      }
+      const run = this.materializeChild(source, {
+        request_id: command.request_id,
+        metadata: {
+          ...source.metadata,
+          ...command.metadata,
+          [`${operation}_of`]: source.id,
+        },
+      });
+      await this.replace([...this.runs, run], {
+        ...this.requests,
+        [command.request_id]: run.id,
+      });
+      await this.events.append({
+        event_type: 'run.created',
+        entity_type: 'run',
+        entity_id: run.id,
+        request_id: command.request_id,
+        actor: 'agent',
+        state: run.status,
+        payload: { agent_session_id: run.agent_session_id, parent_run_id: source.id },
+      });
+      this.changes.fire(run);
+      return run;
+    });
+  }
+
+  private materializeChild(
+    source: Run,
+    input: {
+      readonly request_id: string;
+      readonly plan?: Run['plan'];
+      readonly input_resources?: Run['input_resources'];
+      readonly execution_target_id?: string;
+      readonly metadata?: Run['metadata'];
+    },
+  ): Run {
+    const now = nowIsoDateTime();
+    return runSchema.parse({
+      id: `run_${ulid()}`,
+      workspace_id: this.context.workspaceId,
+      agent_session_id: this.context.sessionId,
+      request_id: input.request_id,
+      parent_run_id: source.id,
+      status: 'queued',
+      created_at: now,
+      updated_at: now,
+      plan: input.plan ?? source.plan,
+      input_resources: input.input_resources ?? source.input_resources,
+      execution_target_id: input.execution_target_id ?? source.execution_target_id,
+      metadata: input.metadata ?? source.metadata,
     });
   }
 
@@ -153,14 +351,30 @@ export class SessionRunService extends Disposable implements ISessionRunService 
     }
     const document = runsDocumentSchema.parse(raw);
     this.runs = document.runs;
+    this.requests = document.requests;
   }
 
-  private async replace(runs: readonly Run[]): Promise<void> {
+  private async replace(
+    runs: readonly Run[],
+    requests: Record<string, string> = this.requests,
+  ): Promise<void> {
     await this.store.set(this.scope, RUNS_KEY, {
       version: RUNS_DOCUMENT_VERSION,
       runs,
+      requests,
     });
     this.runs = runs;
+    this.requests = requests;
+  }
+
+  private require(id: string): Run {
+    const run = this.runs.find((candidate) => candidate.id === id);
+    if (run === undefined) {
+      throw new Error2(ErrorCodes.REQUEST_INVALID, `run not found: ${id}`, {
+        details: { runId: id },
+      });
+    }
+    return run;
   }
 
   private enqueue<T>(work: () => Promise<T>): Promise<T> {
@@ -171,6 +385,24 @@ export class SessionRunService extends Disposable implements ISessionRunService 
     );
     return next;
   }
+}
+
+function assertSafeMetadata(metadata: Readonly<Record<string, unknown>> | undefined): void {
+  const path = findSensitivePlatformMetadataPath(metadata);
+  if (path !== undefined) {
+    throw new Error2(
+      ErrorCodes.REQUEST_INVALID,
+      `Run metadata cannot contain secret material in '${path}'`,
+      { details: { key: path } },
+    );
+  }
+}
+
+function runEventType(status: RunStatus): 'run.updated' | 'run.completed' | 'run.failed' | 'run.cancelled' {
+  if (status === 'succeeded') return 'run.completed';
+  if (status === 'failed') return 'run.failed';
+  if (status === 'cancelled') return 'run.cancelled';
+  return 'run.updated';
 }
 
 registerScopedService(
