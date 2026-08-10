@@ -269,6 +269,8 @@ export class InstantiationService implements IInstantiationService {
           }
           return result;
         },
+        has: <T>(id: ServiceIdentifier<T>): boolean =>
+          this._getServiceInstanceOrDescriptor(id) !== undefined,
       };
       return fn(accessor, ...args);
     } finally {

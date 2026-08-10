@@ -46,6 +46,15 @@ describe('memory dispatcher specifics', () => {
       status: 'running',
     });
     expect(running).toMatchObject({ status: 'running' });
+    const awaiting = await klient.session(session.id).runs.transition(created.id, {
+      request_id: 'request_approval',
+      status: 'awaiting_approval',
+    });
+    expect(awaiting).toMatchObject({ status: 'awaiting_approval' });
+    const resumed = await klient.session(session.id).runs.resume(created.id, {
+      request_id: 'request_resume',
+    });
+    expect(resumed).toMatchObject({ status: 'running' });
 
     const freshHandle = klient.session(session.id);
     expect(await freshHandle.runs.get(created.id)).toMatchObject({
@@ -53,10 +62,61 @@ describe('memory dispatcher specifics', () => {
       status: 'running',
     });
     expect(await freshHandle.runs.list()).toHaveLength(1);
-    expect(runEvents).toEqual([`${created.id}:queued`, `${created.id}:running`]);
+    expect(runEvents).toEqual([
+      `${created.id}:queued`,
+      `${created.id}:running`,
+      `${created.id}:awaiting_approval`,
+      `${created.id}:running`,
+    ]);
 
     eventSubscription.dispose();
     await klient.close();
+    app.dispose();
+    await rm(homeDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 25 });
+  });
+
+  it('routes a secret-free platform model selection through the agent facade', async () => {
+    const { homeDir, app } = await makeEngine();
+    const klient = createKlient({ scope: app });
+    const workspace = await klient.global.workspaces.createOrTouch({
+      root: homeDir,
+      name: 'platform-model-selection',
+    });
+    const connection = await klient.global.platform.connections.create(workspace.id, {
+      request_id: 'platform-model-connection',
+      name: 'selection-provider',
+      provider: 'openai-compatible',
+      scope: 'workspace',
+      secret_ref: 'secret_selection_provider',
+      capabilities: ['chat'],
+      metadata: {
+        default_model: 'selection-model',
+        models: ['selection-model'],
+        base_url: 'http://127.0.0.1:1',
+      },
+    });
+    const session = await klient.global.sessions.create({ workDir: homeDir });
+    const agent = klient.session(session.id).agent('main');
+    const selected = await agent.selectPlatformModel({
+      model_ref: {
+        provider_connection_id: connection.id,
+        model: 'selection-model',
+      },
+      fallback_connection_ids: [],
+    });
+    expect(selected).toMatchObject({
+      model_ref: {
+        provider_connection_id: connection.id,
+        model: 'selection-model',
+      },
+      fallback_connection_ids: [],
+    });
+    expect(JSON.stringify(selected)).not.toContain('secret_selection_provider');
+    expect(await agent.getPlatformModelSelection()).toEqual(selected);
+    await agent.clearPlatformModelSelection();
+    expect(await agent.getPlatformModelSelection()).toBeUndefined();
+    await klient.session(session.id).close();
+    await klient.global.workspaces.delete(workspace.id);
     app.dispose();
     await rm(homeDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 25 });
   });

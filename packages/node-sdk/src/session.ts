@@ -5,8 +5,14 @@ import {
   type KimiErrorCode,
   type SwarmModeTrigger,
 } from '@moonshot-ai/agent-core';
+import type {
+  PlatformEventSubscriptionOptions,
+  SessionRunsFacade,
+} from '@moonshot-ai/klient';
+import type { PlatformLifecycleEvent, PlatformModelSelection } from '@moonshot-ai/protocol';
 
 import { type ApprovalHandler, type Event, type QuestionHandler } from '#/events';
+import type { KimiPlatformClient } from '#/platform';
 import type { SDKRpcClientBase } from '#/rpc';
 import type {
   AddAdditionalDirOptions,
@@ -49,6 +55,17 @@ export interface SessionOptions {
   readonly resumeState?: ResumedSessionState | undefined;
   readonly rpc: SDKRpcClientBase;
   readonly onClose?: (() => void | Promise<void>) | undefined;
+  /** Canonical v2 durable Run facade; absent on v1/daemon-backed sessions. */
+  readonly platformRuns?: SessionRunsFacade;
+  /** Workspace platform facade used for reconnectable lifecycle events. */
+  readonly platform?: KimiPlatformClient;
+}
+
+export interface SessionPlatformEventOptions extends PlatformEventSubscriptionOptions {
+  /** Start replay after this workspace event sequence (defaults to zero). */
+  readonly afterSequence?: number;
+  /** Disable replay when the caller only needs future live events. */
+  readonly replay?: boolean;
 }
 
 /**
@@ -79,10 +96,12 @@ export class Session {
   readonly id: string;
   readonly workDir: string;
   summary?: SessionSummary | undefined;
+  readonly platformRuns: SessionRunsFacade | undefined;
   private resumeState: ResumedSessionState | undefined;
 
   private readonly rpc: SDKRpcClientBase;
   private readonly onClose?: (() => void | Promise<void>) | undefined;
+  private readonly platform: KimiPlatformClient | undefined;
   private closed = false;
 
   constructor(options: SessionOptions) {
@@ -90,6 +109,8 @@ export class Session {
     this.workDir = options.workDir;
     this.summary = options.summary;
     this.resumeState = options.resumeState ?? resumeStateFromSummary(options.summary);
+    this.platformRuns = options.platformRuns;
+    this.platform = options.platform;
     this.rpc = options.rpc;
     this.onClose = options.onClose;
   }
@@ -117,6 +138,76 @@ export class Session {
         listener(event);
       }
     });
+  }
+
+  /**
+   * Subscribe to platform lifecycle events for this Kimi conversation.
+   *
+   * The subscription is replay-first and then live: registering the live
+   * listener before catch-up closes the reconnect race, while event ids are
+   * de-duplicated across the two streams. Events from other sessions in the
+   * same workspace are filtered using the durable Run event payload.
+   * Returns `undefined` on v1/daemon hosts, where no platform facade exists.
+   */
+  async subscribePlatformEvents(
+    listener: (event: PlatformLifecycleEvent) => void,
+    options: SessionPlatformEventOptions = {},
+  ): Promise<Unsubscribe | undefined> {
+    this.ensureOpen();
+    const platform = this.platform;
+    if (platform?.workspaceIdForRoot === undefined) return undefined;
+    const workspaceId = await platform.workspaceIdForRoot(this.workDir);
+    if (workspaceId === undefined) return undefined;
+
+    const delivered = new Set<string>();
+    const pending: PlatformLifecycleEvent[] = [];
+    let replaying = options.replay !== false;
+
+    const matches = (event: PlatformLifecycleEvent): boolean =>
+      event.workspace_id === workspaceId && event.payload?.['agent_session_id'] === this.id;
+    const deliver = (event: PlatformLifecycleEvent): void => {
+      if (delivered.has(event.event_id)) return;
+      delivered.add(event.event_id);
+      // Keep reconnect bookkeeping bounded even for a long-lived TUI.
+      if (delivered.size > 2_048) delivered.delete(delivered.values().next().value as string);
+      listener(event);
+    };
+    const subscription = platform.platformEvents.subscribe(
+      workspaceId,
+      (event) => {
+        if (!matches(event)) return;
+        if (replaying) pending.push(event);
+        else deliver(event);
+      },
+      {
+        eventTypes: options.eventTypes,
+        entityTypes: options.entityTypes,
+        onError: options.onError,
+      },
+    );
+
+    try {
+      if (replaying) {
+        let cursor = normalizeSequence(options.afterSequence);
+        for (;;) {
+          const page = await platform.platformEvents.replay(workspaceId, cursor, 500);
+          for (const event of page.events) {
+            if (matches(event)) deliver(event);
+          }
+          if (!page.has_more || page.next_sequence <= cursor) break;
+          cursor = page.next_sequence;
+        }
+        replaying = false;
+        pending.sort((left, right) => left.sequence - right.sequence);
+        for (const event of pending) deliver(event);
+        pending.length = 0;
+      }
+    } catch (error) {
+      subscription.dispose();
+      throw error;
+    }
+
+    return () => subscription.dispose();
   }
 
   setApprovalHandler(handler: ApprovalHandler | undefined): void {
@@ -221,6 +312,22 @@ export class Session {
       ErrorCodes.SESSION_MODEL_EMPTY,
     );
     await this.rpc.setModel({ sessionId: this.id, model: normalized });
+  }
+
+  /** Select the canonical platform provider/model for this agent session. */
+  async selectPlatformModel(selection: PlatformModelSelection): Promise<PlatformModelSelection> {
+    this.ensureOpen();
+    return this.rpc.selectPlatformModel({ sessionId: this.id, selection });
+  }
+
+  async getPlatformModelSelection(): Promise<PlatformModelSelection | undefined> {
+    this.ensureOpen();
+    return this.rpc.getPlatformModelSelection({ sessionId: this.id });
+  }
+
+  async clearPlatformModelSelection(): Promise<void> {
+    this.ensureOpen();
+    await this.rpc.clearPlatformModelSelection({ sessionId: this.id });
   }
 
   async setThinking(effort: ThinkingEffort): Promise<void> {
@@ -741,6 +848,11 @@ function normalizePromptInput(input: string | PromptInput): PromptInput {
     }
   }
   return input;
+}
+
+function normalizeSequence(value: number | undefined): number {
+  if (value === undefined || !Number.isFinite(value)) return 0;
+  return Math.max(0, Math.trunc(value));
 }
 
 function normalizeRequiredString(

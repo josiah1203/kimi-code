@@ -80,6 +80,66 @@ export function defineKlientConformance(
       expect(await workspaces.get(created.id)).toBeUndefined();
     });
 
+    it('platform services round-trip through the global facade', async () => {
+      const workDir = await mkdtemp(join(tmpdir(), 'klient-conf-platform-'));
+      let workspaceId: string | undefined;
+      try {
+        const platform = target.klient.global.platform;
+        const workspace = await target.klient.global.workspaces.createOrTouch({
+          root: workDir,
+          name: 'platform-conformance',
+        });
+        workspaceId = workspace.id;
+        const liveEvents: string[] = [];
+        const liveSubscription = platform.platformEvents.subscribe(
+          workspace.id,
+          (event) => liveEvents.push(event.event_type),
+          { entityTypes: ['provider_connection'] },
+        );
+
+        const connection = await platform.connections.create(workspace.id, {
+          request_id: 'platform-connection-create',
+          name: 'conformance-provider',
+          provider: 'openai',
+          scope: 'workspace',
+          secret_ref: 'secret_conformance_provider',
+          capabilities: ['chat'],
+        });
+        expect(connection).toMatchObject({
+          workspace_id: workspace.id,
+          name: 'conformance-provider',
+          secret_ref: 'secret_conformance_provider',
+          state: 'configured',
+        });
+        expect(connection).not.toHaveProperty('api_key');
+        expect(await platform.connections.list(workspace.id)).toEqual([connection]);
+
+        // Exercise optional positional arguments through both transports. IPC
+        // must omit trailing undefined values instead of serializing nulls.
+        expect(await platform.resources.list(workspace.id)).toEqual([]);
+        expect(await platform.artifacts.list(workspace.id)).toEqual([]);
+        expect(await platform.automations.history(workspace.id)).toEqual([]);
+        expect(await platform.commercial.usageSummary(workspace.id)).toMatchObject({
+          workspace_id: workspace.id,
+          record_count: 0,
+        });
+        await waitFor(() => liveEvents.includes('provider_connection.created'), 5_000);
+
+        const replay = await platform.platformEvents.replay(workspace.id);
+        expect(replay.events).toHaveLength(1);
+        expect(replay.events[0]).toMatchObject({
+          event_type: 'provider_connection.created',
+          entity_type: 'provider_connection',
+          entity_id: connection.id,
+          request_id: 'platform-connection-create',
+        });
+        liveSubscription.dispose();
+      } finally {
+        if (workspaceId !== undefined) await target.klient.global.workspaces.delete(workspaceId);
+        await rm(workDir, { recursive: true, force: true });
+      }
+    });
+
     it('sessions index responds with a page shape', async () => {
       const page = await target.klient.global.sessions.list({});
       expect(Array.isArray(page.items)).toBe(true);

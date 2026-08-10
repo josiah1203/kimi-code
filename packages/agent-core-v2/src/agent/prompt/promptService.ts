@@ -12,7 +12,7 @@
  * reference and the `hooks` slot. Bound at Agent scope.
  */
 
-import { IInstantiationService } from '#/_base/di/instantiation';
+import { IInstantiationService, ref, type LiveRef } from '#/_base/di/instantiation';
 import { LifecycleScope } from '#/app/scopes';
 import { ScopeActivation, registerScopedService } from '#/_base/di/scope';
 import { defineState } from '#/_base/state/stateRegistry';
@@ -34,6 +34,8 @@ import type { ToolDidExecuteContext } from '#/agent/toolExecutor/toolHooks';
 import { IAgentToolExecutorService } from '#/agent/toolExecutor/toolExecutor';
 import type { ContentPart } from '#/kosong/contract/message';
 import { IEventBus } from '#/app/event/eventBus';
+import { IFlagService } from '#/app/flag/flag';
+import { IPlatformModelBindingService } from '#/agent/platformModelBinding/platformModelBinding';
 import { ErrorCodes, Error2 } from '#/errors';
 import { OrderedHookSlot } from '#/hooks';
 import { IWireService } from '#/wire/wire';
@@ -87,6 +89,8 @@ export class AgentPromptService implements IAgentPromptService {
     @IWireService private readonly wire: IWireService,
     @IEventBus private readonly eventBus: IEventBus,
     @IAgentStateService private readonly states: IAgentStateService,
+    @ref(IPlatformModelBindingService)
+    private readonly platformBinding: LiveRef<IPlatformModelBindingService>,
   ) {
     this.states.register(promptLaunchingKey);
     toolExecutor.hooks.onDidExecuteTool.register('prompt-service-delivery', async (ctx, next) => {
@@ -258,8 +262,11 @@ export class AgentPromptService implements IAgentPromptService {
     const origin = input.message.origin ?? USER_PROMPT_ORIGIN;
     if (!isDisplayablePromptOrigin(origin)) return undefined;
 
+    let flags: IFlagService;
     let runs: ISessionRunService;
     try {
+      flags = this.instantiation.invokeFunction((accessor) => accessor.get(IFlagService));
+      if (!flags.enabled('platform_services')) return undefined;
       runs = this.instantiation.invokeFunction((accessor) => accessor.get(ISessionRunService));
     } catch {
       // Isolated prompt-service hosts may intentionally omit platform services;
@@ -268,7 +275,13 @@ export class AgentPromptService implements IAgentPromptService {
     }
     const run = await runs.create({
       request_id: input.requestId ?? randomUUID(),
+      metadata: {
+        kind: 'conversation',
+        source: 'kimi_prompt',
+        prompt_id: input.id ?? input.message.id,
+      },
     });
+    this.platformBinding.current?.attachRun(run.id);
     return run.id;
   }
 

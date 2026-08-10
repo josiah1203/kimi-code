@@ -21,6 +21,10 @@
       "types": "./src/transports/memory/index.ts",
       "default": "./src/transports/memory/index.ts"
     },
+    "./browser": {
+      "types": "./src/transports/browser.ts",
+      "default": "./src/transports/browser.ts"
+    },
     "./package.json": {
       "types": "./package.json",
       "default": "./package.json"

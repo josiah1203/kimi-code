@@ -330,6 +330,7 @@ export class KimiTUI {
   private fdPath: string | null = detectFdPath();
   private fdDownloadStarted = false;
   sessionEventUnsubscribe: (() => void) | undefined;
+  platformEventUnsubscribe: (() => void) | undefined;
   cancelInFlight: (() => void) | undefined;
   deferUserMessages = false;
   aborted = false;
@@ -1736,7 +1737,15 @@ export class KimiTUI {
     // Background warm-up of the cache-hint config on every new session.
     this.cacheHint.refreshConfigInBackground();
     const model = this.state.appState.model.trim();
-    if (model.length === 0) {
+    // Platform-enabled v2 sessions may start unbound so `/provider platform`
+    // can create and select the canonical connection before the first chat
+    // turn. Legacy sessions still require the configured model exactly as
+    // before.
+    const allowUnboundPlatformSession =
+      this.engineV2
+      && this.harness.platform !== undefined
+      && isExperimentalFlagEnabled('platform_services');
+    if (model.length === 0 && !allowUnboundPlatformSession) {
       throw new Error(LLM_NOT_SET_MESSAGE);
     }
     // With an active session, carry the live plan state. Session-less (lazy
@@ -1751,7 +1760,7 @@ export class KimiTUI {
         : this.options.startup.plan && this.state.appState.configDefaultPlanMode !== true;
     const options: MutableCreateSessionOptions = {
       workDir: this.state.appState.workDir,
-      model,
+      model: model.length === 0 ? undefined : model,
       // With an active session, carry the live effort. Session-less (lazy
       // creation / `/new` before the first session), carry the session-only
       // thinking override chosen via Alt+S if any — never the initial 'off'
@@ -1925,6 +1934,8 @@ export class KimiTUI {
     const previous = this.session;
     this.sessionEventUnsubscribe?.();
     this.sessionEventUnsubscribe = undefined;
+    this.platformEventUnsubscribe?.();
+    this.platformEventUnsubscribe = undefined;
     this.clearReverseRpcPanels();
     previous?.setApprovalHandler(undefined);
     previous?.setQuestionHandler(undefined);
@@ -2080,6 +2091,8 @@ export class KimiTUI {
   async reloadCurrentSessionView(session: Session, statusMessage: string): Promise<void> {
     this.sessionEventUnsubscribe?.();
     this.sessionEventUnsubscribe = undefined;
+    this.platformEventUnsubscribe?.();
+    this.platformEventUnsubscribe = undefined;
     this.clearReverseRpcPanels();
     session.setApprovalHandler(undefined);
     session.setQuestionHandler(undefined);

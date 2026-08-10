@@ -30,6 +30,10 @@ const ADD_DIR_ARG_COMPLETIONS: readonly ArgCompletionSpec[] = [
   { value: 'list', description: 'Show configured additional workspace directories' },
 ];
 
+const PROVIDER_ARG_COMPLETIONS: readonly ArgCompletionSpec[] = [
+  { value: 'platform', description: 'Add a governed platform/BYOK connection' },
+];
+
 /** Argument autocompletion for the `/goal` command (subcommands). */
 export function goalArgumentCompletions(argumentPrefix: string): AutocompleteItem[] | null {
   const nextMatch = argumentPrefix.match(/^next\s+(\S*)$/i);
@@ -55,6 +59,11 @@ export function addDirArgumentCompletions(argumentPrefix: string): AutocompleteI
     return completeAddDirPath(argumentPrefix);
   }
   return completeLeadingArg(ADD_DIR_ARG_COMPLETIONS, argumentPrefix);
+}
+
+/** Argument autocompletion for the `/provider` command. */
+export function providerArgumentCompletions(argumentPrefix: string): AutocompleteItem[] | null {
+  return completeLeadingArg(PROVIDER_ARG_COMPLETIONS, argumentPrefix);
 }
 
 function isPathLikeAddDirArgument(argumentPrefix: string): boolean {
@@ -204,6 +213,16 @@ export const BUILTIN_SLASH_COMMANDS = [
     aliases: ['providers'],
     description: 'Manage AI providers (add / delete / refresh)',
     priority: 95,
+    availability: 'always',
+    argumentHint: '[platform]',
+    completeArgs: providerArgumentCompletions,
+  },
+  {
+    name: 'runs',
+    aliases: ['run'],
+    description: 'Inspect durable platform Runs for this session',
+    priority: 90,
+    argumentHint: '[run-id]',
     availability: 'always',
   },
   {

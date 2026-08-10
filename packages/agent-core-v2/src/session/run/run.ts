@@ -12,12 +12,21 @@ import type { Event } from '#/_base/event';
 import { Error2, ErrorCodes } from '#/errors';
 import type {
   Run,
+  RunActionInput,
   RunCreateInput,
+  RunForkInput,
   RunStatus,
   RunTransitionInput,
 } from '@moonshot-ai/protocol';
 
-export type { Run, RunCreateInput, RunStatus, RunTransitionInput } from '@moonshot-ai/protocol';
+export type {
+  Run,
+  RunActionInput,
+  RunCreateInput,
+  RunForkInput,
+  RunStatus,
+  RunTransitionInput,
+} from '@moonshot-ai/protocol';
 
 export interface ISessionRunService {
   readonly _serviceBrand: undefined;
@@ -28,6 +37,11 @@ export interface ISessionRunService {
   get(id: string): Promise<Run | undefined>;
   create(input: RunCreateInput): Promise<Run>;
   transition(id: string, input: RunTransitionInput): Promise<Run | undefined>;
+  resume(id: string, input: RunActionInput): Promise<Run | undefined>;
+  cancel(id: string, input: RunActionInput): Promise<Run | undefined>;
+  retry(id: string, input: RunActionInput): Promise<Run | undefined>;
+  rerun(id: string, input: RunActionInput): Promise<Run | undefined>;
+  fork(id: string, input: RunForkInput): Promise<Run | undefined>;
   readonly onDidChange: Event<Run>;
 }
 

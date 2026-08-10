@@ -169,6 +169,8 @@ export function ref<T>(
 
 export interface ServicesAccessor {
   get<T>(id: ServiceIdentifier<T>): T;
+  /** Returns whether a service is registered without materializing it. */
+  has?<T>(id: ServiceIdentifier<T>): boolean;
 }
 
 export interface ProvideOptions {

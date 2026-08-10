@@ -14,6 +14,20 @@ export type {
 } from './core/channel.js';
 export { RPCError } from './core/errors.js';
 export { KlientValidationError, type ValidationPhase } from './core/validation.js';
+export {
+  BrowserPlatformClient,
+  BrowserPlatformError,
+  type BrowserFetch,
+  type BrowserFetchInit,
+  type BrowserFetchResponse,
+  type BrowserPlatformClientOptions,
+  type BrowserPlatformEventHandlers,
+  type BrowserPlatformEventOptions,
+  type BrowserPlatformEventSubscription,
+  type BrowserPlatformWorkspace,
+  type BrowserWebSocketFactory,
+  type BrowserWebSocketLike,
+} from './transports/browser.js';
 export * from './contract/platform.js';
 export {
   createKlientFromChannel,
@@ -23,17 +37,30 @@ export {
   type SessionHandle,
 } from './core/klient.js';
 export type { KlientEvents } from './core/events/hub.js';
-export type { Caller, ScopedCaller, ScopedStreamCaller } from './core/facade/global.js';
+export type { Caller, ScopedCaller, ScopedListenCaller, ScopedStreamCaller } from './core/facade/global.js';
 
 export type {
   ConfigTargetLiteral,
   GlobalAuthFacade,
   GlobalConfigFacade,
+  GlobalArtifactFacade,
+  GlobalAutomationFacade,
+  GlobalCommercialFacade,
+  GlobalDatasetFacade,
+  GlobalExecutionTargetFacade,
   GlobalFacade,
   GlobalFlagsFacade,
   GlobalHostFsFacade,
   GlobalKosongFacade,
+  GlobalMlFacade,
+  GlobalPipelineFacade,
   GlobalPluginsFacade,
+  GlobalPolicyFacade,
+  GlobalPlatformFacade,
+  GlobalPlatformEventsFacade,
+  PlatformEventSubscriptionOptions,
+  GlobalProviderConnectionsFacade,
+  GlobalResourceFacade,
   GlobalSessionsFacade,
   GlobalWorkspacesFacade,
   KlientEnvInfo,
@@ -62,6 +89,7 @@ export type {
   SessionFacade,
   SessionInteractionsFacade,
   SessionQuestionsFacade,
+  SessionRunsFacade,
   SessionRestoreOptions,
   SessionSkillsFacade,
   SessionStatus,

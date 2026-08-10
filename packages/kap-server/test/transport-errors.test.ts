@@ -9,6 +9,7 @@ import { ErrorCode } from '../src/protocol/error-codes';
 import { describe, expect, it } from 'vitest';
 
 import { mapError } from '../src/transport/errors';
+import { platformProtocolErrorCode, platformProtocolErrorMessage } from '../src/routes/v2/platformErrors';
 
 describe('/api/v1/debug transport mapError', () => {
   it.each([
@@ -28,5 +29,12 @@ describe('/api/v1/debug transport mapError', () => {
   it('falls back to INTERNAL_ERROR for coded errors without a wire equivalent', () => {
     const env = mapError(new Error2(ErrorCodes.OS_FS_UNKNOWN, 'boom'), 'req-1');
     expect(env.code).toBe(ErrorCode.INTERNAL_ERROR);
+  });
+
+  it('maps replay request reuse to a platform conflict without exposing payloads', () => {
+    expect(platformProtocolErrorCode('execution.request_reused')).toBe(ErrorCode.PLATFORM_CONFLICT);
+    expect(platformProtocolErrorMessage('execution.request_reused')).toBe(
+      'request id was already used with different request data',
+    );
   });
 });

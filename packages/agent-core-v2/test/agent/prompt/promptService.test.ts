@@ -22,6 +22,7 @@ import { AgentSystemReminderService } from '#/agent/systemReminder/systemReminde
 import { IAgentToolExecutorService } from '#/agent/toolExecutor/toolExecutor';
 import { IEventBus } from '#/app/event/eventBus';
 import { EventBusService } from '#/app/event/eventBusService';
+import { IFlagService } from '#/app/flag/flag';
 import { ErrorCodes, Error2 } from '#/errors';
 import { createHooks } from '#/hooks';
 import { ISessionRunService } from '#/session/run/run';
@@ -35,7 +36,7 @@ function message(text: string): ContextMessage {
   return { role: 'user', content: [{ type: 'text', text }], toolCalls: [], origin: { kind: 'user' } };
 }
 
-function harness(options: { readonly pendingTurnResult?: boolean } = {}) {
+function harness(options: { readonly pendingTurnResult?: boolean; readonly platformServices?: boolean } = {}) {
   const disposables = new DisposableStore();
   onTestFinished(() => disposables.dispose());
   const context = stubContextMemory();
@@ -67,6 +68,10 @@ function harness(options: { readonly pendingTurnResult?: boolean } = {}) {
       reg.defineInstance(IAgentToolExecutorService, stubToolExecutor());
       reg.defineInstance(IAgentFullCompactionService, fullCompaction);
       reg.define(IEventBus, EventBusService);
+      reg.defineInstance(IFlagService, {
+        _serviceBrand: undefined,
+        enabled: () => options.platformServices ?? true,
+      } as unknown as IFlagService);
       reg.define(IAgentSystemReminderService, AgentSystemReminderService);
       reg.defineInstance(ISessionRunService, runs);
       reg.define(IAgentPromptService, AgentPromptService);
@@ -85,7 +90,14 @@ describe('AgentPromptService', () => {
 
     expect(handle.runId).toBe('run-request-1');
     await expect(handle.completion).resolves.toMatchObject({ state: 'completed' });
-    expect(runs.create).toHaveBeenCalledWith({ request_id: 'request-1' });
+    expect(runs.create).toHaveBeenCalledWith({
+      request_id: 'request-1',
+      metadata: {
+        kind: 'conversation',
+        source: 'kimi_prompt',
+        prompt_id: undefined,
+      },
+    });
     expect(runs.transition).toHaveBeenCalledWith(
       'run-request-1',
       expect.objectContaining({ status: 'running' }),
@@ -94,6 +106,18 @@ describe('AgentPromptService', () => {
       'run-request-1',
       expect.objectContaining({ status: 'succeeded' }),
     );
+  });
+
+  it('does not mirror ordinary prompts into platform Runs when platform services are disabled', async () => {
+    const { prompt, runs } = harness({ platformServices: false, pendingTurnResult: false });
+    const handle = await prompt.enqueue({
+      requestId: 'request-disabled',
+      message: message('ordinary coding request'),
+    });
+
+    expect(handle.runId).toBeUndefined();
+    expect(runs.create).not.toHaveBeenCalled();
+    await expect(handle.completion).resolves.toMatchObject({ state: 'completed' });
   });
 
   it('assigns stable identity and launches an idle prompt', async () => {

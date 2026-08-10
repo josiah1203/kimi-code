@@ -22,6 +22,7 @@ import { UserConfiguredAllowPermissionPolicyService } from '#/agent/permissionPo
 import { UserConfiguredAskPermissionPolicyService } from '#/agent/permissionPolicy/policies/user-configured-ask';
 import { UserConfiguredDenyPermissionPolicyService } from '#/agent/permissionPolicy/policies/user-configured-deny';
 import { YoloModeApprovePermissionPolicyService } from '#/agent/permissionPolicy/policies/yolo-mode-approve';
+import { PlatformCapabilityPermissionPolicyService } from '#/agent/permissionPolicy/policies/platform-capability';
 import {
   IAgentPermissionPolicyService,
   type PermissionPolicyEvaluation,
@@ -43,6 +44,7 @@ export class AgentPermissionPolicyService
   ) {
     super();
     this.policies = [
+      this.instantiation.createInstance(PlatformCapabilityPermissionPolicyService),
       this.instantiation.createInstance(AutoModeAskUserQuestionDenyPermissionPolicyService),
       this.instantiation.createInstance(UserConfiguredDenyPermissionPolicyService),
       this.instantiation.createInstance(AutoModeApprovePermissionPolicyService),

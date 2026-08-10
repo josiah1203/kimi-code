@@ -11,6 +11,7 @@ import { agentActivityViewContract } from './agent/activity.js';
 import { agentRpcContract } from './agent/rpc.js';
 import {
   agentFullCompactionContract,
+  agentPlatformModelBindingContract,
   agentMcpContract,
   agentPlanContract,
   agentProfileContract,
@@ -31,6 +32,21 @@ import { pluginsContract } from './global/plugins.js';
 import { providersContract } from './global/providers.js';
 import { sessionsContract } from './global/sessions.js';
 import { workspacesContract } from './global/workspaces.js';
+import {
+  artifactContract,
+  automationContract,
+  commercialContract,
+  datasetContract,
+  mlContract,
+  pipelineContract,
+  servingContract,
+  executionTargetContract,
+  platformEventsContract,
+  policyContract,
+  providerConnectionsContract,
+  providerRuntimeContract,
+  resourceContract,
+} from './global/platform.js';
 import { sessionApprovalContract } from './session/approval.js';
 import { sessionInteractionContract } from './session/interaction.js';
 import {
@@ -56,6 +72,19 @@ export const globalContract: KlientContract = {
   flagService: flagsContract,
   pluginService: pluginsContract,
   capabilityService: capabilitiesContract,
+  providerConnectionService: providerConnectionsContract,
+  providerRuntimeService: providerRuntimeContract,
+  policyService: policyContract,
+  resourceService: resourceContract,
+  artifactService: artifactContract,
+  executionTargetService: executionTargetContract,
+  automationService: automationContract,
+  commercialService: commercialContract,
+  datasetService: datasetContract,
+  mlService: mlContract,
+  pipelineService: pipelineContract,
+  servingService: servingContract,
+  platformEvents: platformEventsContract,
   hostFolderBrowser: hostFsContract,
   bootstrapService: envContract,
   // workspace scope (+ the app-registered handler registry)
@@ -78,6 +107,7 @@ export const globalContract: KlientContract = {
   agentTaskService: agentTaskContract,
   agentMcpService: agentMcpContract,
   agentFullCompactionService: agentFullCompactionContract,
+  agentPlatformModelBindingService: agentPlatformModelBindingContract,
 };
 
 export type { KlientContract, ProcedureContract, ServiceContract, StreamingProcedureContract } from './types.js';

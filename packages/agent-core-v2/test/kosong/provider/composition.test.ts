@@ -194,6 +194,20 @@ describe('apiKey env suppression (probe 1)', () => {
     await expect(withKey.generate('sys', [], [])).rejects.toThrow(APIConnectionError);
   });
 
+  it('allows an explicitly unauthenticated local-compatible endpoint', async () => {
+    const provider = registry.createChatProvider({
+      protocol: 'openai',
+      providerType: 'local',
+      modelName: 'local-model',
+      baseUrl: 'http://127.0.0.1:1234/v1',
+      providerOptions: { allowUnauthenticated: true },
+    });
+
+    const body = await captureOpenAIBody(provider);
+    expect(body).toMatchObject({ model: 'local-model' });
+    expect((provider as unknown as { _apiKey?: string })._apiKey).toBeUndefined();
+  });
+
   it('prefers an explicit config apiKey over the env chain', () => {
     process.env['KIMI_API_KEY'] = 'sk-kimi-from-env';
     const provider = registry.createChatProvider({

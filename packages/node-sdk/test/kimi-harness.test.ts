@@ -4,7 +4,15 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createKimiHarness, ImageLimits, KimiHarness, SDKRpcClientBase } from '#/index';
+import {
+  createKimiHarness,
+  ImageLimits,
+  KimiHarness,
+  SDKRpcClientBase,
+  type KimiPlatformClient,
+} from '#/index';
+import type { SessionRunsFacade } from '@moonshot-ai/klient';
+import type { PlatformLifecycleEvent } from '@moonshot-ai/protocol';
 
 import { recordingTelemetry } from './telemetry';
 import { TEST_IDENTITY } from './test-identity';
@@ -26,6 +34,20 @@ class StubRpc extends SDKRpcClientBase {
   protected async getRpc(): Promise<any> {
     throw new Error('no core calls expected');
   }
+}
+
+class PlatformRpc extends StubRpc {
+  override async createSession(input: { readonly id?: string; readonly workDir: string }) {
+    return {
+      id: input.id ?? 'ses_platform',
+      workDir: input.workDir,
+      sessionDir: '/tmp/session',
+      createdAt: 1,
+      updatedAt: 1,
+    };
+  }
+
+  override async closeSession(): Promise<void> {}
 }
 
 function makeHarnessWithRpc(rpc: SDKRpcClientBase): KimiHarness {
@@ -79,6 +101,82 @@ describe('KimiHarness capability facade', () => {
     const harness = makeHarnessWithRpc(new StubRpc());
     await expect(harness.listCapabilities()).rejects.toThrow(/requires v2/);
     await expect(harness.installCapability('kimi-cu')).rejects.toThrow(/requires v2/);
+  });
+});
+
+describe('KimiHarness conversational platform bridge', () => {
+  it('wires session Runs and replay-first lifecycle events without leaking other sessions', async () => {
+    const workDir = '/tmp/platform-workspace';
+    const runFacade = {} as SessionRunsFacade;
+    const first: PlatformLifecycleEvent = {
+      event_id: 'event_run_1',
+      event_type: 'run.updated',
+      entity_type: 'run',
+      entity_id: 'run_platform',
+      workspace_id: 'workspace_platform',
+      sequence: 1,
+      occurred_at: '2026-08-09T00:00:00.000Z',
+      actor: 'agent',
+      payload: { agent_session_id: 'ses_platform' },
+    };
+    const second: PlatformLifecycleEvent = {
+      ...first,
+      event_id: 'event_run_2',
+      sequence: 2,
+      state: 'succeeded',
+    };
+    const otherSession: PlatformLifecycleEvent = {
+      ...first,
+      event_id: 'event_run_other',
+      entity_id: 'run_other',
+      sequence: 3,
+      payload: { agent_session_id: 'ses_other' },
+    };
+    let live: ((event: PlatformLifecycleEvent) => void) | undefined;
+    const platform = {
+      workspaceIdForRoot: async (root: string) =>
+        root === workDir ? 'workspace_platform' : undefined,
+      platformEvents: {
+        replay: async (_workspaceId: string, afterSequence = 0) => {
+          if (afterSequence === 0) live?.(second);
+          return {
+            events: afterSequence === 0 ? [first] : [],
+            next_sequence: 1,
+            has_more: false,
+          };
+        },
+        subscribe: (_workspaceId: string, listener: (event: PlatformLifecycleEvent) => void) => {
+          live = listener;
+          return { dispose: () => { live = undefined; } };
+        },
+      },
+    } as unknown as KimiPlatformClient;
+    const harness = new KimiHarness(new PlatformRpc(), {
+      homeDir: '/tmp/home',
+      configPath: '/tmp/config.toml',
+      auth: { status: async () => ({ providers: [] }) } as never,
+      telemetry: recordingTelemetry([]),
+      ensureConfigFile: async () => undefined,
+      onClose: () => undefined,
+      platform,
+      platformSessionRuns: () => runFacade,
+    });
+
+    const session = await harness.createSession({ id: 'ses_platform', workDir });
+    expect(session.platformRuns).toBe(runFacade);
+    const received: string[] = [];
+    const unsubscribe = await session.subscribePlatformEvents((event) => {
+      received.push(event.event_id);
+    });
+
+    expect(received).toEqual(['event_run_1', 'event_run_2']);
+    live?.(first);
+    live?.(second);
+    live?.(otherSession);
+    expect(received).toEqual(['event_run_1', 'event_run_2']);
+
+    unsubscribe?.();
+    await harness.close();
   });
 });
 

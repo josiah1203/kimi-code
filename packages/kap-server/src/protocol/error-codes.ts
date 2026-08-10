@@ -70,6 +70,10 @@ export const ErrorCode = {
   SKILL_NOT_FOUND: 40415,
   /** tool_call_id 不存在，或该调用没有对应的 plan（非 ExitPlanMode） */
   TOOL_CALL_NOT_FOUND: 40416,
+  /** platform backend is disabled by the experimental feature flag */
+  PLATFORM_DISABLED: 40301,
+  /** a platform entity is not present in the addressed workspace */
+  PLATFORM_RESOURCE_NOT_FOUND: 40418,
   /** 目录（models.dev catalog）中不存在该条目 */
   CATALOG_ENTRY_NOT_FOUND: 40417,
 
@@ -114,6 +118,18 @@ export const ErrorCode = {
   FS_ALREADY_EXISTS: 40919,
   /** goal 只允许主 agent 使用 */
   GOAL_UNSUPPORTED_AGENT: 40920,
+  /** platform mutation conflicts with the current durable state */
+  PLATFORM_CONFLICT: 40923,
+  /** platform mutation is invalid for the current durable state */
+  PLATFORM_STATE_INVALID: 40924,
+
+  /** platform policy denied the requested capability */
+  PLATFORM_POLICY_DENIED: 40302,
+  /** platform policy requires an approval before execution */
+  PLATFORM_APPROVAL_REQUIRED: 40303,
+
+  /** platform secret or credential reference is invalid or unsafe */
+  PLATFORM_SECRET_INVALID: 42201,
   /** 创建时 provider_id 已存在 */
   PROVIDER_ALREADY_EXISTS: 40921,
   /** page_token 损坏 / 版本不符 / 与当前查询条件不匹配，需从首页重新拉取 */

@@ -35,6 +35,20 @@ import { UsageErrors } from '#/agent/usage/errors';
 import { WebErrors } from '#/app/web/errors';
 import { WireErrors } from '#/wire/errors';
 import { WorkspaceErrors } from '#/app/workspace/errors';
+import { ArtifactErrors } from '#/workspace/artifacts/errors';
+import { AutomationErrors } from '#/workspace/automations/errors';
+import { CommercialErrors } from '#/workspace/commercial/errors';
+import { ExecutionTargetErrors } from '#/workspace/executionTargets/errors';
+import { PolicyErrors } from '#/workspace/policy/errors';
+import { PlatformEventErrors } from '#/workspace/platformEvents/errors';
+import { ProviderConnectionErrors } from '#/workspace/providerConnections/errors';
+import { ProviderRuntimeErrors } from '#/workspace/providerConnections/runtimeErrors';
+import { ResourceErrors } from '#/workspace/resources/errors';
+import { DatasetErrors } from '#/workspace/datasets/errors';
+import { MlErrors } from '#/workspace/ml/errors';
+import { PipelineErrors } from '#/workspace/pipelines/errors';
+import { ExecutionErrors } from '#/workspace/execution/errors';
+import { ServingErrors } from '#/workspace/serving/errors';
 
 export * from '#/_base/errors/codes';
 export * from '#/_base/errors/errorMessage';
@@ -71,6 +85,20 @@ export { UsageErrors } from '#/agent/usage/errors';
 export { WebErrors } from '#/app/web/errors';
 export { WireErrors } from '#/wire/errors';
 export { WorkspaceErrors } from '#/app/workspace/errors';
+export { ArtifactErrors } from '#/workspace/artifacts/errors';
+export { AutomationErrors } from '#/workspace/automations/errors';
+export { CommercialErrors } from '#/workspace/commercial/errors';
+export { ExecutionTargetErrors } from '#/workspace/executionTargets/errors';
+export { PolicyErrors } from '#/workspace/policy/errors';
+export { PlatformEventErrors } from '#/workspace/platformEvents/errors';
+export { ProviderConnectionErrors } from '#/workspace/providerConnections/errors';
+export { ProviderRuntimeErrors } from '#/workspace/providerConnections/runtimeErrors';
+export { ResourceErrors } from '#/workspace/resources/errors';
+export { DatasetErrors } from '#/workspace/datasets/errors';
+export { MlErrors } from '#/workspace/ml/errors';
+export { PipelineErrors } from '#/workspace/pipelines/errors';
+export { ExecutionErrors } from '#/workspace/execution/errors';
+export { ServingErrors } from '#/workspace/serving/errors';
 
 export const ErrorCodes = {
   ...CoreErrors.codes,
@@ -104,6 +132,20 @@ export const ErrorCodes = {
   ...WebErrors.codes,
   ...WireErrors.codes,
   ...WorkspaceErrors.codes,
+  ...ArtifactErrors.codes,
+  ...AutomationErrors.codes,
+  ...CommercialErrors.codes,
+  ...ExecutionTargetErrors.codes,
+  ...PolicyErrors.codes,
+  ...PlatformEventErrors.codes,
+  ...ProviderConnectionErrors.codes,
+  ...ProviderRuntimeErrors.codes,
+  ...ResourceErrors.codes,
+  ...DatasetErrors.codes,
+  ...MlErrors.codes,
+  ...PipelineErrors.codes,
+  ...ExecutionErrors.codes,
+  ...ServingErrors.codes,
 } as const;
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];

@@ -49,6 +49,8 @@ export interface ProtocolProviderOptions {
   readonly vertexai?: boolean;
   readonly project?: string;
   readonly location?: string;
+  /** Allow an explicitly configured local endpoint to omit credentials. */
+  readonly allowUnauthenticated?: boolean;
 }
 
 export interface ProtocolAdapterConfig {

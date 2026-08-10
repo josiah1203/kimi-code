@@ -9,6 +9,7 @@ import {
   catalogProviderModels,
   CatalogFetchError,
   DEFAULT_CATALOG_URL,
+  PLATFORM_NO_CREDENTIAL_SECRET_REF,
   resolveCatalogImport,
   type Catalog,
   type ThinkingEffort,
@@ -34,6 +35,9 @@ import {
   promptApiKey,
   promptBaseUrl,
   promptCatalogProviderSelection,
+  promptPlatformCredential,
+  promptPlatformConnectionValue,
+  promptPlatformProviderSelection,
 } from './prompts';
 import type { SlashCommandHost } from './dispatch';
 
@@ -41,10 +45,122 @@ import type { SlashCommandHost } from './dispatch';
 // /provider command
 // ---------------------------------------------------------------------------
 
-export async function handleProviderCommand(host: SlashCommandHost): Promise<void> {
+export async function handleProviderCommand(host: SlashCommandHost, args = ''): Promise<void> {
+  if (args.trim().toLowerCase() === 'platform') {
+    await handlePlatformProviderConnection(host);
+    return;
+  }
   const options = buildProviderManagerOptions(host);
   const component = new ProviderManagerComponent(options);
   host.mountEditorReplacement(component);
+}
+
+const PLATFORM_PROVIDER_OPTIONS = [
+  { value: 'kimi', label: 'Kimi', description: 'Kimi-hosted or Kimi-compatible models' },
+  { value: 'openai', label: 'OpenAI', description: 'OpenAI API models' },
+  { value: 'anthropic', label: 'Anthropic', description: 'Claude API models' },
+  { value: 'google', label: 'Google', description: 'Gemini API models' },
+  { value: 'openai-compatible', label: 'OpenAI-compatible', description: 'A compatible gateway or local server' },
+  { value: 'local', label: 'Local endpoint', description: 'A local OpenAI-compatible model server' },
+  { value: 'custom', label: 'Custom', description: 'An explicitly configured provider protocol' },
+] as const;
+
+async function handlePlatformProviderConnection(host: SlashCommandHost): Promise<void> {
+  const platform = host.harness.platform;
+  const workspaceId = platform?.workspaceIdForRoot === undefined
+    ? undefined
+    : await platform.workspaceIdForRoot(host.state.appState.workDir);
+  if (platform === undefined || workspaceId === undefined) {
+    host.showError('Platform services are unavailable. Enable KIMI_CODE_EXPERIMENTAL_PLATFORM_SERVICES=1 and use the v2 engine.');
+    return;
+  }
+
+  const provider = await promptPlatformProviderSelection(host, PLATFORM_PROVIDER_OPTIONS);
+  if (provider === undefined) return;
+  const selected = PLATFORM_PROVIDER_OPTIONS.find((option) => option.value === provider);
+  if (selected === undefined) return;
+
+  const model = await promptPlatformConnectionValue(
+    host,
+    `Default model for ${selected.label}`,
+    ['This model name is stored as connection metadata, never as a credential.'],
+    { mask: false, emptyHint: 'Model name cannot be empty.' },
+  );
+  if (model === undefined) return;
+
+  let baseUrl: string | undefined;
+  if (provider === 'openai-compatible' || provider === 'local' || provider === 'custom') {
+    baseUrl = await promptBaseUrl(host, selected.label);
+    if (baseUrl === undefined) return;
+  }
+
+  const secret = provider === 'local'
+    ? await promptPlatformCredential(
+      host,
+      selected.label,
+      ['The key is stored in protected platform storage.', 'It will not appear in chat, logs, events, or artifacts.'],
+    )
+    : await promptApiKey(
+      host,
+      selected.label,
+      ['The key is stored in protected platform storage.', 'It will not appear in chat, logs, events, or artifacts.'],
+    );
+  if (secret === undefined) return;
+
+  const requestId = `tui:provider:${Date.now().toString(36)}`;
+  const metadata = {
+    default_model: model,
+    models: [model],
+    base_url: baseUrl,
+  };
+  try {
+    const connection = secret === ''
+      ? await platform.connections.create(workspaceId, {
+        request_id: `${requestId}:create`,
+        name: `${selected.label} connection`,
+        provider,
+        scope: 'workspace',
+        secret_ref: PLATFORM_NO_CREDENTIAL_SECRET_REF,
+        capabilities: ['chat', 'tool_use'],
+        metadata,
+      })
+      : await platform.connections.createWithSecret(workspaceId, {
+        request_id: `${requestId}:create`,
+        name: `${selected.label} connection`,
+        provider,
+        scope: 'workspace',
+        secret,
+        capabilities: ['chat', 'tool_use'],
+        metadata,
+      });
+    const validated = await platform.connections.validate(workspaceId, connection.id, {
+      request_id: `${requestId}:validate`,
+    });
+    if (validated === undefined) {
+      host.showError(`Connection created but validation failed for ${selected.label}. Inspect it with the platform tools.`);
+      return;
+    }
+    const session = await host.ensureSession();
+    if (session === undefined) return;
+    const selection = await session.selectPlatformModel({
+      model_ref: {
+        provider_connection_id: connection.id,
+        model,
+      },
+      fallback_connection_ids: [],
+    });
+    // An unbound platform bootstrap session has no legacy profile model to
+    // report through getStatus(). Keep Kimi's existing composer/footer gate
+    // in sync with the canonical selection without persisting a second model
+    // authority or putting credentials in TUI state.
+    host.setAppState({
+      model: `platform:${selection.model_ref.provider_connection_id}/${selection.model_ref.model}`,
+    });
+    host.track('platform_provider_connected', { provider, model });
+    host.showStatus(`Platform model active: ${selected.label} · ${model}`, 'success');
+  } catch (error) {
+    host.showError(`Platform connection failed: ${formatErrorMessage(error)}`);
+  }
 }
 
 function buildProviderManagerOptions(host: SlashCommandHost): ProviderManagerOptions {
