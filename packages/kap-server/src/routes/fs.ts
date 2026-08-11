@@ -3,16 +3,16 @@
  *
  * Mirrors `packages/server/src/routes/fs.ts` path-for-path and schema-for-schema
  * so existing v1 clients keep working against server-v2. Backed by the v2
- * Workspace-scoped `IWorkspaceFsService` (`agent-core-v2/src/workspace/workspaceFs`):
+ * Workspace-scoped `IWorkspaceFsService` (`SpiderByte Agent Core/src/workspace/workspaceFs`):
  * the route resolves the session from the URL, then dispatches `fs:<action>`
  * to the matching `IWorkspaceFsService` method — the session's accessor
  * resolves it from its parent Workspace scope (the handler), which is the
  * "session → handler → workspace fs" chain (chdir is gone, so the handler
  * root is the one fixed fs root). The wire schema comes from the engine's own
- * `workspaceFs` domain contract (`agent-core-v2`).
+ * `workspaceFs` domain contract (`SpiderByte Agent Core`).
  *
  * Draft-session fallback: a client composing the first prompt of a new
- * session (e.g. kimi-web's new-session draft) has no session id yet, so it
+ * session (e.g. spiderbyte-web's new-session draft) has no session id yet, so it
  * passes the workspace reference — registered workspace id or absolute root —
  * in the `{session_id}` slot. Only `fs:search` serves those (the `@` file
  * mention must work before the session exists): the route resolves the
@@ -21,7 +21,7 @@
  *
  * First-class workspace search: `POST /workspace/fs:search` carries the same
  * workspace reference in the body (`workspace`), so a session-less client
- * searches without borrowing the `{session_id}` slot. kimi-web's `@` mention
+ * searches without borrowing the `{session_id}` slot. spiderbyte-web's `@` mention
  * uses this route; the session-route fallback above predates it and stays for
  * wire compatibility.
  */
@@ -39,7 +39,7 @@ import {
   isError2,
   Error2,
   type Scope,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import {
   fsDiffRequestSchema,
   fsGitStatusRequestSchema,
@@ -52,7 +52,7 @@ import {
   fsSearchResponseSchema,
   fsStatManyRequestSchema,
   fsStatRequestSchema,
-} from '@moonshot-ai/agent-core-v2/workspace/workspaceFs/fs';
+} from '@spiderbyte/agent-core/workspace/workspaceFs/fs';
 import { z } from 'zod';
 
 import { errEnvelope, okEnvelope } from '../envelope';

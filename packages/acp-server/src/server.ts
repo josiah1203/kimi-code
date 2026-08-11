@@ -22,9 +22,7 @@ import {
   agent,
   type AgentApp,
   type AgentCapabilities,
-  type AuthenticateRequest,
   type AvailableCommand,
-  type AuthenticateResponse,
   type CancelNotification,
   type ClientCapabilities,
   type CloseSessionRequest,
@@ -62,12 +60,11 @@ import type {
   SessionHandle,
   SessionRestoreOptions,
   SessionSummary,
-} from '@moonshot-ai/klient';
-import { RPCError } from '@moonshot-ai/klient';
+} from '@spiderbyte/client';
+import { RPCError } from '@spiderbyte/client';
 
 import type { AcpClient } from './acp-client';
 import type { IAcpConnection } from './acp-fs';
-import { buildTerminalAuthMethod, TERMINAL_AUTH_METHOD } from './auth-methods';
 import { acpMcpServersToConfigRecord } from './convert';
 import { log } from './log';
 import { isAcpModeId } from './modes';
@@ -107,20 +104,6 @@ export interface AcpServerOptions {
    */
   readonly disableAuth?: boolean;
   /**
-   * Env vars to advertise in `authMethods[0].env` so the `kimi login`
-   * subprocess the client spawns (via terminal-auth) lands its token under the
-   * same data root the server uses (e.g. `{ KIMI_CODE_HOME: '/tmp/...' }` for
-   * sandboxed test setups). Leave undefined in production so the advertised
-   * env stays empty.
-   */
-  readonly terminalAuthEnv?: Readonly<Record<string, string>>;
-  /**
-   * Absolute binary path advertised in `_meta['terminal-auth'].command` for
-   * clients that don't yet honor the first-class `type:'terminal'`. Defaults
-   * to undefined (the `_meta` fallback is omitted).
-   */
-  readonly terminalAuthLegacyCommand?: string;
-  /**
    * Resolve a session's media-originals dir for prompt-image compression.
    * This is a composition-root concern (it reads the live engine scope tree,
    * not the klient facade) — `start.ts` builds it from the bootstrapped App
@@ -135,8 +118,6 @@ export class AcpServer {
   private clientCapabilities: ClientCapabilities | undefined;
   private readonly agentInfo: Implementation | undefined;
   private readonly disableAuth: boolean;
-  private readonly terminalAuthEnv: Readonly<Record<string, string>> | undefined;
-  private readonly terminalAuthLegacyCommand: string | undefined;
   private readonly resolveOriginalsDir: ((sessionId: string) => string | undefined) | undefined;
   private readonly resolveSlashCommands: (
     session: SessionHandle,
@@ -156,8 +137,6 @@ export class AcpServer {
   ) {
     this.agentInfo = opts.agentInfo;
     this.disableAuth = opts.disableAuth ?? false;
-    this.terminalAuthEnv = opts.terminalAuthEnv;
-    this.terminalAuthLegacyCommand = opts.terminalAuthLegacyCommand;
     this.resolveOriginalsDir = opts.resolveOriginalsDir;
     const slashCommands = opts.slashCommands;
     this.resolveSlashCommands =
@@ -213,14 +192,9 @@ export class AcpServer {
     return {
       protocolVersion: negotiated.protocolVersion,
       agentCapabilities,
-      authMethods: [
-        this.terminalAuthEnv !== undefined || this.terminalAuthLegacyCommand !== undefined
-          ? buildTerminalAuthMethod({
-              env: this.terminalAuthEnv,
-              legacyCommand: this.terminalAuthLegacyCommand,
-            })
-          : TERMINAL_AUTH_METHOD,
-      ],
+      // Open Core is accountless. ACP clients must configure a local or BYOK
+      // provider; no hosted login method is advertised.
+      authMethods: [],
       ...(this.agentInfo ? { agentInfo: this.agentInfo } : {}),
     };
   }
@@ -353,28 +327,12 @@ export class AcpServer {
     return {};
   }
 
-  async authenticate(params: AuthenticateRequest): Promise<AuthenticateResponse | void> {
-    if (params.methodId !== 'login') {
-      throw RequestError.invalidParams(
-        { methodId: params.methodId },
-        `Unknown auth method: ${params.methodId}`,
-      );
-    }
-    // Re-check the gate; clients spawn `kimi login` themselves via the
-    // terminal-auth method and re-invoke `authenticate('login')` to confirm the
-    // token landed. `void` = empty success body.
-    await this.ensureAuthed();
-  }
-
   /**
-   * Handle ACP `logout`. Drops the managed provider's token through the engine
-   * (`oauthService.logout`, which also deprovisions managed config). The auth
-   * gate re-derives from `klient.global.auth.summarize()` on every gated call,
-   * so no extra state is needed here — the next gated method hits
-   * `auth_required` again naturally. `void` = empty success body.
+   * ACP keeps the logout method for protocol compatibility. Open Core has no
+   * hosted account session to terminate, so the local operation is a no-op.
    */
   async logout(_params: LogoutRequest): Promise<LogoutResponse | void> {
-    await this.klient.global.auth.logout();
+    return undefined;
   }
 
   /**
@@ -675,9 +633,8 @@ function parseSetSessionModelParams(params: unknown): SetSessionModelParams {
  * `extMethod` / `extNotification` fallbacks.
  */
 export function createAcpAgentApp(getServer: () => AcpServer): AgentApp {
-  return agent({ name: 'kimi-code-acp' })
+  return agent({ name: 'spiderbyte-acp' })
     .onRequest(methods.agent.initialize, (ctx) => getServer().initialize(ctx.params))
-    .onRequest(methods.agent.authenticate, (ctx) => getServer().authenticate(ctx.params))
     .onRequest(methods.agent.logout, (ctx) => getServer().logout(ctx.params))
     .onRequest(methods.agent.session.new, (ctx) => getServer().newSession(ctx.params))
     .onRequest(methods.agent.session.load, (ctx) => getServer().loadSession(ctx.params))

@@ -78,9 +78,9 @@ describe('createSessionRequestSchema', () => {
 
   it('accepts a POST body with only workspace_id (route layer resolves cwd)', () => {
     const parsed = createSessionRequestSchema.parse({
-      workspace_id: 'wd_kimi_0123456789ab',
+      workspace_id: 'wd_workspace_0123456789ab',
     });
-    expect(parsed.workspace_id).toBe('wd_kimi_0123456789ab');
+    expect(parsed.workspace_id).toBe('wd_workspace_0123456789ab');
     expect(parsed.metadata).toBeUndefined();
   });
 
@@ -179,7 +179,7 @@ describe('getSessionProfileResponseSchema', () => {
   it('accepts a Session payload', () => {
     const parsed = getSessionProfileResponseSchema.parse({
       id: 'sess_abc',
-      workspace_id: 'wd_kimi_0123456789ab',
+      workspace_id: 'wd_workspace_0123456789ab',
       title: 'Profile',
       created_at: '2026-01-01T00:00:00.000Z',
       updated_at: '2026-01-01T00:00:00.000Z',
@@ -217,9 +217,9 @@ describe('updateSessionProfileRequestSchema', () => {
 
   it('accepts agent_config.model', () => {
     const parsed = updateSessionProfileRequestSchema.parse({
-      agent_config: { model: 'moonshot-v1-128k' },
+      agent_config: { model: 'example-model' },
     });
-    expect(parsed.agent_config?.model).toBe('moonshot-v1-128k');
+    expect(parsed.agent_config?.model).toBe('example-model');
   });
 
   it('accepts agent_config runtime controls (thinking + permission_mode + plan_mode)', () => {
@@ -271,7 +271,7 @@ describe('forkSessionResponseSchema', () => {
   it('accepts a Session payload', () => {
     const parsed = forkSessionResponseSchema.parse({
       id: 'sess_fork',
-      workspace_id: 'wd_kimi_0123456789ab',
+      workspace_id: 'wd_workspace_0123456789ab',
       title: 'Fork: source',
       created_at: '2026-01-01T00:00:00.000Z',
       updated_at: '2026-01-01T00:00:00.000Z',
@@ -317,7 +317,7 @@ describe('createSessionChildResponseSchema', () => {
   it('accepts a Session payload', () => {
     const parsed = createSessionChildResponseSchema.parse({
       id: 'sess_child',
-      workspace_id: 'wd_kimi_0123456789ab',
+      workspace_id: 'wd_workspace_0123456789ab',
       title: 'Child: source',
       created_at: '2026-01-01T00:00:00.000Z',
       updated_at: '2026-01-01T00:00:00.000Z',
@@ -348,7 +348,7 @@ describe('listSessionChildrenResponseSchema', () => {
       items: [
         {
           id: 'sess_child',
-          workspace_id: 'wd_kimi_0123456789ab',
+          workspace_id: 'wd_workspace_0123456789ab',
           title: 'Child: source',
           created_at: '2026-01-01T00:00:00.000Z',
           updated_at: '2026-01-01T00:00:00.000Z',
@@ -380,7 +380,7 @@ describe('sessionStatusResponseSchema', () => {
   it('accepts a full valid shape', () => {
     const parsed = sessionStatusResponseSchema.parse({
       busy: true,
-      model: 'moonshot-v1-128k',
+      model: 'example-model',
       thinking_level: 'on',
       permission: 'ask',
       plan_mode: true,
@@ -390,7 +390,7 @@ describe('sessionStatusResponseSchema', () => {
       context_usage: 0.008,
     });
     expect(parsed.busy).toBe(true);
-    expect(parsed.model).toBe('moonshot-v1-128k');
+    expect(parsed.model).toBe('example-model');
     expect(parsed.plan_mode).toBe(true);
     expect(parsed.context_usage).toBe(0.008);
   });
@@ -544,7 +544,7 @@ describe('undoSessionResponseSchema', () => {
       },
       status: {
         busy: true,
-        model: 'kimi-k2',
+        model: 'example-model',
         thinking_level: 'auto',
         permission: 'manual',
         plan_mode: false,
@@ -573,7 +573,7 @@ describe('restoreSessionResponseSchema', () => {
   it('accepts a restored Session payload', () => {
     const parsed = restoreSessionResponseSchema.parse({
       id: 'sess_abc',
-      workspace_id: 'wd_kimi_0123456789ab',
+      workspace_id: 'wd_workspace_0123456789ab',
       title: 'Restored',
       created_at: '2026-01-01T00:00:00.000Z',
       updated_at: '2026-01-01T00:00:00.000Z',

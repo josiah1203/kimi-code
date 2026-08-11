@@ -37,7 +37,7 @@ describe('stripPort', () => {
 describe('formatHostErrorMessage', () => {
   it('includes the rejected host and allow guidance', () => {
     expect(formatHostErrorMessage('APP.Example.com:443')).toBe(
-      "Invalid Host header: app.example.com; allow this host with KIMI_CODE_ALLOWED_HOSTS=app.example.com or 'kimi web --allowed-host app.example.com'.",
+      "Invalid Host header: app.example.com; allow this host with SPIDERBYTE_ALLOWED_HOSTS=app.example.com or 'spyderbyte web --allowed-host app.example.com'.",
     );
   });
 });
@@ -104,7 +104,7 @@ describe('isAllowedHost (disable)', () => {
 
 describe('parseAllowedHosts', () => {
   it('splits, trims, and drops empties', () => {
-    expect(parseAllowedHosts({ KIMI_CODE_ALLOWED_HOSTS: ' a, .b.example.com, ' })).toEqual([
+    expect(parseAllowedHosts({ SPIDERBYTE_ALLOWED_HOSTS: ' a, .b.example.com, ' })).toEqual([
       'a',
       '.b.example.com',
     ]);
@@ -117,7 +117,7 @@ describe('parseAllowedHosts', () => {
 
 describe('isHostCheckDisabled', () => {
   it('is true when set to "1"', () => {
-    expect(isHostCheckDisabled({ KIMI_CODE_DISABLE_HOST_CHECK: '1' })).toBe(true);
+    expect(isHostCheckDisabled({ SPIDERBYTE_DISABLE_HOST_CHECK: '1' })).toBe(true);
   });
 
   it('is false when unset', () => {
@@ -149,7 +149,7 @@ describe('createHostCheck (onRequest hook)', () => {
     const body = res.json() as Record<string, unknown>;
     expect(body['code']).toBe(40301);
     expect(body['msg']).toBe(
-      "Invalid Host header: evil.example.test; allow this host with KIMI_CODE_ALLOWED_HOSTS=evil.example.test or 'kimi web --allowed-host evil.example.test'.",
+      "Invalid Host header: evil.example.test; allow this host with SPIDERBYTE_ALLOWED_HOSTS=evil.example.test or 'spyderbyte web --allowed-host evil.example.test'.",
     );
     expect(body['data']).toBeNull();
     expect(typeof body['request_id']).toBe('string');
@@ -162,7 +162,7 @@ describe('createHostCheck (onRequest hook)', () => {
 });
 
 describe('startServer allowedHosts — env + option merge', () => {
-  const ENV_KEY = 'KIMI_CODE_ALLOWED_HOSTS';
+  const ENV_KEY = 'SPIDERBYTE_ALLOWED_HOSTS';
   let server: RunningServer | undefined;
   let home: string | undefined;
   let prevEnv: string | undefined;
@@ -187,9 +187,9 @@ describe('startServer allowedHosts — env + option merge', () => {
     }
   });
 
-  it('appends opts.allowedHosts to KIMI_CODE_ALLOWED_HOSTS instead of replacing it', async () => {
+  it('appends opts.allowedHosts to SPIDERBYTE_ALLOWED_HOSTS instead of replacing it', async () => {
     process.env[ENV_KEY] = 'env-only.example.com';
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-host-merge-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-host-merge-'));
     server = await startServer({
       hostIdentity: TEST_HOST_IDENTITY,
       host: '127.0.0.1',

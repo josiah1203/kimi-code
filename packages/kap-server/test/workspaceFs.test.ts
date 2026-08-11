@@ -40,10 +40,10 @@ describe('server-v2 /api/v1 fs folder picker', () => {
   let base: string;
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-fs-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-fs-'));
     // Keep the instance registry OUTSIDE the browsed homeDir so the folder
     // picker only sees the test fixtures.
-    instancesDir = await mkdtemp(join(tmpdir(), 'kimi-server-v2-fs-instances-'));
+    instancesDir = await mkdtemp(join(tmpdir(), 'spiderbyte-server-fs-instances-'));
     server = await startServer({
       hostIdentity: TEST_HOST_IDENTITY,
       host: '127.0.0.1',
@@ -190,8 +190,8 @@ describe('server-v2 /api/v1 fs:mkdir', () => {
   let base: string;
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), 'kimi-server-v2-fsmkdir-'));
-    instancesDir = await mkdtemp(join(tmpdir(), 'kimi-server-v2-fsmkdir-instances-'));
+    dir = await mkdtemp(join(tmpdir(), 'spiderbyte-server-fsmkdir-'));
+    instancesDir = await mkdtemp(join(tmpdir(), 'spiderbyte-server-fsmkdir-instances-'));
     server = await startServer({
       hostIdentity: TEST_HOST_IDENTITY,
       host: '127.0.0.1',
@@ -292,8 +292,8 @@ describe('server-v2 /api/v1 fs:content', () => {
   let base: string;
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), 'kimi-server-v2-fscontent-'));
-    instancesDir = await mkdtemp(join(tmpdir(), 'kimi-server-v2-fscontent-instances-'));
+    dir = await mkdtemp(join(tmpdir(), 'spiderbyte-server-fscontent-'));
+    instancesDir = await mkdtemp(join(tmpdir(), 'spiderbyte-server-fscontent-instances-'));
     server = await startServer({
       hostIdentity: TEST_HOST_IDENTITY,
       host: '127.0.0.1',

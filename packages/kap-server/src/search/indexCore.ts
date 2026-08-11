@@ -40,7 +40,7 @@ import {
   OpTracker,
   TextIndexBuildingError,
   type BatchInputOp,
-} from '@moonshot-ai/minidb';
+} from '@spiderbyte/minidb';
 
 import { GlobalSearchError, type GlobalSearchIncomplete } from './contract.ts';
 import {
@@ -247,7 +247,7 @@ export interface SearchCoreOptions {
 /**
  * One session to index, with its persistence directory PRE-RESOLVED by the
  * caller (the main process owns `sessionDirOf`/`workspacePersistenceScope`;
- * the worker closure deliberately does not import agent-core-v2).
+ * the worker closure deliberately does not import SpiderByte Agent Core).
  */
 export interface SyncSessionInput {
   readonly id: string;

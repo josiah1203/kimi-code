@@ -26,7 +26,7 @@ import {
   type ISessionScopeHandle,
   type ISessionStateService,
   type Scope,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import {
   AgentTranscript,
   TranscriptStore,
@@ -38,7 +38,7 @@ import {
   type TranscriptOperation,
   type TranscriptTask,
   type TranscriptTurn,
-} from '@moonshot-ai/transcript';
+} from '@spiderbyte/transcript';
 import { describe, expect, it } from 'vitest';
 
 import { bindSessionTranscript } from '../../src/services/transcript/coreBinding';

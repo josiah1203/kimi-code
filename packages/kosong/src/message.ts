@@ -107,7 +107,7 @@ export interface Message {
    * `role: 'system'` messages: it is the append-only primitive for loading a
    * tool mid-conversation without touching the request's top-level `tools[]`
    * (which must stay byte-stable to preserve the provider's prompt cache).
-   * Providers that support message-level tool declarations (Kimi
+   * Providers that support message-level tool declarations (external provider
    * `messages[].tools`) serialize it; callers must not send such a message to
    * a provider without that capability.
    */
@@ -125,7 +125,7 @@ export function isContentPart(part: StreamedMessagePart): part is ContentPart {
 /**
  * True for a message whose only payload is `tools` — the dynamic tool-loading
  * primitive (see {@link Message.tools}). Message-level tool declarations are a
- * Kimi wire feature; every other provider must skip such a message entirely:
+ * external provider wire feature; every other provider must skip such a message entirely:
  * their explicit field construction already keeps the `tools` field off the
  * wire, but the leftover empty message would be rejected (OpenAI: system
  * message without content) or serialized as a garbage `<system></system>`

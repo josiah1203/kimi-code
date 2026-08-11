@@ -30,7 +30,7 @@ import type {
   ToolCallLocation,
 } from '@agentclientprotocol/sdk';
 import { RequestError } from '@agentclientprotocol/sdk';
-import type { ContextMessage } from '@moonshot-ai/agent-core-v2';
+import type { ContextMessage } from '@spiderbyte/agent-core';
 import type {
   AgentEventPayloads,
   AgentHandle,
@@ -41,14 +41,14 @@ import type {
   SessionEventPayloads,
   SessionHandle,
   SkillSummary,
-} from '@moonshot-ai/klient';
+} from '@spiderbyte/client';
 import type {
   ToolCallDeltaEvent,
   ToolCallStartedEvent,
   ToolInputDisplay,
   ToolProgressEvent,
   ToolResultEvent,
-} from '@moonshot-ai/protocol';
+} from '@spiderbyte/protocol';
 
 import type { AcpClient } from './acp-client';
 import type { AcpTerminalCreatedEvent, IAcpConnection } from './acp-fs';

@@ -1,6 +1,6 @@
 /**
  * `AgentTranscriptProjector` — maps one agent's `IEventBus` domain events to
- * L2 transcript operations (`@moonshot-ai/transcript`).
+ * L2 transcript operations (`@spiderbyte/transcript`).
  *
  * Mapping rules (settled design):
  *   - `turn.upsert` / `step.upsert` carry headers only; render content rides
@@ -55,7 +55,7 @@
  *     `meta.merge` refining the plan badge with `reviewPath` / `version`.
  *
  * Event payloads are typed by the core `DomainEvent` union (the
- * `DomainEventMap` augmentations in `packages/agent-core-v2/src`, e.g.
+ * `DomainEventMap` augmentations in `packages/agent-core/src`, e.g.
  * `agent/loop/loopService.ts`, `agent/toolExecutor/toolExecutorService.ts`,
  * `agent/task/taskOps.ts`, `agent/shellCommand/shellCommandService.ts`,
  * `session/agentLifecycle/mirrorAgentRun.ts`, `session/swarm/sessionSwarmService.ts`,
@@ -65,7 +65,7 @@
  * `agent/profile/profileService.ts`, `agent/contextMemory/contextMemoryService.ts`).
  */
 
-import type { DomainEvent } from '@moonshot-ai/agent-core-v2';
+import type { DomainEvent } from '@spiderbyte/agent-core';
 import type {
   AgentRef,
   AgentUsageMeta,
@@ -85,14 +85,14 @@ import type {
   TurnHeader,
   TurnOrigin,
   TurnState,
-} from '@moonshot-ai/transcript';
+} from '@spiderbyte/transcript';
 
 import { toLegacyPhase } from '../legacyStatus/legacyStatus';
 
 // ---------------------------------------------------------------------------
 // Interaction view (structural — the kernel's `Interaction` narrowed to the
 // two kinds the transcript renders; see
-// `packages/agent-core-v2/src/session/interaction/interaction.ts`)
+// `packages/agent-core/src/session/interaction/interaction.ts`)
 // ---------------------------------------------------------------------------
 
 export interface ProjectorInteraction {
@@ -104,7 +104,7 @@ export interface ProjectorInteraction {
 }
 
 /**
- * The plan domain's `plan.revision` event (agent-core-v2 `planOps.ts` — the
+ * The plan domain's `plan.revision` event (SpiderByte Agent Core `planOps.ts` — the
  * persisted op's `toEvent`): one per ExitPlanMode review submission, carrying
  * the reference to the offloaded plan file version. Derived from `DomainEvent`
  * so a shape drift on the engine side fails the compile here.

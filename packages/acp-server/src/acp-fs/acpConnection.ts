@@ -19,7 +19,7 @@ import {
   registerScopedService,
   ScopeActivation,
   type ServiceIdentifier,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 
 /**
  * Narrow ACP-client file surface the ACP-backed `IHostFileSystem` needs.

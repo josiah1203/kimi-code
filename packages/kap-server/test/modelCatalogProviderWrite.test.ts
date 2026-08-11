@@ -42,7 +42,7 @@ const DEFAULTED_TOML = [
   '',
 ].join('\n');
 
-/** Same providers/models, but the global default model belongs to kimi. */
+/** Same providers/models, but the global default model belongs to an external provider. */
 const KEEP_DEFAULT_TOML = DEFAULTED_TOML.replace('default_provider = "openai"\n', '').replace(
   'default_model = "gpt4o"',
   'default_model = "k2"',
@@ -59,14 +59,14 @@ const DANGLING_DEFAULT_TOML = [
 ].join('\n');
 
 const MANAGED_TOML = [
-  '[providers."managed:kimi-code"]',
+  '[providers."managed:spiderbyte"]',
   'type = "kimi"',
   'api_key = ""',
   'base_url = "https://api.example.test/v1"',
-  'oauth = { storage = "file", key = "oauth/kimi-code" }',
+  'oauth = { storage = "file", key = "oauth/spiderbyte" }',
   '',
-  '[models."managed:kimi-code/kimi-k2"]',
-  'provider = "managed:kimi-code"',
+  '[models."managed:spiderbyte/kimi-k2"]',
+  'provider = "managed:spiderbyte"',
   'model = "kimi-k2"',
   'max_context_size = 131072',
   '',
@@ -107,11 +107,11 @@ describe('server-v2 /api/v1 provider write endpoints', () => {
   let base: string;
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-provider-write-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-provider-write-'));
     // Disable the background refresh scheduler so it never rewrites config
     // underneath the write-path assertions below.
-    process.env['KIMI_CODE_MODEL_CATALOG_REFRESH_ON_START'] = '0';
-    process.env['KIMI_CODE_MODEL_CATALOG_REFRESH_INTERVAL_MS'] = '0';
+    process.env['SPIDERBYTE_MODEL_CATALOG_REFRESH_ON_START'] = '0';
+    process.env['SPIDERBYTE_MODEL_CATALOG_REFRESH_INTERVAL_MS'] = '0';
   });
 
   afterEach(async () => {
@@ -123,8 +123,8 @@ describe('server-v2 /api/v1 provider write endpoints', () => {
       await rm(home, { recursive: true, force: true });
       home = undefined;
     }
-    delete process.env['KIMI_CODE_MODEL_CATALOG_REFRESH_ON_START'];
-    delete process.env['KIMI_CODE_MODEL_CATALOG_REFRESH_INTERVAL_MS'];
+    delete process.env['SPIDERBYTE_MODEL_CATALOG_REFRESH_ON_START'];
+    delete process.env['SPIDERBYTE_MODEL_CATALOG_REFRESH_INTERVAL_MS'];
   });
 
   async function boot(toml?: string): Promise<void> {
@@ -347,16 +347,16 @@ describe('server-v2 /api/v1 provider write endpoints', () => {
     await boot();
     const { status, body } = await postJson<{ id: string }>('/api/v1/providers', {
       ...CREATE_BODY,
-      id: '测试 Kimi',
+      id: '测试 SpiderByte',
     });
     expect(status).toBe(201);
     expect(body.code).toBe(0);
-    expect(body.data.id).toBe('测试 Kimi');
+    expect(body.data.id).toBe('测试 SpiderByte');
 
     const onDisk = await readConfigToml();
-    expect(onDisk['providers']).toMatchObject({ '测试 Kimi': { type: 'openai' } });
+    expect(onDisk['providers']).toMatchObject({ '测试 SpiderByte': { type: 'openai' } });
     expect(onDisk['models']).toMatchObject({
-      '测试 Kimi/gpt-4.1': { provider: '测试 Kimi', model: 'gpt-4.1' },
+      '测试 SpiderByte/gpt-4.1': { provider: '测试 SpiderByte', model: 'gpt-4.1' },
     });
   });
 
@@ -475,12 +475,12 @@ describe('server-v2 /api/v1 provider write endpoints', () => {
 
   it('rejects deleting an OAuth-managed provider with 40003', async () => {
     await boot(MANAGED_TOML);
-    const { body } = await deleteJson<unknown>('/api/v1/providers/managed%3Akimi-code');
+    const { body } = await deleteJson<unknown>('/api/v1/providers/managed%3Aspiderbyte');
     expect(body?.code).toBe(40003);
     expect(body?.msg).toContain('/oauth/logout');
 
     const providers = await getJson<{ items: Array<{ id: string }> }>('/api/v1/providers');
-    expect(providers.body.data.items.map((p) => p.id)).toEqual(['managed:kimi-code']);
+    expect(providers.body.data.items.map((p) => p.id)).toEqual(['managed:spiderbyte']);
   });
 
   it('maps an unknown provider id to 40412 on delete', async () => {
@@ -758,7 +758,7 @@ describe('server-v2 /api/v1 provider write endpoints', () => {
   it('rejects replacing an OAuth-managed provider with 40003', async () => {
     await boot(MANAGED_TOML);
     const { body } = await putJson<unknown>(
-      '/api/v1/providers/managed%3Akimi-code',
+      '/api/v1/providers/managed%3Aspiderbyte',
       REPLACE_BODY,
     );
     expect(body.code).toBe(40003);
@@ -766,9 +766,9 @@ describe('server-v2 /api/v1 provider write endpoints', () => {
 
     // The managed provider and its alias are left untouched.
     const providers = await getJson<{ items: Array<{ id: string }> }>('/api/v1/providers');
-    expect(providers.body.data.items.map((p) => p.id)).toEqual(['managed:kimi-code']);
+    expect(providers.body.data.items.map((p) => p.id)).toEqual(['managed:spiderbyte']);
     const models = await getJson<{ items: Array<{ model: string }> }>('/api/v1/models');
-    expect(models.body.data.items.map((m) => m.model)).toEqual(['managed:kimi-code/kimi-k2']);
+    expect(models.body.data.items.map((m) => m.model)).toEqual(['managed:spiderbyte/kimi-k2']);
   });
 
   it('maps an unknown provider id to 40412 on replace', async () => {

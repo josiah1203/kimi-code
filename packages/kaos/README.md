@@ -1,8 +1,8 @@
-# @moonshot-ai/kaos
+# @spiderbyte/kaos
 
-Execution environment abstraction used by Kimi Code.
+Execution environment abstraction used by SpiderByte.
 
-Part of the [Kimi Code](https://github.com/MoonshotAI/kimi-code) monorepo.
+Part of the [SpiderByte](https://github.com/SpiderByte/spiderbyte) monorepo.
 
 See the main repository for documentation, issues, and contribution guidelines.
 

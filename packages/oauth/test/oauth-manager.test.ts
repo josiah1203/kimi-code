@@ -40,7 +40,7 @@ class InMemoryStorage implements TokenStorage {
 }
 
 const config: OAuthFlowConfig = {
-  name: 'kimi-code',
+  name: 'spiderbyte',
   oauthHost: 'https://test',
   clientId: 'test',
 };
@@ -75,7 +75,7 @@ afterEach(() => {
 describe('OAuthManager.ensureFresh', () => {
   it('returns stored access_token when not close to expiry', async () => {
     const storage = new InMemoryStorage();
-    await storage.save('kimi-code', makeToken({ expiresAt: currentNow + 7200 }));
+    await storage.save('spiderbyte', makeToken({ expiresAt: currentNow + 7200 }));
     const refreshImpl = vi.fn();
     const mgr = new OAuthManager({
       config,
@@ -91,7 +91,7 @@ describe('OAuthManager.ensureFresh', () => {
   it('refreshes when within dynamic threshold', async () => {
     const storage = new InMemoryStorage();
     // expires in 200s, threshold = max(300, 3600*0.5) = 1800. 200 < 1800 → refresh
-    await storage.save('kimi-code', makeToken({ expiresAt: currentNow + 200 }));
+    await storage.save('spiderbyte', makeToken({ expiresAt: currentNow + 200 }));
     const refreshed = makeToken({
       accessToken: 'at-new',
       refreshToken: 'rt-new',
@@ -102,12 +102,12 @@ describe('OAuthManager.ensureFresh', () => {
     const access = await mgr.ensureFresh();
     expect(refreshImpl).toHaveBeenCalledWith(config, 'rt-1');
     expect(access).toBe('at-new');
-    expect((await storage.load('kimi-code'))?.accessToken).toBe('at-new');
+    expect((await storage.load('spiderbyte'))?.accessToken).toBe('at-new');
   });
 
   it('force=true always refreshes', async () => {
     const storage = new InMemoryStorage();
-    await storage.save('kimi-code', makeToken({ expiresAt: currentNow + 7200 }));
+    await storage.save('spiderbyte', makeToken({ expiresAt: currentNow + 7200 }));
     const refreshImpl = vi.fn().mockResolvedValue(makeToken({ accessToken: 'forced' }));
     const mgr = new OAuthManager({ config, storage, now, refreshTokenImpl: refreshImpl });
     const access = await mgr.ensureFresh({ force: true });
@@ -118,7 +118,7 @@ describe('OAuthManager.ensureFresh', () => {
   it('force=true refreshes an unchanged freshly-issued token', async () => {
     const storage = new InMemoryStorage();
     await storage.save(
-      'kimi-code',
+      'spiderbyte',
       makeToken({
         accessToken: 'at-fresh',
         refreshToken: 'rt-fresh',
@@ -142,7 +142,7 @@ describe('OAuthManager.ensureFresh', () => {
   it('force=true reuses a token changed by another process while waiting for the lock', async () => {
     const storage = new InMemoryStorage();
     await storage.save(
-      'kimi-code',
+      'spiderbyte',
       makeToken({
         accessToken: 'at-old',
         refreshToken: 'rt-old',
@@ -158,7 +158,7 @@ describe('OAuthManager.ensureFresh', () => {
       callCount += 1;
       if (callCount === 2) {
         await storage.save(
-          'kimi-code',
+          'spiderbyte',
           makeToken({
             accessToken: 'at-peer',
             refreshToken: 'rt-peer',
@@ -176,7 +176,7 @@ describe('OAuthManager.ensureFresh', () => {
 
   it('concurrent ensureFresh calls share a single refresh', async () => {
     const storage = new InMemoryStorage();
-    await storage.save('kimi-code', makeToken({ expiresAt: currentNow + 200 }));
+    await storage.save('spiderbyte', makeToken({ expiresAt: currentNow + 200 }));
     let refreshCount = 0;
     const refreshImpl = vi.fn().mockImplementation(async () => {
       refreshCount += 1;
@@ -196,7 +196,7 @@ describe('OAuthManager.ensureFresh', () => {
     // forced rotation has its own semantics (e.g. recovery after a 401
     // upstream) that the non-force coalesce path cannot satisfy.
     const storage = new InMemoryStorage();
-    await storage.save('kimi-code', makeToken({ expiresAt: currentNow + 7200 }));
+    await storage.save('spiderbyte', makeToken({ expiresAt: currentNow + 7200 }));
     let refreshCount = 0;
     const refreshImpl = vi.fn().mockImplementation(async () => {
       refreshCount += 1;
@@ -220,7 +220,7 @@ describe('OAuthManager.ensureFresh', () => {
     // with anything the in-flight call returns, so we MUST coalesce
     // rather than spawn a second refresh round-trip.
     const storage = new InMemoryStorage();
-    await storage.save('kimi-code', makeToken({ expiresAt: currentNow + 7200 }));
+    await storage.save('spiderbyte', makeToken({ expiresAt: currentNow + 7200 }));
     let refreshCount = 0;
     const refreshImpl = vi.fn().mockImplementation(async () => {
       refreshCount += 1;
@@ -239,7 +239,7 @@ describe('OAuthManager.ensureFresh', () => {
 
   it('coalesces concurrent force=true callers onto a single refresh', async () => {
     const storage = new InMemoryStorage();
-    await storage.save('kimi-code', makeToken({ expiresAt: currentNow + 7200 }));
+    await storage.save('spiderbyte', makeToken({ expiresAt: currentNow + 7200 }));
     let refreshCount = 0;
     const refreshImpl = vi.fn().mockImplementation(async () => {
       refreshCount += 1;
@@ -265,7 +265,7 @@ describe('OAuthManager.ensureFresh', () => {
     // non-force call settles — otherwise N concurrent 401 recoveries
     // would each burn a separate OAuth round-trip.
     const storage = new InMemoryStorage();
-    await storage.save('kimi-code', makeToken({ expiresAt: currentNow + 7200 }));
+    await storage.save('spiderbyte', makeToken({ expiresAt: currentNow + 7200 }));
     let refreshCount = 0;
     const refreshImpl = vi.fn().mockImplementation(async () => {
       refreshCount += 1;
@@ -294,7 +294,7 @@ describe('OAuthManager.ensureFresh', () => {
     // refresh — the failure of the unrelated non-force call must not
     // bleed into the force caller's outcome.
     const storage = new InMemoryStorage();
-    await storage.save('kimi-code', makeToken({ expiresAt: currentNow + 200 }));
+    await storage.save('spiderbyte', makeToken({ expiresAt: currentNow + 200 }));
     const refreshImpl = vi
       .fn()
       .mockRejectedValueOnce(new Error('network unreachable'))
@@ -329,7 +329,7 @@ describe('OAuthManager.ensureFresh', () => {
     // this process nor a fresh one will try to reuse the rejected token.
     const storage = new InMemoryStorage();
     await storage.save(
-      'kimi-code',
+      'spiderbyte',
       makeToken({
         accessToken: 'at-retained',
         refreshToken: 'rt-retained',
@@ -339,7 +339,7 @@ describe('OAuthManager.ensureFresh', () => {
     const refreshImpl = vi.fn().mockRejectedValue(new OAuthUnauthorizedError('invalid_grant'));
     const mgr = new OAuthManager({ config, storage, now, refreshTokenImpl: refreshImpl });
     await expect(mgr.ensureFresh()).rejects.toBeInstanceOf(OAuthUnauthorizedError);
-    const retained = await storage.load('kimi-code');
+    const retained = await storage.load('spiderbyte');
     expect(retained).toBeDefined();
     expect(retained?.accessToken).toBe('');
     expect(retained?.refreshToken).toBe('');
@@ -348,7 +348,7 @@ describe('OAuthManager.ensureFresh', () => {
   it('does NOT delete file if 401 happens after another process rotated (M5)', async () => {
     const storage = new InMemoryStorage();
     await storage.save(
-      'kimi-code',
+      'spiderbyte',
       makeToken({
         accessToken: 'at-old',
         refreshToken: 'rt-old',
@@ -363,7 +363,7 @@ describe('OAuthManager.ensureFresh', () => {
       if (rt === 'rt-old') {
         // Race: while we were calling refresh, another process rotated.
         await storage.save(
-          'kimi-code',
+          'spiderbyte',
           makeToken({
             accessToken: 'at-rotated',
             refreshToken: 'rt-rotated',
@@ -385,7 +385,7 @@ describe('OAuthManager.ensureFresh', () => {
     const access = await mgr.ensureFresh();
     expect(access).toBe('at-rotated');
     // File should still have the rotated token
-    expect((await storage.load('kimi-code'))?.accessToken).toBe('at-rotated');
+    expect((await storage.load('spiderbyte'))?.accessToken).toBe('at-rotated');
     expect(refreshAttempts).toBe(1);
   });
 
@@ -397,7 +397,7 @@ describe('OAuthManager.ensureFresh', () => {
     // is observable.
     const storage = new InMemoryStorage();
     await storage.save(
-      'kimi-code',
+      'spiderbyte',
       makeToken({ expiresAt: currentNow + 7200, refreshToken: 'rt-revoked' }),
     );
     const refreshImpl = vi
@@ -413,7 +413,7 @@ describe('OAuthManager.ensureFresh', () => {
 
     await expect(mgr.ensureFresh({ force: true })).rejects.toBeInstanceOf(OAuthUnauthorizedError);
     // Tombstone on disk so a fresh process won't retry the dead refresh_token.
-    const retained = await storage.load('kimi-code');
+    const retained = await storage.load('spiderbyte');
     expect(retained).toBeDefined();
     expect(retained?.accessToken).toBe('');
     expect(retained?.refreshToken).toBe('');
@@ -423,7 +423,7 @@ describe('OAuthManager.ensureFresh', () => {
     // A transport error inside force=true must reach the caller —
     // the caller owns the try/catch policy, not ensureFresh.
     const storage = new InMemoryStorage();
-    await storage.save('kimi-code', makeToken({ expiresAt: currentNow + 7200 }));
+    await storage.save('spiderbyte', makeToken({ expiresAt: currentNow + 7200 }));
     const refreshImpl = vi.fn().mockRejectedValue(new Error('ECONNRESET: network unreachable'));
     const mgr = new OAuthManager({
       config,
@@ -435,13 +435,13 @@ describe('OAuthManager.ensureFresh', () => {
 
     await expect(mgr.ensureFresh({ force: true })).rejects.toThrow(/ECONNRESET/);
     // Network error is NOT a revocation signal — storage must stay intact.
-    expect(await storage.load('kimi-code')).toBeDefined();
+    expect(await storage.load('spiderbyte')).toBeDefined();
   });
 
   it('uses fresh stored token when another process already rotated', async () => {
     const storage = new InMemoryStorage();
     await storage.save(
-      'kimi-code',
+      'spiderbyte',
       makeToken({
         accessToken: 'at-old',
         refreshToken: 'rt-old',
@@ -458,7 +458,7 @@ describe('OAuthManager.ensureFresh', () => {
       callCount += 1;
       if (callCount === 2) {
         await storage.save(
-          'kimi-code',
+          'spiderbyte',
           makeToken({
             accessToken: 'at-rotated',
             refreshToken: 'rt-rotated',
@@ -479,7 +479,7 @@ describe('OAuthManager.ensureFresh — rejected refresh token retention', () => 
   it('suppresses a rejected refresh_token until the on-disk token rotates', async () => {
     const storage = new InMemoryStorage();
     await storage.save(
-      'kimi-code',
+      'spiderbyte',
       makeToken({
         accessToken: 'at-stale',
         refreshToken: 'rt-rejected-until-rotate',
@@ -497,7 +497,7 @@ describe('OAuthManager.ensureFresh — rejected refresh token retention', () => 
 
     await expect(mgr.ensureFresh({ force: true })).rejects.toBeInstanceOf(OAuthUnauthorizedError);
     // Tombstoned on disk — fresh processes load this and see "rejected".
-    const persistedAfter401 = await storage.load('kimi-code');
+    const persistedAfter401 = await storage.load('spiderbyte');
     expect(persistedAfter401).toBeDefined();
     expect(persistedAfter401?.accessToken).toBe('');
     expect(persistedAfter401?.refreshToken).toBe('');
@@ -510,7 +510,7 @@ describe('OAuthManager.ensureFresh — rejected refresh token retention', () => 
     expect(refreshImpl).toHaveBeenCalledTimes(1);
 
     await storage.save(
-      'kimi-code',
+      'spiderbyte',
       makeToken({
         accessToken: 'at-rotated',
         refreshToken: 'rt-rotated',
@@ -527,7 +527,7 @@ describe('OAuthManager.ensureFresh — rejected refresh token retention', () => 
   it('returns the stored access_token when expires_at is 0 (unknown expiry)', async () => {
     const storage = new InMemoryStorage();
     await storage.save(
-      'kimi-code',
+      'spiderbyte',
       makeToken({
         accessToken: 'at-zero-expiry',
         refreshToken: 'rt-zero-expiry',
@@ -558,7 +558,7 @@ describe('OAuthManager.ensureFresh — rejected refresh token retention', () => 
     // every time. Tombstone = empty access_token + empty refresh_token.
     const storage = new InMemoryStorage();
     await storage.save(
-      'kimi-code',
+      'spiderbyte',
       makeToken({
         accessToken: 'at-stale',
         refreshToken: 'rt-rejected',
@@ -576,7 +576,7 @@ describe('OAuthManager.ensureFresh — rejected refresh token retention', () => 
 
     await expect(mgr.ensureFresh({ force: true })).rejects.toBeInstanceOf(OAuthUnauthorizedError);
 
-    const persistedAfter401 = await storage.load('kimi-code');
+    const persistedAfter401 = await storage.load('spiderbyte');
     expect(persistedAfter401).toBeDefined();
     expect(persistedAfter401?.accessToken).toBe('');
     expect(persistedAfter401?.refreshToken).toBe('');
@@ -619,7 +619,7 @@ describe('OAuthManager.login', () => {
     const onDeviceCode = vi.fn();
     const result = await mgr.login({ onDeviceCode });
     expect(result.accessToken).toBe('at-login');
-    expect(await storage.load('kimi-code')).toBeDefined();
+    expect(await storage.load('spiderbyte')).toBeDefined();
     expect(onDeviceCode).toHaveBeenCalledTimes(1);
   });
 
@@ -674,7 +674,7 @@ describe('OAuthManager.login', () => {
     });
 
     await expect(mgr.login()).rejects.toBeInstanceOf(DeviceCodeTimeoutError);
-    expect(await storage.load('kimi-code')).toBeUndefined();
+    expect(await storage.load('spiderbyte')).toBeUndefined();
   });
 
   it('throws on denied', async () => {
@@ -750,24 +750,24 @@ describe('OAuthManager.login', () => {
 describe('OAuthManager.logout and hasToken', () => {
   it('logout removes stored token', async () => {
     const storage = new InMemoryStorage();
-    await storage.save('kimi-code', makeToken());
+    await storage.save('spiderbyte', makeToken());
     const mgr = new OAuthManager({ config, storage, now });
     await mgr.logout();
-    expect(await storage.load('kimi-code')).toBeUndefined();
+    expect(await storage.load('spiderbyte')).toBeUndefined();
   });
 
   it('hasToken returns true when stored, false otherwise', async () => {
     const storage = new InMemoryStorage();
     const mgr = new OAuthManager({ config, storage, now });
     expect(await mgr.hasToken()).toBe(false);
-    await storage.save('kimi-code', makeToken());
+    await storage.save('spiderbyte', makeToken());
     expect(await mgr.hasToken()).toBe(true);
   });
 
   it('treats an empty stored access_token as missing', async () => {
     const storage = new InMemoryStorage();
     await storage.save(
-      'kimi-code',
+      'spiderbyte',
       makeToken({ accessToken: '', refreshToken: 'rt-empty-access-token' }),
     );
     const mgr = new OAuthManager({ config, storage, now });
@@ -868,18 +868,18 @@ describe('OAuthManager + FileTokenStorage integration', () => {
 
   it('logout removes token file', async () => {
     const storage = new FileTokenStorage(dir);
-    await storage.save('kimi-code', makeToken());
+    await storage.save('spiderbyte', makeToken());
     const mgr = new OAuthManager({ config, storage, now });
     expect(await mgr.hasToken()).toBe(true);
     await mgr.logout();
     expect(await mgr.hasToken()).toBe(false);
-    expect(await storage.load('kimi-code')).toBeUndefined();
+    expect(await storage.load('spiderbyte')).toBeUndefined();
   });
 
   it('ensureFresh refreshes and persists to disk', async () => {
     const storage = new FileTokenStorage(dir);
     await storage.save(
-      'kimi-code',
+      'spiderbyte',
       makeToken({ refreshToken: 'rt-original', expiresAt: currentNow + 100 }),
     );
     const refreshImpl = vi.fn().mockResolvedValue(
@@ -896,7 +896,7 @@ describe('OAuthManager + FileTokenStorage integration', () => {
       refreshTokenImpl: refreshImpl,
     });
     await mgr.ensureFresh();
-    const persisted = await storage.load('kimi-code');
+    const persisted = await storage.load('spiderbyte');
     expect(persisted?.accessToken).toBe('rotated-access');
     expect(persisted?.refreshToken).toBe('rotated-refresh');
   });

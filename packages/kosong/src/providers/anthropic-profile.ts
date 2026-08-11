@@ -157,7 +157,7 @@ export function inferAnthropicModelProfile(model: string): AnthropicModelProfile
  * Fallback profile for Anthropic-compatible endpoints whose model name is
  * recognizably a Claude model but encodes no known version — either a
  * `claude` marker (e.g. a proxied `claude-latest`) or a bare family word
- * (`sonnet-latest`, `opus-latest`, …). Clearly non-Claude names (Kimi `k3`,
+ * (`sonnet-latest`, `opus-latest`, …). Clearly non-Claude names (external provider `k3`,
  * GLM, DeepSeek, … served over the Anthropic protocol) return undefined so
  * the catalog never advertises Claude effort levels for them. The wire-path
  * counterpart {@link inferAnthropicModelProfile} keeps its unconditional

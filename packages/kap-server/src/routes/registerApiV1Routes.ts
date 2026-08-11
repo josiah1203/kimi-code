@@ -2,16 +2,16 @@
  * `/api/v1` route registration.
  *
  * Mirrors the v1 server's prefixing and per-module delegation, but resolves
- * services from the `agent-core-v2` Core `Scope` instead of the v1 flat
+ * services from the `SpiderByte Agent Core` Core `Scope` instead of the v1 flat
  * `IInstantiationService`. v0.1 mounts the subset of routes that v2 can serve
  * end-to-end today (health, meta, auth readiness, OAuth device flow, config,
  * model/provider catalog, sessions, messages, approvals, workspaces, the fs
  * folder picker, the session filesystem, terminals, connections, shutdown).
  */
 
-import { IConfigService, type Scope } from '@moonshot-ai/agent-core-v2';
-import { IFlagService } from '@moonshot-ai/agent-core-v2/app/flag/flag';
-import type { KimiHostIdentity } from '@moonshot-ai/kimi-code-oauth';
+import { IConfigService, type Scope } from '@spiderbyte/agent-core';
+import { IFlagService } from '@spiderbyte/agent-core/app/flag/flag';
+import type { SpiderByteHostIdentity } from '@spiderbyte/oauth';
 import { ulid } from 'ulid';
 
 import { okEnvelope } from '../envelope';
@@ -30,7 +30,6 @@ import type { IGuiStoreService } from '../services/guiStore/guiStore';
 import { registerDebugRoutes } from '../transport/registerDebugRoutes';
 import { registerMetaRoute } from './meta';
 import { registerModelCatalogRoutes } from './modelCatalog';
-import { registerOAuthRoutes } from './oauth';
 import { registerPromptsRoutes } from './prompts';
 import { registerQuestionsRoutes } from './questions';
 import { registerSearchRoutes } from './search';
@@ -67,7 +66,7 @@ export interface RegisterApiV1RoutesOptions {
    * Host product identity from `startServer` — the session export route stamps
    * its manifest from `hostIdentity.version`.
    */
-  readonly hostIdentity: KimiHostIdentity;
+  readonly hostIdentity: SpiderByteHostIdentity;
   readonly debugEndpoints?: boolean;
   readonly enableShutdown?: boolean;
   readonly enableTerminals?: boolean;
@@ -116,7 +115,6 @@ export async function registerApiV1Routes(
       });
 
       registerAuthRoute(apiV1 as unknown as Parameters<typeof registerAuthRoute>[0], core);
-      registerOAuthRoutes(apiV1 as unknown as Parameters<typeof registerOAuthRoutes>[0], core);
       registerConfigRoutes(apiV1 as unknown as Parameters<typeof registerConfigRoutes>[0], core);
       registerModelCatalogRoutes(
         apiV1 as unknown as Parameters<typeof registerModelCatalogRoutes>[0],

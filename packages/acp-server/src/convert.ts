@@ -7,14 +7,14 @@ import {
   type McpServerConfig,
   parseImageDataUrl,
   persistOriginalImage,
-} from '@moonshot-ai/agent-core-v2';
-import type { ToolInputDisplay, ToolResultEvent } from '@moonshot-ai/protocol';
+} from '@spiderbyte/agent-core';
+import type { ToolInputDisplay, ToolResultEvent } from '@spiderbyte/protocol';
 
 import { log } from './log';
 import { isHideOutputMarker } from './marker';
 
 /**
- * Convert an array of ACP {@link ContentBlock}s into agent-core-v2
+ * Convert an array of ACP {@link ContentBlock}s into SpiderByte Agent Core
  * {@link ContentPart}s suitable for a user `ContextMessage`'s `content`.
  *
  * Image parts are built from the client-declared MIME verbatim; run the
@@ -83,7 +83,7 @@ export function acpBlocksToContentParts(blocks: readonly ContentBlock[]): readon
  * (`resolvePromptMediaFiles`). Best effort: a part that cannot be compressed
  * is passed through unchanged.
  *
- * This is NOT duplicated by the engine: agent-core-v2's prompt pipeline
+ * This is NOT duplicated by the engine: SpiderByte Agent Core's prompt pipeline
  * (`agent/prompt/promptService.ts`) only *extracts* pre-existing compression
  * captions from user text (rerouting them to system reminders) — it never
  * gates or compresses images at the prompt entry, so the edge ingestion point

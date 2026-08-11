@@ -62,7 +62,7 @@ describe('API surface snapshot', () => {
   });
 
   it('matches the documented v2 route table and meta endpoints', async () => {
-    home = mkdtempSync(join(tmpdir(), 'kimi-server-v2-api-surface-'));
+    home = mkdtempSync(join(tmpdir(), 'spiderbyte-server-api-surface-'));
 
     server = await startServer({
       hostIdentity: TEST_HOST_IDENTITY,

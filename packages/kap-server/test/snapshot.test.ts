@@ -26,7 +26,7 @@ import {
   IWorkspaceService,
   getLiveSessionById,
   resumeSessionById,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import { sessionSnapshotResponseSchema } from '../src/protocol/rest-snapshot';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -203,7 +203,7 @@ describe('server-v2 GET /api/v1/sessions/:id/snapshot', () => {
   let base: string;
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-snapshot-test-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-snapshot-test-'));
     server = await startServer({ hostIdentity: TEST_HOST_IDENTITY, host: '127.0.0.1', port: 0, homeDir: home, logLevel: 'silent' });
     base = `http://127.0.0.1:${server.port}`;
   });

@@ -19,7 +19,7 @@ import type {
   ToolProgressEvent,
   ToolResultEvent,
   TurnEndReason,
-} from '@moonshot-ai/protocol';
+} from '@spiderbyte/protocol';
 
 import { displayBlockToAcpContent, toolResultToAcpContent } from './convert';
 import type { AcpStopReason } from './types';
@@ -106,7 +106,7 @@ export function acpToolCallId(turnId: number, toolCallId: string): string {
 }
 
 /**
- * Heuristic map from a Kimi tool's `name` to ACP {@link ToolKind}.
+ * Heuristic map from a provider tool's `name` to ACP {@link ToolKind}.
  *
  * Pure, never throws — defaults to `'other'` whenever the name is
  * unrecognized so we never block streaming on an unknown tool.
@@ -256,7 +256,7 @@ export function toolCallDeltaToSessionUpdate(
  * Build the initial ACP `tool_call` (CREATE) notification from the **first**
  * `tool.call.delta` event for a given `toolCallId`.
  *
- * agent-core-v2 emits `tool.call.delta` events while the provider streams the
+ * SpiderByte Agent Core emits `tool.call.delta` events while the provider streams the
  * model's tool-call args, and only later emits `tool.call.started` (after the
  * streaming phase, when the call is dispatched). Lazy-creating the wire
  * tool_call from the first delta gives subsequent deltas a legitimate parent

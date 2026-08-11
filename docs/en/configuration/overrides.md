@@ -1,107 +1,61 @@
-# Config overrides
+# Configuration overrides
 
-Kimi Code CLI has three places where runtime parameters can be influenced: the config file, command-line options, and environment variables. They are not a simple "whoever has higher priority wins" relationship — the three serve different scenarios and have non-overlapping scopes:
+SpiderByte has three configuration layers: the TOML file, command-line options, and explicit environment variables. Each layer has a defined scope rather than one universal priority rule.
 
-- **Config file** stores long-term preferences (model, keys, loop control, etc.); takes effect on every startup
-- **Command-line options** make one-off changes for the current startup; discarded after exit
-- **Environment variables** primarily handle data directory location, OAuth endpoint switching, and a small number of runtime switches — **not a general fallback mechanism for config fields**
+- The TOML file stores durable local preferences.
+- Command-line options apply to one startup.
+- Environment variables relocate data, select an environment model, or enable a documented runtime switch.
 
-This distinction matters: many users run `export KIMI_API_KEY=xxx` in the shell expecting the CLI to pick it up automatically, but it does not. See [Provider credentials](#provider-credentials) below for why.
+## Priority
 
-## Three roles of environment variables
+For ordinary runtime settings, command-line options have priority over the user configuration file. Environment variables override only the fields they document. Provider credentials do not fall back to arbitrary shell variables.
 
-Environment variables fall into three categories by function and cannot be collapsed into a single linear priority order:
+Provider credentials resolve in this order:
 
-1. **Locating the config file**: `KIMI_CODE_HOME` sets the data root directory, making the config file path `$KIMI_CODE_HOME/config.toml`. This step runs before all other resolution and is not a fallback for individual parameters.
-2. **Runtime switches**: A small set of variables like `KIMI_DISABLE_TELEMETRY` directly shut down the corresponding subsystem — even if `config.toml` has `telemetry = true`, setting this variable to a truthy value disables telemetry. The semantics are "additionally disable", not "ordinary override".
-3. **Runtime endpoints and diagnostics**: Variables like `KIMI_CODE_OAUTH_HOST`, `KIMI_CODE_BASE_URL`, and `KIMI_LOG_LEVEL` are read when the OAuth or logging subsystems initialize. For the full list, see [Environment variables](./env-vars.md).
+1. `[providers.<name>].api_key` or `base_url`.
+2. The matching value in `[providers.<name>.env]`.
+3. A stable missing-credential or missing-endpoint error.
 
-## Priority for ordinary runtime parameters
+The `[providers.<name>.env]` table is still part of `config.toml`; it does not mutate the shell environment.
 
-For ordinary runtime parameters such as model alias, Plan mode, yolo mode, and Skills directories, priority from highest to lowest is:
-
-1. **Command-line options** (`-m`, `--plan`, `--yolo`, etc.): apply only to the current startup
-2. **User config file** (`~/.kimi-code/config.toml`): stores long-term preferences
-
-A small number of environment variables explicitly override specific config file fields — for example, `KIMI_CODE_BACKGROUND_KEEP_ALIVE_ON_EXIT` has higher priority than `[background].keep_alive_on_exit`. These exceptions are noted in [Environment variables](./env-vars.md) and in the relevant field descriptions in [Configuration files](./config-files.md).
-
-::: warning
-**Ordinary runtime parameters do not fall back to shell environment variables.** Provider `api_key` / `base_url` are read only from `config.toml` (including the `[providers.<name>.env]` sub-table) and do not fall back to `export`-ed shell variables. The only exception is the explicit `KIMI_MODEL_*` channel — see [Define a model from environment variables](./env-vars.md#define-a-model-from-environment-variables-kimi-model).
-:::
-
-The CLI currently reads a single user-level config file and has no project-level config file mechanism. To isolate config between different projects, point `KIMI_CODE_HOME` at different data directories — see [Common scenarios](#common-scenarios) below.
-
-## Provider credentials
-
-Provider credentials (`api_key`, `base_url`) follow their own resolution rules, separate from the ordinary parameter priority chain.
-
-For a single provider, credentials are resolved in this order:
-
-1. `[providers.<name>].api_key` — key written directly in the config file; highest priority
-2. The matching key inside the `[providers.<name>.env]` sub-table (`KIMI_API_KEY`, `ANTHROPIC_API_KEY`, etc.) — consulted only when `api_key` is empty
-3. If both are absent — startup fails with an error indicating the provider is missing credentials
-
-`base_url` is resolved the same way: first `[providers.<name>].base_url`, then the `*_BASE_URL` key in `[providers.<name>.env]`.
-
-> The `[providers.<name>.env]` sub-table is just a TOML section in the config file — it does not write anything into the shell environment. It is only consulted when the corresponding direct field (`api_key` / `base_url`) is empty.
-
-For the full list of credential key names, see [Environment variables: provider credential key names](./env-vars.md#provider-credential-key-names-written-in-config-toml).
+The one-shot `SPIDERBYTE_MODEL_*` channel creates an in-memory model and provider for the current process. It is useful for smoke tests and BYOK, and is never written to disk.
 
 ## Command-line options
 
-Options passed at startup have the highest priority and apply only to the current session:
-
 | Option | Effect |
 | --- | --- |
-| `-S, --session [id]` | Resume a specific session; enters interactive selection when no id is given |
-| `-c, --continue` | Resume the last session for the current working directory |
-| `-y, --yolo` | Auto-approve regular tool calls; the agent may still ask questions |
-| `--auto` | Start in auto permission mode: fully autonomous, the agent will not ask questions |
-| `--plan` | Start in Plan mode |
-| `-m, --model <model>` | Use a specific model alias for this session |
-| `-p, --prompt <prompt>` | Run in non-interactive mode: execute a single prompt and exit |
-| `--output-format <format>` | Output format for `-p` mode: `text` or `stream-json` |
-| `--skills-dir <dir>` | Replace auto-discovered Skills directories (repeatable; applies to this session only) |
+| `-S, --session [id]` | Resume a session or open the session picker. |
+| `-c, --continue` | Resume the most recent session in the current directory. |
+| `-y, --yolo` | Auto-approve ordinary tool calls. |
+| `--auto` | Start in fully autonomous permission mode. |
+| `--plan` | Start in Plan mode. |
+| `-m, --model <model>` | Select a model alias for this startup. |
+| `-p, --prompt <prompt>` | Run one prompt and exit. |
+| `--output-format <format>` | Select `text` or `stream-json` for prompt mode. |
+| `--skills-dir <dir>` | Replace discovered Skill directories for this startup. |
 
-Mutual exclusion rules (startup fails if violated):
+`--output-format` requires `-p`; `--continue` and `--session` cannot be combined; and non-prompt `--yolo`/`--plan` combinations follow the CLI option validation rules.
 
-- `--output-format` can only be used with `-p`
-- `--prompt` cannot be combined with `--yolo` or `--plan`
-- `--continue` and `--session` cannot be used together
-- In non-prompt mode, `--yolo` and `--plan` cannot be combined with `--continue` or `--session`
+## Isolated local environments
 
-::: tip
-`--skills-dir` is a one-shot replacement that only affects the current startup. To persistently add search directories, write `extra_skill_dirs` in `config.toml` (see [Agent Skills](../customization/skills.md)).
-:::
-
-## Common scenarios
-
-**Isolated test environment** — use a separate data directory to avoid polluting the main config and sessions:
+Use a separate data root for tests or projects that need independent configuration:
 
 ```sh
-KIMI_CODE_HOME="$PWD/.kimi-sandbox" kimi
+SPIDERBYTE_HOME="$PWD/.spiderbyte-sandbox" spyderbyte --version
 ```
 
-**One-off test key** — since provider credentials are read only from the config file, write a test key into the `env` sub-table:
-
-```toml
-[providers.kimi.env]
-KIMI_API_KEY = "sk-test"
-```
-
-**Skip approval for batch tasks**:
+For a one-off BYOK model, use the environment overlay:
 
 ```sh
-kimi --yolo -p "Batch rename the following files..."
-```
-
-**Enter Plan mode temporarily** (to make it permanent, set `default_plan_mode = true` in the config file):
-
-```sh
-kimi --plan
+SPIDERBYTE_MODEL_NAME=your-local-model \
+SPIDERBYTE_MODEL_PROVIDER_TYPE=openai \
+SPIDERBYTE_MODEL_BASE_URL=http://127.0.0.1:11434/v1 \
+SPIDERBYTE_MODEL_API_KEY=local \
+spyderbyte -p "Describe the current directory"
 ```
 
 ## Next steps
 
-- [Configuration files](./config-files.md) — complete reference for all configurable fields
-- [Environment variables](./env-vars.md) — full list and description of `KIMI_CODE_HOME` and related variables
+- [Configuration files](./config-files.md)
+- [Environment variables](./env-vars.md)
+- [Providers and models](./providers.md)

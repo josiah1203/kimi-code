@@ -813,7 +813,7 @@ describe('WsConnectionV1 global target registration', () => {
     expect(removed).toEqual([conn]);
   });
 
-  it('opts only kimi-inspect connections into the event.di.* debug feed on client_hello', async () => {
+  it('opts only spiderbyte-inspect connections into the event.di.* debug feed on client_hello', async () => {
     const socket = new FakeSocket();
     const { broadcaster, diOptIns } = makeGlobalTargetBroadcaster();
     const conn = makeConn(socket, { broadcaster });
@@ -821,7 +821,7 @@ describe('WsConnectionV1 global target registration', () => {
     // Another client id (or none) never joins the DI fan-out.
     socket.emit(
       'message',
-      JSON.stringify({ type: 'client_hello', id: 'h1', payload: { client_id: 'kimi-web' } }),
+      JSON.stringify({ type: 'client_hello', id: 'h1', payload: { client_id: 'spiderbyte-web' } }),
     );
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(diOptIns).toEqual([]);
@@ -831,7 +831,7 @@ describe('WsConnectionV1 global target registration', () => {
       JSON.stringify({
         type: 'client_hello',
         id: 'h2',
-        payload: { client_id: 'kimi-inspect' },
+        payload: { client_id: 'spiderbyte-inspect' },
       }),
     );
     await vi.waitFor(() => expect(diOptIns).toEqual([conn]));

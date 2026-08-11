@@ -5,9 +5,9 @@ import { join } from 'node:path';
 // Keep these server boots on the WORKER search host (the suite-level setup
 // disables the flag to spare non-search suites the background worker load):
 // this file is the end-to-end coverage of the production worker path.
-process.env['KIMI_CODE_EXPERIMENTAL_SEARCH_WORKER'] = '1';
+process.env['SPIDERBYTE_EXPERIMENTAL_SEARCH_WORKER'] = '1';
 
-import { ISessionIndex, type SessionSummary } from '@moonshot-ai/agent-core-v2';
+import { ISessionIndex, type SessionSummary } from '@spiderbyte/agent-core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { type RunningServer, startServer } from '../../src/start';
@@ -67,7 +67,7 @@ describe('server-v2 /api/v1/search', () => {
   let base: string;
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-search-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-search-'));
     // Fixture first: the boot-time background sync picks it up on its own.
     const sessionDir = join(home, 'sessions', WS, 's1', 'agents', 'main');
     await mkdir(sessionDir, { recursive: true });
@@ -231,7 +231,7 @@ describe('server-v2 session routes with the global search DB unavailable', () =>
   let base: string;
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-search-down-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-search-down-'));
     await writeFile(join(home, 'search-index'), 'not a minidb directory', 'utf8');
   });
 

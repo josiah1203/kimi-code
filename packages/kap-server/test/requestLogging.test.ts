@@ -49,7 +49,7 @@ describe('requestLogging', () => {
   });
 
   it('logs the envelope code instead of the HTTP status code', async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-request-log-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-request-log-'));
     const { logger, lines } = captureLogger();
     server = await startServer({ hostIdentity: TEST_HOST_IDENTITY, host: '127.0.0.1', port: 0, homeDir: home, logger });
 

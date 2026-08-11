@@ -1,21 +1,21 @@
 {
-  "name": "@moonshot-ai/kimi-code-oauth",
+  "name": "@spiderbyte/oauth",
   "version": "0.3.0",
-  "private": true,
-  "description": "Kimi OAuth toolkit for managed Kimi Code authentication",
+  "private": false,
+  "description": "Provider-neutral OAuth and local credential toolkit",
   "license": "MIT",
-  "author": "Moonshot AI",
-  "homepage": "https://github.com/MoonshotAI/kimi-code/tree/main/packages/oauth#readme",
+  "author": "SpiderByte contributors",
+  "homepage": "https://github.com/SpiderByte/spiderbyte/tree/main/packages/oauth#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/MoonshotAI/kimi-code.git",
+    "url": "git+https://github.com/SpiderByte/spiderbyte.git",
     "directory": "packages/oauth"
   },
   "bugs": {
-    "url": "https://github.com/MoonshotAI/kimi-code/issues"
+    "url": "https://github.com/SpiderByte/spiderbyte/issues"
   },
   "keywords": [
-    "kimi",
+    "spiderbyte",
     "oauth",
     "authentication",
     "auth",
@@ -45,5 +45,18 @@
   },
   "devDependencies": {
     "@types/proper-lockfile": "^4.1.4"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.mts",
+        "import": "./dist/index.mjs",
+        "default": "./dist/index.mjs"
+      }
+    }
   }
 }

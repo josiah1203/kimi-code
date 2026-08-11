@@ -10,7 +10,7 @@ import {
   OPEN_PLATFORMS,
   OpenPlatformApiError,
   removeOpenPlatformConfig,
-  type ManagedKimiConfigShape,
+  type SpiderByteConfigShape,
 } from '../src/open-platform';
 
 function makeModelsResponse(): Response {
@@ -64,7 +64,7 @@ describe('OPEN_PLATFORMS', () => {
   it('isOpenPlatformId works', () => {
     expect(isOpenPlatformId('moonshot-cn')).toBe(true);
     expect(isOpenPlatformId('moonshot-ai')).toBe(true);
-    expect(isOpenPlatformId('kimi-code')).toBe(false);
+    expect(isOpenPlatformId('spiderbyte')).toBe(false);
   });
 });
 
@@ -134,7 +134,7 @@ describe('filterModelsByPrefix', () => {
       { id: 'gpt-4', contextLength: 1000, supportsReasoning: false, supportsImageIn: false, supportsVideoIn: false },
     ];
 
-    const filtered = filterModelsByPrefix(models as unknown as import('../src/managed-kimi-code').ManagedKimiCodeModelInfo[], platform);
+    const filtered = filterModelsByPrefix(models as unknown as import('../src/config').ProviderModelInfo[], platform);
     expect(filtered).toHaveLength(1);
     expect(filtered[0]?.id).toBe('kimi-k2-0712-preview');
   });
@@ -150,7 +150,7 @@ describe('filterModelsByPrefix', () => {
       { id: 'model-b', contextLength: 2000, supportsReasoning: false, supportsImageIn: false, supportsVideoIn: false },
     ];
 
-    const filtered = filterModelsByPrefix(models as unknown as import('../src/managed-kimi-code').ManagedKimiCodeModelInfo[], platform);
+    const filtered = filterModelsByPrefix(models as unknown as import('../src/config').ProviderModelInfo[], platform);
     expect(filtered).toHaveLength(2);
   });
 });
@@ -254,7 +254,7 @@ describe('capabilitiesForModel', () => {
 
 describe('applyOpenPlatformConfig', () => {
   it('writes provider, models, and defaults', () => {
-    const config: ManagedKimiConfigShape = {
+    const config: SpiderByteConfigShape = {
       providers: {},
     };
     const platform = getOpenPlatformById('moonshot-cn')!;
@@ -294,7 +294,7 @@ describe('applyOpenPlatformConfig', () => {
   });
 
   it('clears stale models for the same provider', () => {
-    const config: ManagedKimiConfigShape = {
+    const config: SpiderByteConfigShape = {
       providers: {
         'moonshot-cn': { type: 'kimi', baseUrl: 'https://api.moonshot.cn/v1', apiKey: 'sk-old' },
       },
@@ -321,7 +321,7 @@ describe('applyOpenPlatformConfig', () => {
   });
 
   it('preserves hand-edited fields that upstream does not declare', () => {
-    const config: ManagedKimiConfigShape = {
+    const config: SpiderByteConfigShape = {
       providers: {
         'moonshot-cn': { type: 'kimi', baseUrl: 'https://api.moonshot.cn/v1', apiKey: 'sk-old' },
       },
@@ -332,7 +332,7 @@ describe('applyOpenPlatformConfig', () => {
           maxContextSize: 256000,
           maxOutputSize: 8192,
           supportEfforts: ['low', 'high'],
-        } as Record<string, unknown>,
+        } as unknown as import('../src/config').ProviderModelAlias,
       },
     };
     const platform = getOpenPlatformById('moonshot-cn')!;
@@ -360,7 +360,7 @@ describe('applyOpenPlatformConfig', () => {
   });
 
   it('preserves open-platform overrides during refresh', () => {
-    const config: ManagedKimiConfigShape = {
+    const config: SpiderByteConfigShape = {
       providers: {
         'moonshot-cn': { type: 'kimi', baseUrl: 'https://api.moonshot.cn/v1', apiKey: 'sk-old' },
       },
@@ -370,7 +370,7 @@ describe('applyOpenPlatformConfig', () => {
           model: 'kimi-k2-0712-preview',
           maxContextSize: 256000,
           overrides: { supportEfforts: ['low'] },
-        } as Record<string, unknown>,
+        } as unknown as import('../src/config').ProviderModelAlias,
       },
     };
     const platform = getOpenPlatformById('moonshot-cn')!;
@@ -399,7 +399,7 @@ describe('applyOpenPlatformConfig', () => {
   });
 
   it('writes a concrete effort into config.thinking when provided', () => {
-    const config: ManagedKimiConfigShape = { providers: {} };
+    const config: SpiderByteConfigShape = { providers: {} };
     const platform = getOpenPlatformById('moonshot-cn')!;
     const models = [
       {
@@ -424,7 +424,7 @@ describe('applyOpenPlatformConfig', () => {
   });
 
   it('omits effort for a boolean on (no concrete effort)', () => {
-    const config: ManagedKimiConfigShape = { providers: {} };
+    const config: SpiderByteConfigShape = { providers: {} };
     const platform = getOpenPlatformById('moonshot-cn')!;
     const models = [
       {
@@ -451,7 +451,7 @@ describe('applyOpenPlatformConfig', () => {
 
 describe('removeOpenPlatformConfig', () => {
   it('removes provider, its models, and defaultModel when matched', () => {
-    const config: ManagedKimiConfigShape = {
+    const config: SpiderByteConfigShape = {
       providers: {
         'moonshot-cn': { type: 'kimi', baseUrl: 'https://api.moonshot.cn/v1', apiKey: 'sk-test' },
         'other': { type: 'kimi', baseUrl: 'https://other.test/v1', apiKey: 'sk-other' },
@@ -473,7 +473,7 @@ describe('removeOpenPlatformConfig', () => {
   });
 
   it('leaves defaultModel intact when it belongs to another provider', () => {
-    const config: ManagedKimiConfigShape = {
+    const config: SpiderByteConfigShape = {
       providers: {
         'moonshot-cn': { type: 'kimi', baseUrl: 'https://api.moonshot.cn/v1', apiKey: 'sk-test' },
       },

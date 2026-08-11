@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import type { SkillSummary } from '@moonshot-ai/agent-core-v2';
+import type { SkillSummary } from '@spiderbyte/agent-core';
 
 import { ACP_BUILTIN_SLASH_COMMANDS } from '../src/builtin-commands';
 import { buildAcpSkillSlashCommands } from '../src/slash';
@@ -98,16 +98,16 @@ describe('acp-server skills / available commands', () => {
 
   /**
    * Boot with the scripted LLM and a project skill fixture at
-   * `<cwd>/.kimi-code/skills/acp-fixture/SKILL.md` (the engine's project
+   * `<cwd>/.spiderbyte/skills/acp-fixture/SKILL.md` (the engine's project
    * skill discovery root; the temp cwd has no `.git`, so it IS the project
    * root).
    */
   async function bootWithFixtureSkill(): Promise<TestClient> {
     homeDir = await mkdtemp(join(tmpdir(), 'acp-skills-turn-'));
     await writeFakeModelConfig(homeDir);
-    await mkdir(join(homeDir, '.kimi-code', 'skills', 'acp-fixture'), { recursive: true });
+    await mkdir(join(homeDir, '.spiderbyte', 'skills', 'acp-fixture'), { recursive: true });
     await writeFile(
-      join(homeDir, '.kimi-code', 'skills', 'acp-fixture', 'SKILL.md'),
+      join(homeDir, '.spiderbyte', 'skills', 'acp-fixture', 'SKILL.md'),
       '---\nname: acp-fixture\ndescription: ACP fixture skill\n---\n\n' +
         '# ACP Fixture\n\nAlways answer with the word FIXTURE.\n',
     );

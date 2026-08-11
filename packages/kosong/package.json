@@ -1,18 +1,18 @@
 {
-  "name": "@moonshot-ai/kosong",
+  "name": "@spiderbyte/kosong",
   "version": "0.5.5",
-  "private": true,
+  "private": false,
   "description": "The LLM abstraction layer for modern AI agent applications",
   "license": "MIT",
-  "author": "Moonshot AI",
-  "homepage": "https://github.com/MoonshotAI/kimi-code/tree/main/packages/kosong#readme",
+  "author": "SpiderByte contributors",
+  "homepage": "https://github.com/SpiderByte/spiderbyte/tree/main/packages/kosong#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/MoonshotAI/kimi-code.git",
+    "url": "git+https://github.com/SpiderByte/spiderbyte.git",
     "directory": "packages/kosong"
   },
   "bugs": {
-    "url": "https://github.com/MoonshotAI/kimi-code/issues"
+    "url": "https://github.com/SpiderByte/spiderbyte/issues"
   },
   "keywords": [
     "llm",
@@ -52,5 +52,23 @@
   "devDependencies": {
     "ajv": "^8.18.0",
     "ajv-formats": "^3.0.1"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.mts",
+        "import": "./dist/index.mjs",
+        "default": "./dist/index.mjs"
+      },
+      "./providers/*": {
+        "types": "./dist/providers/*.d.mts",
+        "import": "./dist/providers/*.mjs",
+        "default": "./dist/providers/*.mjs"
+      }
+    }
   }
 }

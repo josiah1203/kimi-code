@@ -6,7 +6,7 @@
 // (see `AcpSession.driveUnknownCommand`) — they never reach the model as
 // prompt text. Non-slash input classifies as `passthrough` and does.
 
-import { isUserActivatableSkillType, type SkillSummary } from '@moonshot-ai/agent-core-v2';
+import { isUserActivatableSkillType, type SkillSummary } from '@spiderbyte/agent-core';
 
 import {
   ACP_BUILTIN_SLASH_COMMAND_NAMES,
@@ -66,7 +66,7 @@ export interface SkillSlashCommands {
 
 /**
  * Project the session skill summaries into slash commands. Mirrors the TUI's
- * `buildSkillSlashCommands` (apps/kimi-code/src/tui/commands/skills.ts):
+ * `buildSkillSlashCommands` (apps/cli/src/tui/commands/skills.ts):
  * user-activatable skills only, builtin-source skills and sub-skills get the
  * bare name, everything else the `skill:` prefix, builtin-source group first.
  * One ACP-specific deviation: a skill whose command name collides with an ACP

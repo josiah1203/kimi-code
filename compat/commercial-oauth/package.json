@@ -1,0 +1,7 @@
+{
+  "name": "@spiderbyte/commercial-oauth-compat",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Excluded hosted identity and managed-service OAuth compatibility code; not part of SpiderByte Open Core.",
+  "type": "module"
+}

@@ -3,11 +3,11 @@ import { defineConfig } from 'tsdown';
 export default defineConfig({
   entry: ['./src/index.ts'],
   format: ['esm'],
-  dts: false,
+  dts: true,
   outDir: 'dist',
   clean: true,
   deps: {
-    alwaysBundle: [/^@moonshot-ai\//],
+    alwaysBundle: [],
     neverBundle: [],
   },
 });

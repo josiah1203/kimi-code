@@ -1087,14 +1087,14 @@ describe('KimiChatProvider', () => {
 
     it('throws during generation when no constructor or request API key is provided', async () => {
       // Save and clear env var
-      const saved = process.env['KIMI_API_KEY'];
-      delete process.env['KIMI_API_KEY'];
+      const saved = process.env['SPIDERBYTE_API_KEY'];
+      delete process.env['SPIDERBYTE_API_KEY'];
       try {
         const provider = new KimiChatProvider({ model: 'test' });
         await expect(provider.generate('', [], [])).rejects.toThrow(/options\.auth\.apiKey/);
       } finally {
         if (saved !== undefined) {
-          process.env['KIMI_API_KEY'] = saved;
+          process.env['SPIDERBYTE_API_KEY'] = saved;
         }
       }
     });

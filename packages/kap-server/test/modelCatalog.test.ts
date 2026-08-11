@@ -5,14 +5,12 @@ import { join } from 'node:path';
 import {
   IConfigService,
   IModelCatalog,
-  IOAuthService,
   IProviderDiscoveryService,
   type IModelCatalog as IModelCatalogType,
-  type IOAuthService as IOAuthServiceType,
   type IProviderDiscoveryService as IProviderDiscoveryServiceType,
   type ModelCatalogConfig,
   type ScopeSeed,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { type RunningServer, startServer } from '../src/start';
@@ -41,14 +39,14 @@ const CATALOG_TOML = [
   'provider = "kimi"',
   'model = "kimi-k2"',
   'max_context_size = 131072',
-  'display_name = "Kimi K2"',
+  'display_name = "SpiderByte K2"',
   'capabilities = ["thinking"]',
   '',
   '[models.turbo]',
   'provider = "kimi"',
   'model = "kimi-turbo"',
   'max_context_size = 32768',
-  'display_name = "Kimi Turbo"',
+  'display_name = "SpiderByte Turbo"',
   '',
   '[models.gpt4o]',
   'provider = "openai"',
@@ -63,12 +61,12 @@ describe('server-v2 /api/v1 model/provider catalog', () => {
   let base: string;
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-model-catalog-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-model-catalog-'));
     // Disable the background refresh scheduler so its startup refresh never
     // races the route-level assertions below (it shares the IProviderDiscoveryService
     // binding that the stub tests override).
-    process.env['KIMI_CODE_MODEL_CATALOG_REFRESH_ON_START'] = '0';
-    process.env['KIMI_CODE_MODEL_CATALOG_REFRESH_INTERVAL_MS'] = '0';
+    process.env['SPIDERBYTE_MODEL_CATALOG_REFRESH_ON_START'] = '0';
+    process.env['SPIDERBYTE_MODEL_CATALOG_REFRESH_INTERVAL_MS'] = '0';
   });
 
   afterEach(async () => {
@@ -80,8 +78,8 @@ describe('server-v2 /api/v1 model/provider catalog', () => {
       await rm(home, { recursive: true, force: true });
       home = undefined;
     }
-    delete process.env['KIMI_CODE_MODEL_CATALOG_REFRESH_ON_START'];
-    delete process.env['KIMI_CODE_MODEL_CATALOG_REFRESH_INTERVAL_MS'];
+    delete process.env['SPIDERBYTE_MODEL_CATALOG_REFRESH_ON_START'];
+    delete process.env['SPIDERBYTE_MODEL_CATALOG_REFRESH_INTERVAL_MS'];
   });
 
   async function boot(toml?: string, seeds?: ScopeSeed): Promise<void> {
@@ -130,14 +128,14 @@ describe('server-v2 /api/v1 model/provider catalog', () => {
       {
         provider: 'kimi',
         model: 'k2',
-        display_name: 'Kimi K2',
+        display_name: 'SpiderByte K2',
         max_context_size: 131072,
         capabilities: ['thinking'],
       },
       {
         provider: 'kimi',
         model: 'turbo',
-        display_name: 'Kimi Turbo',
+        display_name: 'SpiderByte Turbo',
         max_context_size: 32768,
       },
       {
@@ -228,7 +226,7 @@ describe('server-v2 /api/v1 model/provider catalog', () => {
       model: {
         provider: 'kimi',
         model: 'turbo',
-        display_name: 'Kimi Turbo',
+        display_name: 'SpiderByte Turbo',
         max_context_size: 32768,
       },
     });
@@ -247,16 +245,14 @@ describe('server-v2 /api/v1 model/provider catalog', () => {
     expect(model.body.code).toBe(40413);
   });
 
-  it('returns an empty refresh result through the catalog route', async () => {
+  it('does not expose the excluded OAuth refresh route', async () => {
     await boot(CATALOG_TOML);
     const { status, body } = await postJson<{
       changed: unknown[];
       unchanged: unknown[];
       failed: unknown[];
     }>('/api/v1/providers:refresh_oauth', {});
-    expect(status).toBe(200);
-    expect(body.code).toBe(0);
-    expect(body.data).toEqual({ changed: [], unchanged: [], failed: [] });
+    expect(status).toBe(404);
   });
 
   it('returns an empty refresh result through the providers:refresh route', async () => {
@@ -304,63 +300,10 @@ describe('server-v2 /api/v1 model/provider catalog', () => {
     return { _serviceBrand: undefined, refreshProviderModels };
   }
 
-  function oauthStub(
-    refreshOAuthProviderModels: IOAuthServiceType['refreshOAuthProviderModels'],
-  ): IOAuthServiceType {
-    return {
-      _serviceBrand: undefined,
-      startLogin: async () => {
-        throw new Error('unused');
-      },
-      getFlow: () => undefined,
-      cancelLogin: async () => {
-        throw new Error('unused');
-      },
-      logout: async () => {
-        throw new Error('unused');
-      },
-      status: async () => ({ loggedIn: false }),
-      refreshOAuthProviderModels,
-      getManagedUsage: async () => ({ kind: 'error' as const, message: 'unused' }),
-      getManagedUserInfo: async () => ({ kind: 'error' as const, message: 'unused' }),
-      resolveTokenProvider: () => undefined,
-      getCachedAccessToken: async () => undefined,
-    };
-  }
-
-  it('refreshes OAuth provider models through POST /providers:refresh_oauth', async () => {
-    const refreshOAuthProviderModels = vi.fn(async () => ({
-      changed: [
-        { provider_id: 'managed:kimi-code', provider_name: 'Kimi Code', added: 1, removed: 0 },
-      ],
-      unchanged: [],
-      failed: [],
-    }));
-    const seeds = [[IOAuthService, oauthStub(refreshOAuthProviderModels)]] as unknown as ScopeSeed;
-    await boot(CATALOG_TOML, seeds);
-
-    const { status, body } = await postJson<{
-      changed: unknown[];
-      unchanged: unknown[];
-      failed: unknown[];
-    }>('/api/v1/providers:refresh_oauth', {});
-
-    expect(status).toBe(200);
-    expect(body.code).toBe(0);
-    expect(body.data).toEqual({
-      changed: [
-        { provider_id: 'managed:kimi-code', provider_name: 'Kimi Code', added: 1, removed: 0 },
-      ],
-      unchanged: [],
-      failed: [],
-    });
-    expect(refreshOAuthProviderModels).toHaveBeenCalledTimes(1);
-  });
-
   it('refreshes all provider models through POST /providers:refresh', async () => {
     const refreshProviderModels = vi.fn(async () => ({
       changed: [
-        { provider_id: 'managed:kimi-code', provider_name: 'Kimi Code', added: 2, removed: 1 },
+        { provider_id: 'managed:spiderbyte', provider_name: 'SpiderByte', added: 2, removed: 1 },
       ],
       unchanged: ['moonshot-cn'],
       failed: [],
@@ -383,10 +326,10 @@ describe('server-v2 /api/v1 model/provider catalog', () => {
     const seeds = [[IProviderDiscoveryService, discoveryStub(refreshProviderModels)]] as unknown as ScopeSeed;
     await boot(CATALOG_TOML, seeds);
 
-    const { status, body } = await postJson('/api/v1/providers/managed%3Akimi-code:refresh', {});
+    const { status, body } = await postJson('/api/v1/providers/managed%3Aspiderbyte:refresh', {});
     expect(status).toBe(200);
     expect(body.code).toBe(0);
-    expect(refreshProviderModels).toHaveBeenCalledWith({ providerId: 'managed:kimi-code' });
+    expect(refreshProviderModels).toHaveBeenCalledWith({ providerId: 'managed:spiderbyte' });
   });
 
   it('rejects unsupported provider actions with 40001', async () => {

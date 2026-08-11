@@ -11,7 +11,7 @@
  * Both only become visible once tool messages have been converted to user-role
  * turns, which is why this runs at each provider's conversion boundary rather
  * than in the provider-agnostic projector: the projector deliberately preserves
- * message structure for lenient providers (OpenAI/Kimi) that accept — and read
+ * message structure for lenient providers (OpenAI/external provider) that accept — and read
  * more clearly — distinct turns, while strict providers normalize for their own
  * protocol here. Keeping the algorithm in one place stops a provider from
  * silently omitting it (the original cause of the Gemini regression).

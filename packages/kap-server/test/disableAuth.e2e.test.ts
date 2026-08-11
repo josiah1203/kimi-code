@@ -67,7 +67,7 @@ describe('server-v2 disableAuth (--dangerous-bypass-auth)', () => {
   });
 
   async function boot(disableAuth?: boolean): Promise<{ base: string; port: number }> {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-disable-auth-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-disable-auth-'));
     server = await startServer({
       hostIdentity: TEST_HOST_IDENTITY,
       host: '127.0.0.1',

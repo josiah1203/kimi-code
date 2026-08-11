@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "status": "baseline-not-release-evidence",
+  "captured_at": "2026-08-10T20:12:43Z",
+  "repository": {
+    "branch": "main",
+    "commit": "7f7932b417789e58a1af9e1affbd25528d184f82",
+    "worktree": "clean-before-planning-documents"
+  },
+  "toolchain": {
+    "node": "24.15.0",
+    "pnpm": "10.33.0",
+    "npm": "11.12.1"
+  },
+  "inventory": {
+    "package_manifest_count": 25,
+    "workspace_package_count": 25,
+    "open_core_package_count": 16,
+    "generated_asset_path_count": 26
+  },
+  "audits": {
+    "open_core_boundary": {
+      "command": "node scripts/check-open-core-boundary.mjs --json",
+      "findings": 20,
+      "by_kind": {
+        "commercial-import-or-contract": 13,
+        "commercial-implementation-in-open-core-package": 1,
+        "commercial-public-contract": 4,
+        "frontend-source-unavailable": 1,
+        "generated-frontend-awaiting-sync": 1
+      }
+    },
+    "branding": {
+      "command": "node scripts/check-branding.mjs --json",
+      "findings": 277
+    },
+    "typecheck": {
+      "command": "pnpm run typecheck",
+      "status": "pass",
+      "notes": "API Extractor emitted compiler-version and TSDoc warnings while exiting successfully."
+    },
+    "focused_platform_slices": {
+      "command": "pnpm run verify:open-core-local",
+      "status": "fail-in-sandbox-only",
+      "notes": "104 tests passed and 2 listener tests failed with sandbox EPERM; the same worker test passed 5/5 with approved elevated execution."
+    },
+    "lint": {
+      "command": "pnpm run lint",
+      "status": "fail",
+      "errors": 47,
+      "warnings": 3015
+    },
+    "full_tests": {
+      "command": "pnpm run test",
+      "status": "fail",
+      "notes": "The run encountered EMFILE watcher exhaustion and independent v2, ACP, CLI/TUI, persistence, and MCP failures; it was stopped without a trustworthy aggregate count."
+    },
+    "build": {
+      "command": "pnpm run build",
+      "status": "pass",
+      "notes": "The build included the current generated web bundle, which has no authoritative source in this checkout."
+    },
+    "package_dry_runs": {
+      "commands": [
+        "NPM_CONFIG_CACHE=/tmp/spiderbyte-npm-cache npm pack --dry-run",
+        "NPM_CONFIG_CACHE=/tmp/spiderbyte-npm-cache npm publish --dry-run"
+      ],
+      "status": "pass-with-wrong-identity",
+      "notes": "The current CLI dry-runs as @moonshot-ai/kimi-code@0.34.0 and includes the unreproducible dist-web bundle; npm publish --dry-run also warns that registry login is required."
+    },
+    "package_lint": {
+      "command": "pnpm run lint:pkg",
+      "status": "pass-with-warnings",
+      "notes": "publint reported the import fallback and missing package types warnings."
+    },
+    "workspace_dependency_order": {
+      "command": "pnpm run sherif",
+      "status": "fail",
+      "notes": "One unordered dependency issue was reported in packages/kap-server/package.json."
+    },
+    "service_naming": {
+      "command": "node scripts/check-service-naming.mjs",
+      "status": "pass"
+    },
+    "whitespace": {
+      "command": "git diff --check",
+      "status": "pass"
+    },
+    "sbom": {
+      "command": "pnpm run generate:sbom",
+      "status": "incomplete",
+      "notes": "The generated 118-component inventory contains no resolved pURLs, licenses, bom-refs, or dependency relationships."
+    }
+  },
+  "reproduction": {
+    "phase_0_command": "pnpm run verify:phase-0",
+    "purpose": "Re-run the authority, package disposition, inventory, and audit-count checks against this historical baseline. A later implementation phase may legitimately change the counts, but must retain this file as historical evidence.",
+    "required_environment": "Node.js 24.15.0 and pnpm 10.33.0"
+  },
+  "notes": [
+    "This artifact records failures and is not a release report.",
+    "No audit was disabled or rewritten to obtain these values.",
+    "open-core.json must remain not-ready until the final release gates pass."
+  ]
+}

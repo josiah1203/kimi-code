@@ -29,7 +29,7 @@ async function assertWebAssets(assetsDir: string): Promise<void> {
     }
   } catch {
     throw new Error(
-      `Kimi web assets were not found at ${assetsDir}. Run the package build before starting the server.`,
+      `SpiderByte browser assets were not found at ${assetsDir}. The Open Core server does not ship a browser bundle; provide an external frontend build explicitly.`,
     );
   }
 }
@@ -39,7 +39,7 @@ async function serveWebAsset(
   reply: FastifyReply,
   assetsDir: string,
 ): Promise<unknown> {
-  const requestUrl = new URL(req.url, 'http://kimi-web.local');
+  const requestUrl = new URL(req.url, 'http://spiderbyte-web.local');
   if (isReservedPath(requestUrl.pathname)) {
     return reply.callNotFound();
   }

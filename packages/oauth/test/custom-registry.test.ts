@@ -11,7 +11,7 @@ import {
   removeCustomRegistryProvider,
   type CustomRegistryProviderEntry,
   type CustomRegistrySource,
-  type ManagedKimiConfigShape,
+  type SpiderByteConfigShape,
 } from '../src/custom-registry';
 
 function makeKokubResponseBody(): Record<string, CustomRegistryProviderEntry> {
@@ -134,13 +134,13 @@ describe('fetchCustomRegistry', () => {
       KOKUB_SOURCE,
       {
         fetchImpl: fetchMock as unknown as typeof fetch,
-        userAgent: 'kimi-code-cli/1.2.3',
+        userAgent: 'spiderbyte-cli/1.2.3',
       },
     );
 
     const withUa = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect((withUa[1].headers as Record<string, string>)['User-Agent']).toBe(
-      'kimi-code-cli/1.2.3',
+      'spiderbyte-cli/1.2.3',
     );
 
     fetchMock.mockClear();
@@ -236,7 +236,7 @@ describe('fetchCustomRegistry', () => {
 
 describe('applyCustomRegistryProvider', () => {
   it('writes provider + model aliases for a kokub-shaped entry with default fallbacks', () => {
-    const config: ManagedKimiConfigShape = { providers: {} };
+    const config: SpiderByteConfigShape = { providers: {} };
     const entry: CustomRegistryProviderEntry = {
       id: 'registry_chat-completions',
       name: 'Sample Registry (chat completions)',
@@ -266,7 +266,7 @@ describe('applyCustomRegistryProvider', () => {
       displayName: 'GPT 5.5',
     });
     expect(gpt).toMatchObject({ maxContextSize: 131072 });
-    expect((gpt as { capabilities: string[] }).capabilities).toEqual([
+    expect(gpt?.capabilities).toEqual([
       ...CUSTOM_REGISTRY_DEFAULT_CAPABILITIES,
     ]);
 
@@ -276,7 +276,7 @@ describe('applyCustomRegistryProvider', () => {
   });
 
   it('falls back to the model id for displayName when name is absent', () => {
-    const config: ManagedKimiConfigShape = { providers: {} };
+    const config: SpiderByteConfigShape = { providers: {} };
     const entry: CustomRegistryProviderEntry = {
       id: 'demo',
       name: 'Demo',
@@ -297,7 +297,7 @@ describe('applyCustomRegistryProvider', () => {
   });
 
   it('derives rich capabilities and limit-based context size when rich fields are present', () => {
-    const config: ManagedKimiConfigShape = { providers: {} };
+    const config: SpiderByteConfigShape = { providers: {} };
     const entry: CustomRegistryProviderEntry = {
       id: 'rich',
       name: 'Rich Provider',
@@ -321,17 +321,15 @@ describe('applyCustomRegistryProvider', () => {
       apiKey: 'sk-rich',
     });
 
-    const alias = config.models?.['rich/rich-vision'] as {
-      maxContextSize: number;
-      capabilities: string[];
-    };
-    expect(alias.maxContextSize).toBe(200000);
-    expect(alias.capabilities).toEqual(expect.arrayContaining(['tool_use', 'thinking', 'image_in']));
-    expect(alias.capabilities).not.toContain('image_out');
+    const alias = config.models?.['rich/rich-vision'];
+    expect(alias).toBeDefined();
+    expect(alias?.maxContextSize).toBe(200000);
+    expect(alias?.capabilities).toEqual(expect.arrayContaining(['tool_use', 'thinking', 'image_in']));
+    expect(alias?.capabilities).not.toContain('image_out');
   });
 
   it('clears stale aliases for the same provider before re-populating', () => {
-    const config: ManagedKimiConfigShape = {
+    const config: SpiderByteConfigShape = {
       providers: {
         'registry_chat-completions': {
           type: 'openai',
@@ -373,7 +371,7 @@ describe('applyCustomRegistryProvider', () => {
   });
 
   it('preserves hand-edited fields that upstream does not declare', () => {
-    const config: ManagedKimiConfigShape = {
+    const config: SpiderByteConfigShape = {
       providers: {},
       models: {
         'registry_chat-completions/gpt-5.5': {
@@ -381,7 +379,7 @@ describe('applyCustomRegistryProvider', () => {
           model: 'gpt-5.5',
           maxContextSize: 131072,
           betaApi: true,
-        } as Record<string, unknown>,
+        } as unknown as import('../src/config').ProviderModelAlias,
       },
     };
 
@@ -406,7 +404,7 @@ describe('applyCustomRegistryProvider', () => {
   });
 
   it('maps support_efforts / default_effort onto the model alias', () => {
-    const config: ManagedKimiConfigShape = { providers: {} };
+    const config: SpiderByteConfigShape = { providers: {} };
     const entry: CustomRegistryProviderEntry = {
       id: 'rich',
       name: 'Rich Provider',
@@ -435,7 +433,7 @@ describe('applyCustomRegistryProvider', () => {
   });
 
   it('treats support_efforts as a thinking capability hint without reasoning: true', () => {
-    const config: ManagedKimiConfigShape = { providers: {} };
+    const config: SpiderByteConfigShape = { providers: {} };
     const entry: CustomRegistryProviderEntry = {
       id: 'rich',
       name: 'Rich Provider',
@@ -463,7 +461,7 @@ describe('applyCustomRegistryProvider', () => {
   });
 
   it('drops stale effort fields when a refresh no longer declares them', () => {
-    const config: ManagedKimiConfigShape = {
+    const config: SpiderByteConfigShape = {
       providers: {},
       models: {
         'registry_chat-completions/gpt-5.5': {
@@ -472,7 +470,7 @@ describe('applyCustomRegistryProvider', () => {
           maxContextSize: 131072,
           supportEfforts: ['low', 'high', 'max'],
           defaultEffort: 'high',
-        } as Record<string, unknown>,
+        } as unknown as import('../src/config').ProviderModelAlias,
       },
     };
 
@@ -498,7 +496,7 @@ describe('applyCustomRegistryProvider', () => {
 
 describe('removeCustomRegistryProvider', () => {
   it('removes the provider and every alias for it, and clears matching defaultModel', () => {
-    const config: ManagedKimiConfigShape = {
+    const config: SpiderByteConfigShape = {
       providers: {
         'registry_chat-completions': {
           type: 'openai',
@@ -534,7 +532,7 @@ describe('removeCustomRegistryProvider', () => {
   });
 
   it('leaves defaultModel intact when it belongs to another provider', () => {
-    const config: ManagedKimiConfigShape = {
+    const config: SpiderByteConfigShape = {
       providers: {
         'registry_chat-completions': {
           type: 'openai',
@@ -576,7 +574,7 @@ describe('applyCustomRegistryEntries', () => {
       c: { id: 'c', name: 'C', api: 'https://c.test/v1', type: 'openai', models: { 'm1': { id: 'm1' } } },
     };
 
-    const config: ManagedKimiConfigShape = { providers: {} };
+    const config: SpiderByteConfigShape = { providers: {} };
     applyCustomRegistryEntries(config, entries, source);
     applyCustomRegistryEntries(config, entries, source);
 
@@ -592,7 +590,7 @@ describe('applyCustomRegistryEntries', () => {
       url: 'https://registry.example.test/api.json',
       apiKey: 'sk-new',
     };
-    const config: ManagedKimiConfigShape = {
+    const config: SpiderByteConfigShape = {
       providers: {
         x: { type: 'openai', baseUrl: 'https://x-old.test/v1', apiKey: 'sk-old' },
       },
@@ -646,7 +644,7 @@ describe('applyCustomRegistryEntries', () => {
       b: { id: 'b', name: 'B', api: 'https://b.test/v1', type: 'openai', models: { m1: { id: 'm1' } } },
     };
 
-    const config: ManagedKimiConfigShape = {
+    const config: SpiderByteConfigShape = {
       providers: {
         // Provider from an unrelated source — must not be touched.
         keepme: {
@@ -701,7 +699,7 @@ describe('applyCustomRegistryEntries', () => {
       apiKey: 'sk-b',
     };
 
-    const config: ManagedKimiConfigShape = { providers: {} };
+    const config: SpiderByteConfigShape = { providers: {} };
     applyCustomRegistryEntries(
       config,
       {

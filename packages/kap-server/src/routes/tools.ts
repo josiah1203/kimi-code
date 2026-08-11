@@ -58,7 +58,7 @@ import {
   type Scope,
   type ToolInfo,
   type ToolSource,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 
 import { errEnvelope, okEnvelope } from '../envelope';
 import { defineRoute } from '../middleware/defineRoute';

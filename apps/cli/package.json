@@ -1,0 +1,103 @@
+{
+  "name": "@spiderbyte/cli",
+  "version": "0.34.0",
+  "description": "SpiderByte: a governed, CLI/TUI-first workspace for agents, data, and ML",
+  "license": "MIT",
+  "author": "SpiderByte contributors",
+  "homepage": "https://github.com/SpiderByte/spiderbyte/tree/main/apps/cli#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SpiderByte/spiderbyte.git",
+    "directory": "apps/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/SpiderByte/spiderbyte/issues"
+  },
+  "keywords": [
+    "spiderbyte",
+    "cli",
+    "agent",
+    "coding-agent",
+    "ai",
+    "tui"
+  ],
+  "bin": {
+    "spyderbyte": "dist/main.mjs"
+  },
+  "files": [
+    "dist",
+    "native",
+    "README.md"
+  ],
+  "type": "module",
+  "imports": {
+    "#/tui/theme": "./src/tui/theme/index.ts",
+    "#/tui/commands": "./src/tui/commands/index.ts",
+    "#/cli/sub/web": "./src/cli/sub/web/index.ts",
+    "#/cli/sub/web/*": "./src/cli/sub/web/*.ts",
+    "#/*": "./src/*.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsdown && tsdown --config tsdown.dist-worker.config.ts && node scripts/copy-native-assets.mjs",
+    "catalog:update": "node scripts/update-catalog.mjs --out dist/built-in-catalog.json",
+    "smoke": "node scripts/smoke.mjs",
+    "build:native:js": "node scripts/native/01-bundle.mjs",
+    "build:native:sea": "node scripts/native/build.mjs --profile=local",
+    "build:native:release": "node scripts/native/build.mjs --profile=release",
+    "package:native": "node scripts/native/package.mjs",
+    "produce:native:manifest": "node scripts/native/produce-manifest.mjs",
+    "release:native:resolve": "node scripts/native/resolve-release.mjs",
+    "test:native:smoke": "node scripts/native/smoke.mjs",
+    "dev": "node scripts/dev.mjs",
+    "dev:cli-only": "tsx --import ../../build/register-raw-text-loader.mjs ./src/main.ts",
+    "dev:server": "SPIDERBYTE_DEV_SERVER=1 tsx --tsconfig ./tsconfig.dev.json --import ../../build/register-raw-text-loader.mjs ./src/main.ts web --no-open --debug-endpoints",
+    "dev:kap-server": "SPIDERBYTE_DEV_SERVER=1 tsx --tsconfig ./tsconfig.dev.json --import ../../build/register-raw-text-loader.mjs ./src/main.ts web --no-open --debug-endpoints",
+    "dev:kap-server:multi": "SPIDERBYTE_DEV_SERVER=1 tsx --tsconfig ./tsconfig.dev.json --import ../../build/register-raw-text-loader.mjs ./src/main.ts web --no-open --debug-endpoints",
+    "dev:server:restart": "node scripts/dev-server-restart.mjs",
+    "dev:plugin-marketplace": "node scripts/dev-plugin-marketplace-server.mjs",
+    "dev:prod": "node dist/main.mjs",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "pnpm -w run build:packages && vitest run",
+    "e2e": "pnpm -w run build:packages && SPIDERBYTE_E2E=1 vitest run test/e2e",
+    "e2e:real": "pnpm -w run build:packages && SPIDERBYTE_E2E_REAL=1 vitest run test/e2e/real-llm-smoke.e2e.test.ts"
+  },
+  "optionalDependencies": {
+    "@mariozechner/clipboard": "^0.3.9",
+    "node-pty": "^1.1.0"
+  },
+  "devDependencies": {
+    "@types/semver": "^7.7.0",
+    "@types/yazl": "^2.4.6",
+    "postject": "1.0.0-alpha.6",
+    "tsx": "^4.21.0"
+  },
+  "engines": {
+    "node": ">=24.15.0"
+  },
+  "private": false,
+  "main": "./dist/main.mjs",
+  "dependencies": {
+    "@spiderbyte/acp-server": "workspace:^",
+    "@spiderbyte/agent-core": "workspace:^",
+    "@spiderbyte/kap-server": "workspace:^",
+    "@spiderbyte/minidb": "workspace:^",
+    "@spiderbyte/oauth": "workspace:^",
+    "@spiderbyte/pi-tui": "workspace:^",
+    "@spiderbyte/sdk": "workspace:^",
+    "@spiderbyte/telemetry": "workspace:^",
+    "chalk": "^5.4.1",
+    "cli-highlight": "^2.1.11",
+    "commander": "^13.1.0",
+    "jimp": "^1.6.1",
+    "pathe": "^2.0.3",
+    "semver": "^7.7.4",
+    "smol-toml": "^1.6.1",
+    "yazl": "^3.3.1",
+    "zod": "^4.3.6"
+  }
+}

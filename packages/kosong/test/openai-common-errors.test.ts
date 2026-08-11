@@ -407,7 +407,7 @@ describe('normalizeAPIStatusError thinking effort guidance', () => {
 
     expect(error.message).toContain('Non-Kimi providers receive effort strings');
     expect(error.message).toContain(
-      'https://moonshotai.github.io/kimi-code/en/configuration/config-files.html#thinking',
+      'https://moonshotai.github.io/spiderbyte/en/configuration/config-files.html#thinking',
     );
   });
 });

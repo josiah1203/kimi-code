@@ -1,9 +1,9 @@
-// bench/search-kimi-code.js
+// bench/search-spiderbyte.js
 //
-// Import ~/.kimi-code sessions (useful extraction) and full-text-search for a
+// Import ~/.spiderbyte sessions (useful extraction) and full-text-search for a
 // query, printing hits with context snippets.
 //
-// Run:  node bench/search-kimi-code.js <query>  [--full]
+// Run:  node bench/search-spiderbyte.js <query>  [--full]
 
 import fs from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
@@ -15,11 +15,11 @@ const argv = process.argv.slice(2);
 const FULL = argv.includes('--full');
 const query = argv.find((a) => !a.startsWith('--'));
 if (!query) {
-  console.error('usage: node bench/search-kimi-code.js <query> [--full]');
+  console.error('usage: node bench/search-spiderbyte.js <query> [--full]');
   process.exit(1);
 }
 
-const DATA = path.join(os.homedir(), '.kimi-code');
+const DATA = path.join(os.homedir(), '.spiderbyte');
 const ARG_FIELDS = ['command', 'pattern', 'path', 'description', 'query', 'prompt', 'file_path'];
 
 function extractWireText(wirePath, full) {

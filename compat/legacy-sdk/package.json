@@ -1,0 +1,9 @@
+{
+  "name": "@spiderbyte/legacy-sdk",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Deprecated v1 SDK compatibility source; excluded from the SpiderByte workspace",
+  "license": "MIT",
+  "author": "SpiderByte contributors",
+  "type": "module"
+}

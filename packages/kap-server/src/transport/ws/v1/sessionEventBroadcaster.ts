@@ -64,7 +64,7 @@ import type {
   ISessionScopeHandle,
   Scope,
   SessionActivityState,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import {
   IAgentLifecycleService,
   IEventBus,
@@ -74,7 +74,7 @@ import {
   ISessionIndex,
   MAIN_AGENT_ID,
   getLiveSessionById,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import type {
   ConfigWarningItem,
   DiUnitChangedEvent,
@@ -98,7 +98,7 @@ import {
   type TranscriptOpsEvent,
   type TranscriptResetEvent,
   type TranscriptStore,
-} from '@moonshot-ai/transcript';
+} from '@spiderbyte/transcript';
 
 import { toWireApproval } from '../../../routes/approvals';
 import { toWireQuestion } from '../../../routes/questions';
@@ -227,11 +227,11 @@ export class SessionEventBroadcaster {
   private readonly globalTargets = new Set<BroadcastTarget>();
   /**
    * Opt-in set for the `event.di.*` debug-surface feed. That feed is global
-   * (no owning session) and high-churn, but only kimi-inspect's DI view
+   * (no owning session) and high-churn, but only spiderbyte-inspect's DI view
    * consumes it — pushing it to every connection wastes bandwidth on clients
    * that drop the frames unread. Temporary gate until a client-declared
    * event-type whitelist exists: `WsConnectionV1` opts a connection in when
-   * its `client_hello` carries `client_id: 'kimi-inspect'`; every other
+   * its `client_hello` carries `client_id: 'spiderbyte-inspect'`; every other
    * connection (including subscribed targets) skips `event.di.*` frames.
    */
   private readonly diEventTargets = new Set<BroadcastTarget>();
@@ -869,7 +869,7 @@ export class SessionEventBroadcaster {
       // like `session.meta.updated` below. Without this, clients that didn't
       // issue the create never learn the session exists, so a later
       // `sessionStatusChanged` reducer is a no-op for the unknown session and
-      // kimi-web's Stop button (gated on session.status === 'running') never
+      // spiderbyte-web's Stop button (gated on session.status === 'running') never
       // renders. Mirrors v1's `isGlobalSessionEvent` broadcast of creation.
       void this.dispatchSessionEvent(payload.sessionId, {
         type: 'event.session.created',
@@ -927,7 +927,7 @@ export class SessionEventBroadcaster {
       // Engine DI unit state transitions (the debug-surface feed) have no
       // owning session: route through the global state so the envelope carries
       // the '__global__' watermark. `isGlobalEvent` fans it out, but delivery
-      // is gated to connections opted in via `addDiEventTarget` (kimi-inspect
+      // is gated to connections opted in via `addDiEventTarget` (spiderbyte-inspect
       // only) — `VOLATILE_EVENT_TYPES` keeps the churn unjournaled.
       void this.dispatchGlobal({
         type: 'event.di.unit_changed',
@@ -1279,7 +1279,7 @@ export class SessionEventBroadcaster {
       // minimal embeds) on the legacy delivery path.
       const recipients = new Set<BroadcastTarget>(this.globalTargets);
       for (const target of this.allTargets()) recipients.add(target);
-      // The `event.di.*` debug feed is opt-in (kimi-inspect only) — every
+      // The `event.di.*` debug feed is opt-in (spiderbyte-inspect only) — every
       // other connection drops those frames unread anyway.
       const diGated = event.type.startsWith('event.di.');
       for (const target of recipients) {
@@ -1361,8 +1361,8 @@ function isVolatileSignal(type: string): boolean {
  * byte-identical and `agentId`/`sessionId` are re-stamped so the alias flows
  * through the same dispatch / journal / agent-filter path as the native event.
  *
- * Exists so unchanged v1 consumers (kimi-code TUI / `kimi -p`, node-sdk) keep
- * working while v2-shaped consumers (kimi-web) keep the native event and ignore
+ * Exists so unchanged protocol consumers (`spyderbyte -p` and SDK clients) keep
+ * working while v2-shaped consumers (spiderbyte-web) keep the native event and ignore
  * the alias (registered as known, no handler). Remove once every consumer has
  * migrated to `task.*`.
  */
@@ -1601,7 +1601,7 @@ function interactionResolvedEvent(
 /**
  * Validate the `session.meta.updated` payload published on the core
  * `IEventService`. Both the first-prompt auto-title path
- * (`agent-core-v2`'s `applyPromptMetadataUpdate`) and the
+ * (`SpiderByte Agent Core`'s `applyPromptMetadataUpdate`) and the
  * `POST /sessions/{id}/profile` rename route wrap the v1 fields under
  * `payload` alongside `agentId`/`sessionId`; we unwrap the title/patch here
  * and re-attach `agentId`/`sessionId` at the edge.
@@ -1639,7 +1639,7 @@ const DI_UNIT_STATES: ReadonlySet<string> = new Set([
 
 /**
  * Validate the `event.di.unit_changed` payload published on the core
- * `IEventService` by agent-core-v2's `IDebugCascadeService` (the debug
+ * `IEventService` by SpiderByte Agent Core's `IDebugCascadeService` (the debug
  * surface's unit state feed). Malformed payloads are dropped, never forwarded.
  */
 function diUnitChangedPayload(

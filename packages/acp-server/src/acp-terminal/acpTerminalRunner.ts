@@ -44,7 +44,7 @@ import {
   type ProcessExecOptions,
   registerScopedService,
   ScopeActivation,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 
 import { IAcpConnection, type IAcpTerminalHandle } from '../acp-fs';
 

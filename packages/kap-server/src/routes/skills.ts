@@ -112,7 +112,7 @@ import {
   type SkillDefinition,
   type ExtraSkillDirsConfig,
   type MergeAllAvailableSkillsConfig,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import { join } from 'node:path';
 import { z } from 'zod';
 

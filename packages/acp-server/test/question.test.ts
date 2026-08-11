@@ -8,7 +8,7 @@ import {
 } from '../src/question';
 
 import type { CreateElicitationResponse, RequestPermissionResponse } from '@agentclientprotocol/sdk';
-import type { QuestionItem } from '@moonshot-ai/agent-core-v2';
+import type { QuestionItem } from '@spiderbyte/agent-core';
 
 function selected(optionId: string): RequestPermissionResponse {
   return { outcome: { outcome: 'selected', optionId } };

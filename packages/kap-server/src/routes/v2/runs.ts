@@ -5,14 +5,14 @@ import {
   ISessionRunService,
   resumeSessionById,
   type Scope,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import {
   runActionInputSchema,
   runCreateInputSchema,
   runForkInputSchema,
   runIdSchema,
   runTransitionInputSchema,
-} from '@moonshot-ai/protocol';
+} from '@spiderbyte/protocol';
 import { z } from 'zod';
 
 import { errEnvelope, okEnvelope } from '../../protocol/envelope';

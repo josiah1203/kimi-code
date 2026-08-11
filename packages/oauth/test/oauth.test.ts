@@ -22,7 +22,7 @@ import {
   requestDeviceAuthorization,
   type RefreshOptions,
 } from '../src/oauth';
-import { KIMI_CODE_PLATFORM } from '../src/identity';
+import { SPIDERBYTE_PLATFORM } from '../src/identity';
 import type { DeviceHeaders, OAuthFlowConfig } from '../src/types';
 
 interface FakeResponse {
@@ -118,7 +118,7 @@ class FakeOAuthServer {
 let server: FakeOAuthServer;
 
 const TEST_DEVICE_HEADERS: DeviceHeaders = {
-  'X-Msh-Platform': KIMI_CODE_PLATFORM,
+  'X-Msh-Platform': SPIDERBYTE_PLATFORM,
   'X-Msh-Version': '0.0.0-test',
   'X-Msh-Device-Name': 'test-device',
   'X-Msh-Device-Model': 'test-model',
@@ -134,7 +134,7 @@ function expectNoDeviceHeaders(headers: Record<string, string>): void {
 
 function flowConfig(): OAuthFlowConfig {
   return {
-    name: 'kimi-code',
+    name: 'spiderbyte',
     oauthHost: server.host,
     clientId: 'test-client-id',
   };
@@ -182,8 +182,8 @@ describe('requestDeviceAuthorization', () => {
       body: {
         user_code: 'WDJB-MJHT',
         device_code: 'devcode123',
-        verification_uri: 'https://auth.kimi.com/verify',
-        verification_uri_complete: 'https://auth.kimi.com/verify?user_code=WDJB-MJHT',
+        verification_uri: 'https://oauth.example.test/verify',
+        verification_uri_complete: 'https://oauth.example.test/verify?user_code=WDJB-MJHT',
         expires_in: 600,
         interval: 5,
       },
@@ -192,8 +192,8 @@ describe('requestDeviceAuthorization', () => {
     const auth = await requestAuth();
     expect(auth.userCode).toBe('WDJB-MJHT');
     expect(auth.deviceCode).toBe('devcode123');
-    expect(auth.verificationUri).toBe('https://auth.kimi.com/verify');
-    expect(auth.verificationUriComplete).toBe('https://auth.kimi.com/verify?user_code=WDJB-MJHT');
+    expect(auth.verificationUri).toBe('https://oauth.example.test/verify');
+    expect(auth.verificationUriComplete).toBe('https://oauth.example.test/verify?user_code=WDJB-MJHT');
     expect(auth.expiresIn).toBe(600);
     expect(auth.interval).toBe(5);
   });
@@ -228,10 +228,10 @@ describe('requestDeviceAuthorization', () => {
     });
     await requestAuth();
     const recorded = server.recorded[0]!;
-    expect(recorded.headers['x-msh-platform']).toBe(KIMI_CODE_PLATFORM);
+    expect(recorded.headers['x-msh-platform']).toBe(SPIDERBYTE_PLATFORM);
     expect(recorded.headers['x-msh-device-id']).toBe('test-device-id');
     expect(recorded.headers['x-msh-version']).toBe('0.0.0-test');
-    expect(recorded.headers['user-agent'] ?? '').not.toContain('kimi-code-cli');
+    expect(recorded.headers['user-agent'] ?? '').not.toContain('spiderbyte-cli');
   });
 
   it('omits X-Msh-* device headers when deviceHeaders are absent', async () => {

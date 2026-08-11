@@ -1,8 +1,8 @@
-# @moonshot-ai/kosong
+# @spiderbyte/kosong
 
-LLM abstraction layer used by Kimi Code.
+LLM abstraction layer used by SpiderByte.
 
-Part of the [Kimi Code](https://github.com/MoonshotAI/kimi-code) monorepo.
+Part of the [SpiderByte](https://github.com/SpiderByte/spiderbyte) monorepo.
 
 See the main repository for documentation, issues, and contribution guidelines.
 

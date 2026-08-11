@@ -2,7 +2,7 @@
  * `/sessions/{sid}/approvals*` route handlers — server-v2 port.
  *
  * Implements the v1 `/api/v1/sessions/{sid}/approvals` wire contract on top of
- * `agent-core-v2` services. Backed by the Session-scoped `ISessionApprovalService`
+ * `SpiderByte Agent Core` services. Backed by the Session-scoped `ISessionApprovalService`
  * (for `decide`) and `ISessionInteractionService` (for the pending list, including the
  * `createdAt` metadata the facade does not surface).
  *
@@ -36,7 +36,7 @@ import {
   type ApprovalResponse,
   type Interaction,
   type Scope,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import { ErrorCode } from '../protocol/error-codes';
 import {
   approvalAlreadyResolvedDataSchema,

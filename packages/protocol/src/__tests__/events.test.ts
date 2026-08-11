@@ -21,7 +21,7 @@ type _AssertToolInputDisplayNonNever = ToolInputDisplay extends never ? never : 
 const _assertDisplay: _AssertToolInputDisplayNonNever = true;
 
 const packageRoot = fileURLToPath(new URL('../..', import.meta.url));
-const sdkPackageName = ['@moonshot-ai', 'kimi-code-sdk'].join('/');
+const sdkPackageName = ['@spiderbyte', 'sdk'].join('/');
 
 function readPackageFiles(): string {
   const files = ['package.json', ...sourceFiles(join(packageRoot, 'src'))];
@@ -173,7 +173,7 @@ describe('events / display re-exports', () => {
         updated_at: '2026-06-11T00:00:00.000Z',
         busy: false,
         metadata: { cwd: '/tmp/project' },
-        agent_config: { model: 'kimi-k2' },
+        agent_config: { model: 'example-model' },
         usage: {
           input_tokens: 0,
           output_tokens: 0,

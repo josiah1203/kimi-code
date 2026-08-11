@@ -2,7 +2,7 @@
  * Scenario: v1-compatible session routes, including blocked-goal Web resume.
  * Responsibilities: verify HTTP envelopes, persisted reads, and session actions.
  * Wiring: real kap-server; route errors stub the agent service contract.
- * Run: `pnpm --filter @moonshot-ai/kap-server exec vitest run test/sessions.test.ts`.
+ * Run: `pnpm --filter @spiderbyte/kap-server exec vitest run test/sessions.test.ts`.
  */
 import { randomBytes } from 'node:crypto';
 import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
@@ -27,9 +27,9 @@ import {
   getLiveSessionById,
   sessionDirOf,
   type ServiceIdentifier,
-} from '@moonshot-ai/agent-core-v2';
-import { sessionWarningsResponseSchema } from '@moonshot-ai/agent-core-v2/app/sessionLegacy/sessionProtocol';
-import { encodeWorkDirKey } from '@moonshot-ai/agent-core-v2/_base/utils/workdir-slug';
+} from '@spiderbyte/agent-core';
+import { sessionWarningsResponseSchema } from '@spiderbyte/agent-core/app/sessionLegacy/sessionProtocol';
+import { encodeWorkDirKey } from '@spiderbyte/agent-core/_base/utils/workdir-slug';
 
 import { type RunningServer, startServer } from '../src/start';
 import { TEST_HOST_IDENTITY } from './helpers/hostIdentity';
@@ -91,7 +91,7 @@ describe('server-v2 /api/v1/sessions', () => {
   let base: string;
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-sessions-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-sessions-'));
     server = await startServer({
       hostIdentity: TEST_HOST_IDENTITY,
       host: '127.0.0.1',
@@ -173,7 +173,7 @@ describe('server-v2 /api/v1/sessions', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toBe('application/zip');
     expect(res.headers.get('content-disposition')).toBe(
-      `attachment; filename="kimi-session-${id}.zip"`,
+      `attachment; filename="spiderbyte-session-${id}.zip"`,
     );
     expect(res.headers.get('content-length')).toBe(String(archive.length));
     expect(res.headers.get('cache-control')).toBe('no-store');
@@ -181,15 +181,15 @@ describe('server-v2 /api/v1/sessions', () => {
     const entries = readZipEntries(archive);
     const manifest = JSON.parse(entries.get('manifest.json')?.toString('utf8') ?? 'null') as {
       sessionId: string;
-      kimiCodeVersion: string;
+      spiderbyteVersion: string;
       desktopVersion?: string;
       webLogPath?: string;
     };
-    expect(entries.get('logs/kimi-web.jsonl')?.toString('utf8')).toBe(webLog);
+    expect(entries.get('logs/spiderbyte-web.jsonl')?.toString('utf8')).toBe(webLog);
     expect(manifest).toMatchObject({
       sessionId: id,
-      kimiCodeVersion: TEST_HOST_IDENTITY.version,
-      webLogPath: 'logs/kimi-web.jsonl',
+      spiderbyteVersion: TEST_HOST_IDENTITY.version,
+      webLogPath: 'logs/spiderbyte-web.jsonl',
     });
     // The engine version never enters the manifest, and a non-desktop export
     // carries no `desktopVersion`.
@@ -256,7 +256,7 @@ describe('server-v2 /api/v1/sessions', () => {
     const id = created.body.data.id;
     await mkdir(join(home as string, 'logs'), { recursive: true });
     await writeFile(
-      join(home as string, 'logs', 'kimi-code-desktop.log'),
+      join(home as string, 'logs', 'spiderbyte-desktop.log'),
       '2026-07-27T00:00:00.000Z INFO  [renderer] hello\n',
       'utf-8',
     );
@@ -274,15 +274,15 @@ describe('server-v2 /api/v1/sessions', () => {
     expect(res.status).toBe(200);
     const entries = readZipEntries(archive);
     const manifest = JSON.parse(entries.get('manifest.json')?.toString('utf8') ?? 'null') as {
-      kimiCodeVersion: string;
+      spiderbyteVersion: string;
       desktopLogPath?: string;
       desktopVersion?: string;
     };
-    expect(entries.get('logs/kimi-desktop.log')?.toString('utf8')).toBe(
+    expect(entries.get('logs/spiderbyte-desktop.log')?.toString('utf8')).toBe(
       '2026-07-27T00:00:00.000Z INFO  [renderer] hello\n',
     );
-    expect(manifest.desktopLogPath).toBe('logs/kimi-desktop.log');
-    expect(manifest.kimiCodeVersion).toBe(TEST_HOST_IDENTITY.version);
+    expect(manifest.desktopLogPath).toBe('logs/spiderbyte-desktop.log');
+    expect(manifest.spiderbyteVersion).toBe(TEST_HOST_IDENTITY.version);
     expect(manifest.desktopVersion).toBe(TEST_HOST_IDENTITY.version);
   });
 
@@ -1213,7 +1213,7 @@ describe('server-v2 /api/v1/sessions', () => {
 });
 
 async function listExportTempDirs(sessionId: string): Promise<string[]> {
-  const prefix = `kimi-session-export-${sessionId}-`;
+  const prefix = `spiderbyte-session-export-${sessionId}-`;
   return (await readdir(tmpdir())).filter((entry) => entry.startsWith(prefix)).toSorted();
 }
 
@@ -1263,7 +1263,7 @@ describe('server-v2 /api/v1/sessions status context window', () => {
   let base: string;
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-status-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-status-'));
     await writeFile(
       join(home, 'config.toml'),
       [
@@ -1278,7 +1278,7 @@ describe('server-v2 /api/v1/sessions status context window', () => {
         'provider = "kimi"',
         'model = "kimi-k2"',
         'max_context_size = 131072',
-        'display_name = "Kimi K2"',
+        'display_name = "SpiderByte K2"',
         '',
       ].join('\n'),
       'utf-8',
@@ -1356,7 +1356,7 @@ describe('server-v2 /api/v1/sessions (minidb read model)', () => {
 
   // The suite-level setup pins the read-model flag OFF (env outranks the
   // `[experimental]` config section), so this describe re-enables it per test.
-  const READ_MODEL_ENV = 'KIMI_CODE_EXPERIMENTAL_PERSISTENCE_MINIDB_READMODEL';
+  const READ_MODEL_ENV = 'SPIDERBYTE_EXPERIMENTAL_PERSISTENCE_MINIDB_READMODEL';
 
   const READ_MODEL_CONFIG = [
     'default_model = "stub"',
@@ -1375,7 +1375,7 @@ describe('server-v2 /api/v1/sessions (minidb read model)', () => {
 
   beforeEach(async () => {
     process.env[READ_MODEL_ENV] = '1';
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-sessions-rm-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-sessions-rm-'));
     await writeFile(join(home, 'config.toml'), READ_MODEL_CONFIG, 'utf8');
     server = await startServer({
       hostIdentity: TEST_HOST_IDENTITY,

@@ -1,0 +1,334 @@
+{
+  "schema_version": 1,
+  "documents": {
+    "migration_plan": "docs/release/SPIDERBYTE_OPEN_CORE_MIGRATION_PLAN.md",
+    "package_rename_map": "docs/release/PACKAGE_RENAME_MAP.md",
+    "open_core_boundary": "docs/architecture/OPEN_CORE_BOUNDARY.md",
+    "baseline": "docs/release/SPIDERBYTE_OPEN_CORE_BASELINE.json"
+  },
+  "required_document_headings": {
+    "migration_plan": [
+      "Phase 0 — Freeze authority and inventory",
+      "Phase 1 — Canonical package topology",
+      "Gate matrix"
+    ],
+    "package_rename_map": [
+      "Complete package map",
+      "Rules for applying the map",
+      "Package acceptance checklist"
+    ],
+    "open_core_boundary": [
+      "Definition",
+      "Required removals from the current graph",
+      "Boundary checker contract",
+      "Required release evidence"
+    ]
+  },
+  "tracked_legacy_and_public_surfaces": [
+    {
+      "path_or_surface": "apps/cli/src/cli/v2",
+      "kind": "transitional-runtime-path",
+      "target": "apps/cli/src",
+      "disposition": "migrate-and-remove-versioned-path",
+      "owner": "cli-runtime",
+      "review_by": "2026-09-30"
+    },
+    {
+      "path_or_surface": "compat/legacy-acp-adapter/src",
+      "kind": "legacy-adapter-path",
+      "target": "compat/legacy-acp-adapter",
+      "disposition": "excluded-from-default-graph-and-deprecated",
+      "owner": "acp-runtime",
+      "review_by": "2026-09-30"
+    },
+    {
+      "path_or_surface": "packages/acp-server/src",
+      "kind": "public-server-path",
+      "target": "packages/acp-server/src",
+      "disposition": "retain-only-after-v2-conformance",
+      "owner": "acp-runtime",
+      "review_by": "2026-09-30"
+    },
+    {
+      "path_or_surface": "compat/legacy-migration/src",
+      "kind": "compatibility-path",
+      "target": "compat/legacy-migration",
+      "disposition": "remove-from-default-graph-and-deprecate",
+      "owner": "migration-runtime",
+      "review_by": "2026-09-30"
+    },
+    {
+      "path_or_surface": "packages/sdk/src",
+      "kind": "mixed-public-sdk-path",
+      "target": "packages/sdk/src",
+      "disposition": "split-v2-surface-and-retire-v1-exports",
+      "owner": "sdk-migration",
+      "review_by": "2026-09-30"
+    },
+    {
+      "path_or_surface": "compat/commercial-agent-core",
+      "kind": "commercial-implementation",
+      "target": "excluded-commercial-distribution",
+      "disposition": "excluded-from-open-core-graph",
+      "owner": "open-core-boundary",
+      "review_by": "2026-09-30"
+    },
+    {
+      "path_or_surface": "compat/legacy-agent-core",
+      "kind": "legacy-package",
+      "target": "excluded-compatibility-distribution",
+      "disposition": "excluded-from-workspace-and-default-build-graph",
+      "owner": "runtime-migration",
+      "review_by": "2026-09-30"
+    },
+    {
+      "path_or_surface": "compat/legacy-sdk",
+      "kind": "legacy-package",
+      "target": "excluded-compatibility-distribution",
+      "disposition": "excluded-from-workspace-and-default-build-graph",
+      "owner": "sdk-migration",
+      "review_by": "2026-09-30"
+    },
+    {
+      "path_or_surface": "compat/legacy-cli",
+      "kind": "legacy-cli-path",
+      "target": "excluded-compatibility-distribution",
+      "disposition": "excluded-from-workspace-and-default-build-graph",
+      "owner": "cli-runtime",
+      "review_by": "2026-09-30"
+    },
+    {
+      "path_or_surface": "packages/kap-server/src/routes/v2/platform.ts",
+      "kind": "commercial-public-route",
+      "target": "local-provider-neutral-routes",
+      "disposition": "remove-commercial-route-registration",
+      "owner": "open-core-boundary",
+      "review_by": "2026-09-30"
+    },
+    {
+      "path_or_surface": "packages/client/src/contract/global/platform.ts",
+      "kind": "commercial-public-contract",
+      "target": "local-provider-neutral-contract",
+      "disposition": "remove-commercial-contract-export",
+      "owner": "open-core-boundary",
+      "review_by": "2026-09-30"
+    },
+    {
+      "path_or_surface": "packages/client/src/core/facade/global.ts",
+      "kind": "commercial-public-facade",
+      "target": "local-global-facade",
+      "disposition": "remove-commercial-facade",
+      "owner": "open-core-boundary",
+      "review_by": "2026-09-30"
+    },
+    {
+      "path_or_surface": "packages/client/src/transports/memory/serviceRegistry.ts",
+      "kind": "commercial-service-registration",
+      "target": "local-service-registry",
+      "disposition": "remove-commercial-registration",
+      "owner": "open-core-boundary",
+      "review_by": "2026-09-30"
+    },
+    {
+      "path_or_surface": "apps/web",
+      "kind": "missing-authoritative-web-source",
+      "target": "recovered-source-or-external-surface",
+      "disposition": "recover-or-remove-generated-bundle",
+      "owner": "web-release",
+      "review_by": "2026-09-30"
+    },
+    {
+      "path_or_surface": "apps/cli/dist-web",
+      "kind": "generated-web-bundle",
+      "target": "source-backed-bundle-or-no-bundle",
+      "disposition": "do-not-package-without-authoritative-source",
+      "owner": "web-release",
+      "review_by": "2026-09-30"
+    },
+    {
+      "path_or_surface": "apps/cli/package.json#bin.kimi",
+      "kind": "legacy-executable",
+      "target": "spyderbyte",
+      "disposition": "remove-legacy-bin",
+      "owner": "cli-runtime",
+      "review_by": "2026-09-30"
+    },
+    {
+      "path_or_surface": "package.json#scripts.dev:cli:legacy",
+      "kind": "legacy-development-path",
+      "target": "canonical-cli-development-command",
+      "disposition": "remove-from-supported-scripts",
+      "owner": "cli-runtime",
+      "review_by": "2026-09-30"
+    },
+    {
+      "path_or_surface": "KIMI_CODE_LEGACY_FLAG",
+      "kind": "legacy-runtime-flag",
+      "target": "no-legacy-runtime-flag",
+      "disposition": "remove-from-active-runtime",
+      "owner": "cli-runtime",
+      "review_by": "2026-09-30"
+    },
+    {
+      "path_or_surface": ".kimi-code",
+      "kind": "legacy-storage-path",
+      "target": "SpiderByte-local-storage-path",
+      "disposition": "remove-from-canonical-paths-or-isolate-migration",
+      "owner": "storage-migration",
+      "review_by": "2026-09-30"
+    },
+    {
+      "path_or_surface": "/provider",
+      "kind": "legacy-product-command",
+      "target": "canonical-provider-configuration-surface",
+      "disposition": "remove-or-replace-with-documented-local-command",
+      "owner": "cli-runtime",
+      "review_by": "2026-09-30"
+    }
+  ],
+  "allowlists": {
+    "branding": [
+      {
+        "path": "docs/en/release-notes/changelog.md",
+        "token": "Kimi",
+        "category": "upstream-attribution",
+        "reason": "Historical release notes identify the upstream product and are retained as migration history; new active documentation must use SpiderByte.",
+        "owner": "release-engineering",
+        "review_by": "2026-12-31"
+      },
+      {
+        "path": "docs/en/release-notes/changelog.md",
+        "token": "Moonshot",
+        "category": "upstream-attribution",
+        "reason": "Historical release notes identify the upstream owner and are retained as migration history; this is not an active SpiderByte identity.",
+        "owner": "release-engineering",
+        "review_by": "2026-12-31"
+      },
+      {
+        "path": "docs/zh/release-notes/changelog.md",
+        "token": "Kimi",
+        "category": "upstream-attribution",
+        "reason": "历史版本记录保留上游产品名称以维持迁移历史；新的活动文档必须使用 SpiderByte。",
+        "owner": "release-engineering",
+        "review_by": "2026-12-31"
+      },
+      {
+        "path": "docs/zh/release-notes/changelog.md",
+        "token": "Moonshot",
+        "category": "upstream-attribution",
+        "reason": "历史版本记录保留上游所有者名称以维持迁移历史；这不是 SpiderByte 的活动身份。",
+        "owner": "release-engineering",
+        "review_by": "2026-12-31"
+      },
+      {
+        "path": "LICENSE",
+        "token": "Moonshot AI",
+        "category": "legal-attribution",
+        "reason": "The copyright holder in the license notice is preserved for legal attribution and must not be rewritten as product branding.",
+        "owner": "legal-and-release",
+        "review_by": "2026-12-31"
+      },
+      {
+        "path": "packages/kosong/src/providers/kimi.ts",
+        "token": "Kimi",
+        "category": "external-provider",
+        "reason": "The token names an external provider adapter, not the SpiderByte product. The adapter must remain provider-scoped and non-canonical.",
+        "owner": "provider-runtime",
+        "review_by": "2026-12-31"
+      },
+      {
+        "path": "packages/kosong/src/providers/kimi-schema.ts",
+        "token": "Kimi",
+        "category": "external-provider",
+        "reason": "The token names an external provider protocol/schema and is permitted only for technical compatibility.",
+        "owner": "provider-runtime",
+        "review_by": "2026-12-31"
+      },
+      {
+        "path": "packages/kosong/src/providers/kimi-errors.ts",
+        "token": "Kimi",
+        "category": "external-provider",
+        "reason": "The token names errors returned by an external provider and is not a product identity.",
+        "owner": "provider-runtime",
+        "review_by": "2026-12-31"
+      },
+      {
+        "path": "packages/kosong/src/providers/kimi-files.ts",
+        "token": "Kimi",
+        "category": "external-provider",
+        "reason": "The token names an external provider file protocol and is permitted only for technical compatibility.",
+        "owner": "provider-runtime",
+        "review_by": "2026-12-31"
+      }
+    ],
+    "boundary": [
+      {
+        "path": "open-core.json",
+        "token": "kimi",
+        "category": "external-provider-id",
+        "reason": "The provider registry retains a provider identifier for external compatibility; it must not become the product, package, or executable identity.",
+        "owner": "provider-runtime",
+        "review_by": "2026-12-31"
+      },
+      {
+        "path": "packages/kosong/src/providers/kimi.ts",
+        "token": "Kimi",
+        "category": "external-provider",
+        "reason": "The Kimi adapter is a provider integration boundary and is not a hosted SpiderByte implementation.",
+        "owner": "provider-runtime",
+        "review_by": "2026-12-31"
+      },
+      {
+        "path": "packages/kosong/src/providers/kimi-schema.ts",
+        "token": "Kimi",
+        "category": "external-provider",
+        "reason": "The token is a provider protocol/schema name required for technical compatibility.",
+        "owner": "provider-runtime",
+        "review_by": "2026-12-31"
+      },
+      {
+        "path": "packages/kosong/src/providers/kimi-errors.ts",
+        "token": "Kimi",
+        "category": "external-provider",
+        "reason": "The token identifies an external provider error family and is not a commercial service dependency.",
+        "owner": "provider-runtime",
+        "review_by": "2026-12-31"
+      },
+      {
+        "path": "packages/kosong/src/providers/kimi-files.ts",
+        "token": "Kimi",
+        "category": "external-provider",
+        "reason": "The token identifies an external provider file protocol and is not a product identity.",
+        "owner": "provider-runtime",
+        "review_by": "2026-12-31"
+      },
+      {
+        "path": "LICENSE",
+        "token": "Moonshot AI",
+        "category": "legal-attribution",
+        "reason": "The license copyright holder is legally required attribution and is not an Open Core commercial implementation.",
+        "owner": "legal-and-release",
+        "review_by": "2026-12-31"
+      }
+    ]
+  },
+  "generated_assets": {
+    "directory_names": [
+      "dist",
+      "dist-web",
+      "dist-native"
+    ],
+    "file_names": [
+      "sbom.cdx.json"
+    ],
+    "known_sources": [
+      {
+        "path": "sbom.cdx.json",
+        "source": "pnpm-lock.yaml and workspace package manifests",
+        "source_paths": ["pnpm-lock.yaml", "package.json"],
+        "reproducible_command": "pnpm run generate:sbom",
+        "status": "manifest-only-in-baseline"
+      }
+    ]
+  }
+}

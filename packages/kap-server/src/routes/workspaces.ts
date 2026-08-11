@@ -2,7 +2,7 @@
  * `/workspaces` route handlers — server-v2 port.
  *
  * Implements the v1 `/api/v1/workspaces` wire contract on top of
- * `agent-core-v2` services. Backed by `IWorkspaceService` (App scope) for the
+ * `SpiderByte Agent Core` services. Backed by `IWorkspaceService` (App scope) for the
  * catalog, `IHostFileSystem` to validate roots, and
  * `IWorkspaceSessions` to derive `session_count`.
  *
@@ -38,7 +38,7 @@ import {
   IWorkspaceTrust,
   type Scope,
   type Workspace,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import { isAbsolute } from 'node:path';
 
 import { z } from 'zod';

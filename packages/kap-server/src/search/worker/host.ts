@@ -37,7 +37,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
 
-import { getTextBuildWorkerRuntimeState } from '@moonshot-ai/minidb/worker-runtime';
+import { getTextBuildWorkerRuntimeState } from '@spiderbyte/minidb/worker-runtime';
 
 import { GlobalSearchError } from '../contract';
 import type {
@@ -470,7 +470,7 @@ export class SearchWorkerHost {
           workerData: data,
           execArgv: entry.execArgv,
           resourceLimits: { maxOldGenerationSizeMb: this.options.maxOldSpaceMb ?? DEFAULT_MAX_OLD_SPACE_MB },
-          name: 'kimi-search-worker',
+          name: 'spiderbyte-search-worker',
         });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

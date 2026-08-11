@@ -1,6 +1,6 @@
 /** Map workspace platform domain errors to stable, non-sensitive wire errors. */
 
-import { ErrorCodes, isError2 } from '@moonshot-ai/agent-core-v2';
+import { ErrorCodes, isError2 } from '@spiderbyte/agent-core';
 
 import { errEnvelope, type Envelope } from '../../protocol/envelope';
 import { ErrorCode } from '../../protocol/error-codes';
@@ -123,13 +123,13 @@ export function platformProtocolErrorMessage(domainCode: string): string {
   if (domainCode.endsWith('.artifact_invalid')) return 'ML artifact is invalid or unavailable';
   if (domainCode.endsWith('.lineage_invalid')) return 'ML lineage is invalid';
   if (domainCode.endsWith('.invalid_schedule')) return 'automation schedule is invalid';
-  if (domainCode.endsWith('.usage_invalid')) return 'commercial usage record is invalid';
+  if (domainCode.endsWith('.usage_invalid')) return 'usage record is invalid';
   if (domainCode.endsWith('.missing_hash')) return 'artifact content hash is missing';
   if (domainCode.endsWith('.invalid_content')) return 'artifact content is invalid';
   if (domainCode.endsWith('.expired')) return 'artifact has expired';
   if (domainCode.endsWith('.owner_required')) return 'workspace ownership is required';
-  if (domainCode.endsWith('.entitlement_disabled')) return 'commercial entitlement is disabled';
-  if (domainCode.endsWith('.entitlement_exceeded')) return 'commercial entitlement exceeded';
+  if (domainCode.endsWith('.entitlement_disabled')) return 'usage limit is disabled';
+  if (domainCode.endsWith('.entitlement_exceeded')) return 'usage limit exceeded';
   if (domainCode.endsWith('.lease_not_found')) return 'execution target lease not found';
   return 'platform request failed';
 }

@@ -39,7 +39,7 @@ afterEach(() => {
 });
 
 async function tempHome(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), 'kimi-telemetry-'));
+  const dir = await mkdtemp(join(tmpdir(), 'spiderbyte-telemetry-'));
   tempDirs.push(dir);
   return dir;
 }
@@ -66,10 +66,10 @@ function makeSink(transport: TelemetryTransport, flushThreshold = 10): EventSink
   return new EventSink({
     transport,
     context: {
-      appName: 'kimi-code-cli',
+      appName: 'spiderbyte-cli',
       version: '1.2.3',
       uiMode: 'shell',
-      model: 'kimi-k2',
+      model: 'example-model',
       env: {},
       terminal: 'test-terminal',
       locale: 'en_US',
@@ -387,11 +387,11 @@ describe('EventSink', () => {
 
     expect('context' in event).toBe(false);
     expect(transport.saved[0]?.[0]?.context).toMatchObject({
-      app_name: 'kimi-code-cli',
+      app_name: 'spiderbyte-cli',
       version: '1.2.3',
       runtime: 'node',
       ui_mode: 'shell',
-      model: 'kimi-k2',
+      model: 'example-model',
       terminal: 'test-terminal',
     });
   });
@@ -796,30 +796,30 @@ describe('AsyncTransport', () => {
 });
 
 describe('telemetry bootstrap', () => {
-  it('matches the KIMI_DISABLE_TELEMETRY true-value semantics', () => {
-    expect(isTelemetryDisabledByEnv({ KIMI_DISABLE_TELEMETRY: '1' })).toBe(true);
-    expect(isTelemetryDisabledByEnv({ KIMI_DISABLE_TELEMETRY: 'yes' })).toBe(true);
-    expect(isTelemetryDisabledByEnv({ KIMI_DISABLE_TELEMETRY: '0' })).toBe(false);
-    expect(isTelemetryDisabledByEnv({ KIMI_DISABLE_TELEMETRY: 'false' })).toBe(false);
+  it('matches the SPIDERBYTE_DISABLE_TELEMETRY true-value semantics', () => {
+    expect(isTelemetryDisabledByEnv({ SPIDERBYTE_DISABLE_TELEMETRY: '1' })).toBe(true);
+    expect(isTelemetryDisabledByEnv({ SPIDERBYTE_DISABLE_TELEMETRY: 'yes' })).toBe(true);
+    expect(isTelemetryDisabledByEnv({ SPIDERBYTE_DISABLE_TELEMETRY: '0' })).toBe(false);
+    expect(isTelemetryDisabledByEnv({ SPIDERBYTE_DISABLE_TELEMETRY: 'false' })).toBe(false);
   });
 
   it('disables the singleton without attaching a sink when opted out', async () => {
     const fetchImpl = vi.fn(async () => new Response('', { status: 200 }));
     vi.stubGlobal('fetch', fetchImpl);
-    const saved = process.env['KIMI_DISABLE_TELEMETRY'];
+    const saved = process.env['SPIDERBYTE_DISABLE_TELEMETRY'];
     try {
-      process.env['KIMI_DISABLE_TELEMETRY'] = 'true';
+      process.env['SPIDERBYTE_DISABLE_TELEMETRY'] = 'true';
       initializeTelemetry({
         homeDir: await tempHome(),
         deviceId: 'dev',
-        appName: 'kimi-code-cli',
+        appName: 'spiderbyte-cli',
         version: '1.2.3',
       });
       track('dropped');
       await shutdownTelemetry();
     } finally {
-      if (saved === undefined) delete process.env['KIMI_DISABLE_TELEMETRY'];
-      else process.env['KIMI_DISABLE_TELEMETRY'] = saved;
+      if (saved === undefined) delete process.env['SPIDERBYTE_DISABLE_TELEMETRY'];
+      else process.env['SPIDERBYTE_DISABLE_TELEMETRY'] = saved;
     }
 
     expect(fetchImpl).not.toHaveBeenCalled();
@@ -834,8 +834,9 @@ describe('telemetry bootstrap', () => {
       homeDir: await tempHome(),
       deviceId: 'dev',
       sessionId: 'ses',
-      appName: 'kimi-code-cli',
+      appName: 'spiderbyte-cli',
       version: '1.2.3',
+      endpoint: 'https://telemetry.example.test/v1/event',
     });
 
     await shutdownTelemetry();
@@ -857,7 +858,7 @@ describe('telemetry bootstrap', () => {
       homeDir,
       deviceId: 'dev',
       sessionId: 'ses',
-      appName: 'kimi-code-cli',
+      appName: 'spiderbyte-cli',
       version: '1.2.3',
     });
     track('sync_flush');
@@ -876,7 +877,7 @@ describe('telemetry bootstrap', () => {
       homeDir,
       deviceId: 'dev',
       sessionId: 'ses',
-      appName: 'kimi-code-cli',
+      appName: 'spiderbyte-cli',
       version: '1.2.3',
     });
 

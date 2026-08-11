@@ -1,6 +1,6 @@
 /**
- * `@moonshot-ai/kap-server` public surface — the Kimi Code server backed by the
- * DI × Scope agent engine (`@moonshot-ai/agent-core-v2`).
+ * `@spiderbyte/kap-server` public surface — the SpiderByte server backed by the
+ * DI × Scope agent engine (`@spiderbyte/agent-core`).
  */
 
 export { startServer } from './start';

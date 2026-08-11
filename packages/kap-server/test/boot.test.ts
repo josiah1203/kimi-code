@@ -20,7 +20,7 @@ import {
   IOAuthToolkit,
   ITelemetryService,
   noopTelemetryService,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 
 import { listLiveServerInstances } from '../src/instanceRegistry';
 import { listenWithPortRetry, type RunningServer, startServer } from '../src/start';
@@ -42,8 +42,8 @@ describe('server-v2 boot', () => {
     }
   });
 
-  it('boots agent-core-v2 and serves the basic /api/v1 routes', async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-'));
+  it('boots SpiderByte Agent Core and serves the basic /api/v1 routes', async () => {
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-'));
     server = await startServer({
       hostIdentity: TEST_HOST_IDENTITY,
       host: '127.0.0.1',
@@ -96,7 +96,7 @@ describe('server-v2 boot', () => {
   });
 
   it('reports opts.serverVersion as server_version instead of the package version', async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-version-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-version-'));
     server = await startServer({
       hostIdentity: {
         productName: 'test-host',
@@ -134,8 +134,8 @@ describe('server-v2 boot', () => {
     });
   });
 
-  it('seeds default Kimi identity headers from hostIdentity that opts.seeds can override', async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-ua-'));
+  it('seeds default SpiderByte host identity headers from hostIdentity that opts.seeds can override', async () => {
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-ua-'));
     server = await startServer({
       hostIdentity: TEST_HOST_IDENTITY,
       host: '127.0.0.1',
@@ -165,7 +165,7 @@ describe('server-v2 boot', () => {
   });
 
   it('seeds explicit skill dirs into the core scope when skillDirs is provided', async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-skills-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-skills-'));
     server = await startServer({
       hostIdentity: TEST_HOST_IDENTITY,
       host: '127.0.0.1',
@@ -192,7 +192,7 @@ describe('server-v2 boot', () => {
   });
 
   it('does not shut down a host-injected telemetry service when server telemetry is disabled', async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-host-telemetry-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-host-telemetry-'));
     await writeFile(join(home, 'config.toml'), 'telemetry = false\n', 'utf8');
     const shutdown = vi.fn(async () => {});
 
@@ -212,7 +212,7 @@ describe('server-v2 boot', () => {
   });
 
   it('completes server cleanup when owned telemetry shutdown fails', async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-telemetry-failure-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-telemetry-failure-'));
     const storage = new InMemoryStorageService();
     const write = storage.write.bind(storage);
     vi.spyOn(storage, 'write').mockImplementation(async (scope, key, data, options) => {
@@ -392,10 +392,10 @@ describe('server-v2 boot — port retry', () => {
   });
 
   it('retries on port+1 and advertises the bound port in the instance registry', async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-port-retry-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-port-retry-'));
     const { port, next } = await allocateAdjacentFreePair();
     // Occupy the requested port with a raw TCP server (a "third-party" process
-    // from the server's point of view — it is not a registered kimi instance).
+    // from the server's point of view — it is not a registered external instance).
     const occupant = await listenOnPort('127.0.0.1', port);
     try {
       server = await startServer({

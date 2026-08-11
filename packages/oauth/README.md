@@ -1,8 +1,8 @@
-# @moonshot-ai/kimi-code-oauth
+# @spiderbyte/oauth
 
-OAuth toolkit for Kimi Code managed authentication.
+OAuth toolkit for SpiderByte managed authentication.
 
-Part of the [Kimi Code](https://github.com/MoonshotAI/kimi-code) monorepo.
+Part of the [SpiderByte](https://github.com/SpiderByte/spiderbyte) monorepo.
 
 See the main repository for documentation, issues, and contribution guidelines.
 

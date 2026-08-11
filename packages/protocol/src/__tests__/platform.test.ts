@@ -27,14 +27,14 @@ const timestamps = {
   updated_at: '2026-08-08T12:01:00.000Z',
 };
 
-const workspaceId = 'wd_kimi_0123456789ab';
+const workspaceId = 'wd_workspace_0123456789ab';
 
 describe('platform contracts', () => {
   it('keeps the legacy workspace projection compatible without platform fields', () => {
     const workspace = workspaceSchema.parse({
       id: workspaceId,
-      root: '/tmp/kimi',
-      name: 'kimi',
+      root: '/tmp/workspace',
+      name: 'workspace',
       created_at: timestamps.created_at,
       last_opened_at: timestamps.updated_at,
       session_count: 0,
@@ -46,8 +46,8 @@ describe('platform contracts', () => {
   it('validates the enhanced workspace and AgentSession projections', () => {
     const workspace = platformWorkspaceSchema.parse({
       id: workspaceId,
-      root: '/tmp/kimi',
-      name: 'kimi',
+      root: '/tmp/workspace',
+      name: 'workspace',
       state: 'active',
       ...timestamps,
       last_opened_at: timestamps.updated_at,
@@ -60,7 +60,7 @@ describe('platform contracts', () => {
       workspace_id: workspaceId,
       title: 'Platform slice',
       state: 'active',
-      cwd: '/tmp/kimi',
+      cwd: '/tmp/workspace',
       ...timestamps,
       active_run_id: 'run_01',
       run_count: 1,
@@ -118,7 +118,7 @@ describe('platform contracts', () => {
         workspace_id: workspaceId,
         run_id: 'run_01',
         capability: 'filesystem',
-        action: 'read:/tmp/kimi',
+        action: 'read:/tmp/workspace',
         state: 'approved',
         outcome: 'allow',
         reason: 'Workspace policy allows the read.',

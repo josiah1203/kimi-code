@@ -7,14 +7,13 @@ set -euo pipefail
 COREPACK_HOME="${COREPACK_HOME:-/tmp/kimi-corepack}"
 export COREPACK_HOME
 
-pnpm --config.engine-strict=false --filter @moonshot-ai/protocol typecheck
-pnpm --config.engine-strict=false --filter @moonshot-ai/agent-core-v2 typecheck
-pnpm --config.engine-strict=false --filter @moonshot-ai/klient typecheck
-pnpm --config.engine-strict=false --filter @moonshot-ai/kimi-code-sdk typecheck
-pnpm --config.engine-strict=false --filter @moonshot-ai/kap-server typecheck
-pnpm --config.engine-strict=false --filter @moonshot-ai/vis-web typecheck
+pnpm --config.engine-strict=false --filter @spiderbyte/protocol typecheck
+pnpm --config.engine-strict=false --filter @spiderbyte/agent-core typecheck
+pnpm --config.engine-strict=false --filter @spiderbyte/client typecheck
+pnpm --config.engine-strict=false --filter @spiderbyte/sdk typecheck
+pnpm --config.engine-strict=false --filter @spiderbyte/kap-server typecheck
 
-pnpm --config.engine-strict=false --filter @moonshot-ai/agent-core-v2 exec vitest run \
+pnpm --config.engine-strict=false --filter @spiderbyte/agent-core exec vitest run \
   test/workspace/platformServices.test.ts \
   test/workspace/providerConnections/providerConnectionService.test.ts \
   test/workspace/providerConnections/providerRuntimeService.test.ts \
@@ -31,7 +30,7 @@ pnpm --config.engine-strict=false --filter @moonshot-ai/agent-core-v2 exec vites
   test/agent/tools/platform/platformTools.test.ts \
   --pool=threads --maxWorkers=1 --no-file-parallelism
 
-pnpm --config.engine-strict=false --filter @moonshot-ai/klient exec vitest run \
+pnpm --config.engine-strict=false --filter @spiderbyte/client exec vitest run \
   test/browser.test.ts \
   --pool=threads --maxWorkers=1 --no-file-parallelism
 

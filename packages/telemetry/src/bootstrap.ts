@@ -3,7 +3,7 @@ import { EventSink } from './sink';
 import { SystemMetricsCollector } from './systemMetrics';
 import { AsyncTransport } from './transport';
 
-export const TELEMETRY_DISABLE_ENV = 'KIMI_DISABLE_TELEMETRY';
+export const TELEMETRY_DISABLE_ENV = 'SPIDERBYTE_DISABLE_TELEMETRY';
 
 const TRUE_ENV_VALUES = new Set(['1', 'true', 't', 'yes', 'y']);
 
@@ -19,6 +19,8 @@ export interface TelemetryBootstrapOptions {
   readonly buildSha?: string;
   readonly terminal?: string;
   readonly locale?: string;
+  /** Optional operator-owned endpoint; omitted means local disk-only telemetry. */
+  readonly endpoint?: string;
   readonly getAccessToken?: () => string | null | Promise<string | null>;
 }
 
@@ -49,6 +51,7 @@ export function initializeTelemetry(options: TelemetryBootstrapOptions): void {
   const transport = new AsyncTransport({
     homeDir: options.homeDir,
     deviceId: options.deviceId,
+    endpoint: options.endpoint,
     getAccessToken: options.getAccessToken,
   });
   const sink = new EventSink({

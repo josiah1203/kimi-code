@@ -5,7 +5,7 @@
  * page tokens, git domain dedup/cache/degradation, v2 auth error shape, and
  * the activity-status mapper.
  * Wiring: real kap-server; `ISessionIndex` / `IGitService` stubbed via DI seeds.
- * Run: `pnpm --filter @moonshot-ai/kap-server exec vitest run test/v2Sessions.test.ts`.
+ * Run: `pnpm --filter @spiderbyte/kap-server exec vitest run test/v2Sessions.test.ts`.
  */
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -16,12 +16,12 @@ import {
   ErrorCodes,
   ISessionIndex,
   type SessionSummary,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import {
   type FsGitStatusResponse,
   type FsPullRequest,
   IGitService,
-} from '@moonshot-ai/agent-core-v2/app/git/git';
+} from '@spiderbyte/agent-core/app/git/git';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { type RunningServer, startServer } from '../src/start';
@@ -170,7 +170,7 @@ describe('server /api/v2/sessions', () => {
   beforeEach(async () => {
     gitState.calls = [];
     gitState.responses = new Map();
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-sessions-list-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-sessions-list-'));
     server = await startServer({
       hostIdentity: TEST_HOST_IDENTITY,
       host: '127.0.0.1',

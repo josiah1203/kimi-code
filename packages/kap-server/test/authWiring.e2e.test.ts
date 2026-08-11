@@ -69,7 +69,7 @@ describe('production auth wiring', () => {
   const sockets: WebSocket[] = [];
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-auth-wiring-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-auth-wiring-'));
     server = await startServer({ hostIdentity: TEST_HOST_IDENTITY, host: '127.0.0.1', port: 0, homeDir: home, logLevel: 'silent' });
     base = `http://127.0.0.1:${server.port}`;
   });
@@ -138,7 +138,7 @@ describe('production auth wiring', () => {
     const token = (await readFile(join(home as string, 'server.token'), 'utf8')).trim();
     const wsUrl = `ws://127.0.0.1:${(server as RunningServer).port}/api/v1/ws`;
 
-    const { ws, firstFrame } = await openConn(wsUrl, [`kimi-code.bearer.${token}`]);
+    const { ws, firstFrame } = await openConn(wsUrl, [`spiderbyte.bearer.${token}`]);
     sockets.push(ws);
     expect(firstFrame).toMatchObject({ type: 'server_hello' });
 

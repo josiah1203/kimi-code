@@ -1,5 +1,5 @@
 /**
- * Regenerate `src/tools/support/webp-dec-wasm.ts` from the installed
+ * Regenerate `src/agent/media/webp-dec-wasm.ts` from the installed
  * `@jsquash/webp` package.
  *
  * The WebP decoder wasm is committed as a base64 string module because the
@@ -21,7 +21,7 @@ const wasmPath = require.resolve('@jsquash/webp/codec/dec/webp_dec.wasm');
 const version = require('@jsquash/webp/package.json').version;
 const wasm = readFileSync(wasmPath);
 
-const target = resolve(packageRoot, 'src/tools/support/webp-dec-wasm.ts');
+const target = resolve(packageRoot, 'src/agent/media/webp-dec-wasm.ts');
 writeFileSync(
   target,
   `// GENERATED FILE — do not edit by hand.

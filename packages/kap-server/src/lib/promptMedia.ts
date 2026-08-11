@@ -8,7 +8,7 @@
  *   2. `resolvePromptMediaFiles` — materialize uploads into session-local
  *      copies: arbitrary files become path-referenced attachments (a text
  *      notice the model opens with the Read tool), images are format-gated
- *      and compressed, videos become internal `kimi-file://` references.
+ *      and compressed, videos become internal `spiderbyte-file://` references.
  *   3. `contentToCoreParts` — project the resolved wire content onto engine
  *      `ContentPart`s.
  *
@@ -23,7 +23,7 @@ import { extname, join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 
 import {
-  buildKimiFileUrl,
+  buildSpiderByteFileUrl,
   buildImageCompressionCaption,
   buildUnsupportedImageNotice,
   compressBase64ForModel,
@@ -40,7 +40,7 @@ import {
   type IFileService,
   type ImageCompressionTelemetry,
   type ITelemetryService,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 
 import type { PromptSubmission } from '../protocol/rest-prompt';
 
@@ -112,7 +112,7 @@ export interface ResolvePromptMediaOptions {
 /**
  * Resolve a wire content list's media/file references into their final wire
  * form: uploaded files materialize to a session-local path notice, images are
- * format-gated and compressed, videos materialize to a `kimi-file://`
+ * format-gated and compressed, videos materialize to a `spiderbyte-file://`
  * reference. Returns the input array unchanged when nothing needed resolving.
  */
 export async function resolvePromptMediaFiles(
@@ -324,13 +324,13 @@ export async function resolvePromptMediaFiles(
 
     // Uploaded video: materialize a local copy the model can open as a
     // fallback, and carry the upload into context as an internal
-    // `kimi-file://<id>?path=<materialized path>` reference. The engine
+    // `spiderbyte-file://<id>?path=<materialized path>` reference. The engine
     // resolves it to a provider form (upload / inline / `<video path>` tag) at
     // request time, so the edge never uploads and never blocks on the provider.
     const cachePath = await materializeVideoToCache(file, cacheDir);
     content.push({
       type: 'video',
-      source: { kind: 'url', url: buildKimiFileUrl(file.meta.id, cachePath) },
+      source: { kind: 'url', url: buildSpiderByteFileUrl(file.meta.id, cachePath) },
     });
     changed = true;
   }
@@ -405,7 +405,7 @@ function imageExtensionForMime(mediaType: string): string {
   return ext.length > 0 ? ext : 'img';
 }
 
-// This notice's exact shape is a client contract: kimi-web's messagesToTurns
+// This notice's exact shape is a client contract: spiderbyte-web's messagesToTurns
 // parses it (ATTACHED_FILE_NOTICE_RE) to rebuild the attachment chip after a
 // resync — change the wording there too.
 function buildAttachedFileNotice(name: string, mediaType: string, size: number, path: string): string {

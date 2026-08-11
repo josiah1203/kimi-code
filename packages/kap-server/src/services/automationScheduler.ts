@@ -12,7 +12,7 @@ import {
   IWorkspaceLifecycleService,
   IWorkspaceService,
   type Scope,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 
 const DEFAULT_INTERVAL_MS = 60_000;
 

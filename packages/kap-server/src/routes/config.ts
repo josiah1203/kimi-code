@@ -1,9 +1,9 @@
 /**
  * `/config` route handlers — server-v2 port.
  *
- * Implements the v1 `/api/v1/config` wire contract on top of `agent-core-v2`'s
+ * Implements the v1 `/api/v1/config` wire contract on top of `SpiderByte Agent Core`'s
  * section-registry `IConfigService`:
- *   GET  /config   — global Kimi configuration, secrets redacted
+ *   GET  /config   — global SpiderByte configuration, secrets redacted
  *   POST /config   — update global configuration (merge semantics)
  *
  * **Wire fidelity**: reuses the local `protocol/rest-config` `configResponseSchema` /
@@ -32,7 +32,7 @@ import {
   IEventService,
   SECONDARY_DERIVED_MODEL_ID,
   type Scope,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 
 import { errEnvelope, okEnvelope } from '../envelope';
 import { requestLog } from '../lib/requestLog';
@@ -68,7 +68,7 @@ export function registerConfigRoutes(app: ConfigRouteHost, core: Scope): void {
       method: 'GET',
       path: '/config',
       success: { data: configResponseSchema },
-      description: 'Get the global Kimi configuration (secrets redacted)',
+      description: 'Get the global SpiderByte configuration (secrets redacted)',
       tags: ['config'],
     },
     async (req, reply) => {
@@ -88,7 +88,7 @@ export function registerConfigRoutes(app: ConfigRouteHost, core: Scope): void {
       errors: {
         [ErrorCode.VALIDATION_FAILED]: {},
       },
-      description: 'Update the global Kimi configuration (merge semantics)',
+      description: 'Update the global SpiderByte configuration (merge semantics)',
       tags: ['config'],
     },
     async (req, reply) => {

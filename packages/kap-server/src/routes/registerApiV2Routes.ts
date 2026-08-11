@@ -8,7 +8,7 @@
  * and answers 401 before routing).
  */
 
-import type { Scope } from '@moonshot-ai/agent-core-v2';
+import type { Scope } from '@spiderbyte/agent-core';
 
 import { registerV2SessionsRoutes } from './v2/sessions';
 import { registerPlatformRoutes } from './v2/platform';

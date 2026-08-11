@@ -5,14 +5,14 @@
  * assert wire semantics that an experimental flag deliberately changes
  * (e.g. the minidb session read model makes externally written sessions
  * eventually consistent). A developer shell exporting
- * `KIMI_CODE_EXPERIMENTAL_FLAG` (or a single-flag variant) must not flip the
+ * `SPIDERBYTE_EXPERIMENTAL_FLAG` (or a single-flag variant) must not flip the
  * whole suite — scrub the env here, then pin the defaults-ON flags OFF
  * below; a test that wants a flag re-enables its env var explicitly.
  */
 
-delete process.env['KIMI_CODE_EXPERIMENTAL_FLAG'];
+delete process.env['SPIDERBYTE_EXPERIMENTAL_FLAG'];
 for (const key of Object.keys(process.env)) {
-  if (key.startsWith('KIMI_CODE_EXPERIMENTAL_')) {
+  if (key.startsWith('SPIDERBYTE_EXPERIMENTAL_')) {
     delete process.env[key];
   }
 }
@@ -26,7 +26,7 @@ for (const key of Object.keys(process.env)) {
 // the search surface pin their host explicitly: searchService.test.ts
 // injects flag stubs per service, and searchRoute.test.ts re-enables the
 // env var for its end-to-end worker coverage.
-process.env['KIMI_CODE_EXPERIMENTAL_SEARCH_WORKER'] = 'false';
+process.env['SPIDERBYTE_EXPERIMENTAL_SEARCH_WORKER'] = 'false';
 
 // Stage-6 note: default the `persistence_minidb_readmodel` flag OFF for
 // server-booting suites. The flag defaults ON in production, but several
@@ -34,4 +34,4 @@ process.env['KIMI_CODE_EXPERIMENTAL_SEARCH_WORKER'] = 'false';
 // (externally written sessions become eventually consistent). The dedicated
 // read-model describe in sessions.test.ts re-enables the env var per test —
 // the env source outranks the `[experimental]` config section.
-process.env['KIMI_CODE_EXPERIMENTAL_PERSISTENCE_MINIDB_READMODEL'] = 'false';
+process.env['SPIDERBYTE_EXPERIMENTAL_PERSISTENCE_MINIDB_READMODEL'] = 'false';

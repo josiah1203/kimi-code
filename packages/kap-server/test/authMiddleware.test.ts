@@ -12,7 +12,7 @@ describe('server-v2 /api/v1 bearer auth', () => {
   let home: string | undefined;
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-auth-middleware-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-auth-middleware-'));
   });
 
   afterEach(async () => {

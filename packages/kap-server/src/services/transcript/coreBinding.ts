@@ -30,8 +30,8 @@ import {
   type IAgentScopeHandle,
   type Interaction,
   type ISessionScopeHandle,
-} from '@moonshot-ai/agent-core-v2';
-import type { AgentDescriptor, TranscriptChangeEvent, TranscriptStore } from '@moonshot-ai/transcript';
+} from '@spiderbyte/agent-core';
+import type { AgentDescriptor, TranscriptChangeEvent, TranscriptStore } from '@spiderbyte/transcript';
 
 import { AgentTranscriptProjector, type ProjectorInteraction } from './coreEventMap';
 

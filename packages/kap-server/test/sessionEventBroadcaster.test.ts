@@ -14,7 +14,7 @@ import type {
   SessionActivityCause,
   SessionActivityChangedEvent,
   SessionActivityState,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import {
   IAgentActivityView,
   LifecycleScope,
@@ -35,7 +35,7 @@ import {
   SECONDARY_DERIVED_MODEL_ID,
   SessionInteractionService,
   StateRegistry,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import type { AgentEvent } from '../src/transport/ws/v1/events';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -437,7 +437,7 @@ describe('SessionEventBroadcaster', () => {
   let bc: SessionEventBroadcaster;
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), 'kimi-broadcaster-test-'));
+    dir = await mkdtemp(join(tmpdir(), 'spiderbyte-broadcaster-test-'));
     sessions = new Map();
     eventBus = new FakeEventBus();
     bc = new SessionEventBroadcaster({
@@ -609,7 +609,7 @@ describe('SessionEventBroadcaster', () => {
     main.set(IModelCatalog, {
       get: (id: string) => {
         expect(id).toBe(SECONDARY_DERIVED_MODEL_ID);
-        return { id, name: 'kimi-k2-wire', displayName: 'Kimi K2' };
+        return { id, name: 'external-model-wire', displayName: 'SpiderByte Model' };
       },
     });
     sessions.set('s1', lc);
@@ -619,7 +619,7 @@ describe('SessionEventBroadcaster', () => {
     main.bus.emit(agentEvent('agent.status.updated', {}));
     // Without a displayName the pointed entry's wire name is shown.
     main.set(IModelCatalog, {
-      get: (id: string) => ({ id, name: 'kimi-k2-wire' }),
+      get: (id: string) => ({ id, name: 'external-model-wire' }),
     });
     main.bus.emit(agentEvent('agent.status.updated', {}));
     // A resolution failure falls back to the raw alias.
@@ -634,8 +634,8 @@ describe('SessionEventBroadcaster', () => {
     const statuses = envelopes.filter((envelope) => envelope.type === 'agent.status.updated');
     expect(statuses).toHaveLength(3);
     expect(statuses.map((envelope) => envelope.payload)).toMatchObject([
-      { model: 'Kimi K2' },
-      { model: 'kimi-k2-wire' },
+      { model: 'SpiderByte K2' },
+      { model: 'external-model-wire' },
       { model: SECONDARY_DERIVED_MODEL_ID },
     ]);
   });
@@ -938,7 +938,7 @@ describe('SessionEventBroadcaster', () => {
     main.bus.emit(
       agentEvent('subagent.spawned', {
         subagentId: 'agent-1',
-        subagentName: 'kimi-subagent',
+        subagentName: 'spiderbyte-subagent',
         parentToolCallId: 'tc_swarm_1',
         description: 'task agent-1',
         swarmIndex: 0,
@@ -1039,7 +1039,7 @@ describe('SessionEventBroadcaster', () => {
     // Regression: v2 publishes `event.session.created` on the core bus but the
     // broadcaster did not forward it, so clients that didn't issue the create
     // never learned the session exists. Without it, a later sessionStatusChanged
-    // reducer is a no-op for the unknown session and kimi-web's Stop button
+    // reducer is a no-op for the unknown session and spiderbyte-web's Stop button
     // (gated on session.status === 'running') never renders.
     sessions.set('s1', new FakeLifecycle());
     sessions.set('s2', new FakeLifecycle());
@@ -1075,9 +1075,9 @@ describe('SessionEventBroadcaster', () => {
   });
 
   it('gates event.di.unit_changed to connections opted into the DI debug feed', async () => {
-    // The engine's DI debug feed (agent-core-v2's IDebugCascadeService) has no
+    // The engine's DI debug feed (SpiderByte Agent Core's IDebugCascadeService) has no
     // owning session: it routes through the global state ('__global__'
-    // watermark). Only kimi-inspect consumes it, so delivery is opt-in via
+    // watermark). Only spiderbyte-inspect consumes it, so delivery is opt-in via
     // `addDiEventTarget` — every other connection skips the frames; being
     // volatile they are never journaled.
     const plainView = collectingTarget();
@@ -1262,7 +1262,7 @@ describe('SessionEventBroadcaster', () => {
   it('emits a durable event.session.work_changed(busy) trailing turn.started', async () => {
     // Regression: the session's busy fact exists only as the agents' activity
     // state (nothing is published session-wide), so the WS stream never
-    // carried the busy transition and kimi-web's Stop button never rendered.
+    // carried the busy transition and spiderbyte-web's Stop button never rendered.
     // The broadcaster re-emits the aggregate off the activity fold — under
     // the bus's two-phase dispatch the fold reports after the edge's own
     // turn.started handling, so the work_changed trails the turn frame on
@@ -1295,7 +1295,7 @@ describe('SessionEventBroadcaster', () => {
   });
 
   it('emits a durable event.session.work_changed after turn.ended with the main turn outcome', async () => {
-    // Regression: kimi-web's turn.ended projector deliberately does NOT
+    // Regression: spiderbyte-web's turn.ended projector deliberately does NOT
     // synthesize a busy flip — the daemon's `event.session.work_changed` is
     // its only turn-end signal (it drives onSessionIdle queue flush and
     // clears the Stop/loading state). Without it the session stayed busy
@@ -1448,7 +1448,7 @@ describe('SessionEventBroadcaster', () => {
     // counts every agent), but only the MAIN agent feeds `last_turn_reason`:
     // a sub-agent's cancelled turn must not mark the session aborted, and its
     // work does not clear a pending outcome. While the main turn is in flight
-    // the sub-agent's boundaries dedup to no-ops (busy stays true), so kimi-web
+    // the sub-agent's boundaries dedup to no-ops (busy stays true), so spiderbyte-web
     // never reads them as "the turn finished" (browser notification,
     // completion sound, unread dot, queued message drain).
     const lc = new FakeLifecycle();
@@ -1746,7 +1746,7 @@ describe('SessionEventBroadcaster', () => {
 
   it('fans out the legacy background.task.* alias alongside native task.* for v1 clients', async () => {
     // v2 emits `task.started`/`task.terminated`; unchanged v1 consumers
-    // (kimi-code TUI / `kimi -p`, node-sdk) only understand
+    // (spiderbyte TUI / `spyderbyte -p`, node-sdk) only understand
     // `background.task.*`. The broadcaster must emit both spellings so web
     // (handles `task.*`, ignores the alias) and TUI (handles the alias, ignores
     // `task.*`) both work without consumer changes.
@@ -1872,7 +1872,7 @@ describe('SessionEventBroadcaster', () => {
 
     // Dedicated broadcaster with a cap large enough to hold the full mixed
     // turn/work_changed sequence before the filter crop is exercised.
-    const dir2 = await mkdtemp(join(tmpdir(), 'kimi-broadcaster-test-'));
+    const dir2 = await mkdtemp(join(tmpdir(), 'spiderbyte-broadcaster-test-'));
     const bc2 = new SessionEventBroadcaster({
       eventsDir: dir2,
       core: makeCore(sessions, eventBus),

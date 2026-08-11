@@ -25,7 +25,7 @@ function workspacePackageDirs() {
       dirs.push(join(parent, entry.name));
     }
   }
-  for (const path of ['apps/vis/server', 'apps/vis/web', 'docs']) {
+  for (const path of ['docs']) {
     if (!dirs.includes(path) && existsSync(join(ROOT, path))) dirs.push(path);
   }
   return dirs.filter((path) => existsSync(join(ROOT, path, 'package.json')));

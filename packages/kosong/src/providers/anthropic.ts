@@ -126,7 +126,7 @@ export interface AnthropicOptions {
    * Vendor error classification, consulted by `convertAnthropicError` with
    * each raw SDK failure exactly once (after the abort guard and the
    * already-converted pass-through) before the base rules run. `undefined`
-   * keeps the base classification. A Kimi provider routed over this
+   * keeps the base classification. A external provider provider routed over this
    * transport passes `classifyKimiQuotaError` here so a quota-exhausted 429
    * fails fast instead of burning the retry budget.
    */
@@ -532,7 +532,7 @@ function convertMessage(message: Message, model: string): MessageParam {
       // always takes this branch.
       //
       // Unsigned: still PRESERVE the thinking, emitted *without* a `signature`
-      // field. Anthropic-compatible backends (e.g. Kimi) stream thinking with
+      // field. Anthropic-compatible backends (e.g. external provider) stream thinking with
       // no signature_delta, yet reject a tool-call turn whose thinking is gone
       // ("thinking is enabled but reasoning_content is missing"). Dropping it
       // here is what broke multi-step tool use on those backends. Claude
@@ -1014,7 +1014,7 @@ export class AnthropicChatProvider implements ChatProvider {
     // step.
     const messages = mergeConsecutiveUserMessages(
       normalizeToolCallIdsForProvider(
-        // Message-level tool declarations are a Kimi wire feature; here the
+        // Message-level tool declarations are a external provider wire feature; here the
         // whole message is skipped (an empty leftover would serialize as a
         // garbage `<system></system>` user turn). See isToolDeclarationOnlyMessage.
         history.filter((msg) => !isToolDeclarationOnlyMessage(msg)),
@@ -1288,7 +1288,7 @@ export class AnthropicChatProvider implements ChatProvider {
     // clear_thinking_20251015 is honored only on the beta Messages API
     // (client.beta.messages.create), so enabling keep forces the beta endpoint
     // here even when the provider was constructed with betaApi: false. Setting
-    // `[thinking] keep` to an off-value (or KIMI_MODEL_THINKING_KEEP=off) is the
+    // `[thinking] keep` to an off-value (or SPIDERBYTE_MODEL_THINKING_KEEP=off) is the
     // escape hatch that disables keep and returns requests to the standard
     // endpoint. This also routes adaptive models (whose withThinking would
     // otherwise drop the interleaved-thinking beta and leave betaFeatures empty)

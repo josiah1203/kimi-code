@@ -5,15 +5,15 @@
  * between onboarding vs. chat UI. Returns 200 + envelope regardless of provider
  * state.
  *
- * The handler is a thin adapter over `IAuthLegacyService`, which projects the
- * v2 provider / model / credential state into the v1 `AuthSummary` wire shape
+ * The handler is a thin adapter over `IAuthSummaryService`, which projects the
+ * v2 provider / model state into the v1 `AuthSummary` wire shape
  * (`{ ready, providers_count, default_model, managed_provider }`). The native
  * `IAuthSummaryService` (which serves the RPC surface) is intentionally not used here
  * — its `AuthStatus[]` model is the v2 shape, not the v1 contract.
  */
 
-import { IAuthLegacyService, type Scope } from '@moonshot-ai/agent-core-v2';
-import { authSummarySchema } from '@moonshot-ai/agent-core-v2/app/authLegacy/authLegacy';
+import { IAuthReadinessService, type Scope } from '@spiderbyte/agent-core';
+import { authSummarySchema } from '@spiderbyte/agent-core/app/authSummary/authSummary';
 
 import { okEnvelope } from '../envelope';
 import { defineRoute } from '../middleware/defineRoute';
@@ -39,7 +39,7 @@ export function registerAuthRoute(app: RouteHost, core: Scope): void {
       tags: ['auth'],
     },
     async (req, reply) => {
-      const summary = await core.accessor.get(IAuthLegacyService).get();
+      const summary = await core.accessor.get(IAuthReadinessService).get();
       reply.send(okEnvelope(summary, req.id));
     },
   );

@@ -27,127 +27,26 @@ export type { LoginOptions, OAuthManagerOptions, OAuthRefreshOutcome } from './o
 export { OAuthManager, defaultRefreshThreshold, newInstanceId } from './oauth-manager';
 
 export {
-  assertKimiHostIdentity,
-  createKimiDefaultHeaders,
-  createKimiDeviceHeaders,
-  createKimiDeviceId,
-  createKimiUserAgent,
-  KIMI_CODE_CUSTOM_HEADERS_ENV,
-  KIMI_CODE_PLATFORM,
-  parseKimiCodeCustomHeaders,
-  readKimiDeviceId,
+  assertSpiderByteHostIdentity,
+  createSpiderByteDefaultHeaders,
+  createSpiderByteDeviceHeaders,
+  createSpiderByteDeviceId,
+  createSpiderByteUserAgent,
+  parseSpiderByteCustomHeaders,
+  readSpiderByteDeviceId,
   replaceUserAgentProduct,
+  SPIDERBYTE_CUSTOM_HEADERS_ENV,
+  SPIDERBYTE_PLATFORM,
 } from './identity';
-export type { KimiHostIdentity, KimiIdentityOptions } from './identity';
+export type { SpiderByteHostIdentity, SpiderByteIdentityOptions } from './identity';
 
-export { KIMI_CODE_FLOW_CONFIG } from './constants';
-
-export {
-  FileSpiderByteTokenStorage,
-  SpiderByteIdentityClient,
-  SpiderByteIdentityError,
-} from './spiderbyte-identity';
 export type {
-  SpiderByteAccountToken,
-  SpiderByteAuthorizationRequest,
-  SpiderByteDeviceAuthorization,
-  SpiderByteDevicePollResult,
-  SpiderByteIdentityConfig,
-  SpiderByteIdentityStatus,
-  SpiderByteTokenStorage,
-} from './spiderbyte-identity';
-
-export {
-  applyManagedApiKeyProviderModels,
-  applyManagedKimiCodeLogoutConfig,
-  applyManagedKimiCodeConfig,
-  clearManagedKimiCodeConfig,
-  fetchManagedKimiCodeModels,
-  kimiCodeEnvBaseUrl,
-  kimiCodeEnvOAuthHost,
-  KIMI_CODE_OAUTH_KEY,
-  KIMI_CODE_PLATFORM_ID,
-  KIMI_CODE_PROVIDER_NAME,
-  ManagedKimiCodeModelsAuthError,
-  provisionManagedKimiCodeConfig,
-  resolveKimiCodeLoginAuth,
-  resolveKimiCodeOAuthKey,
-  resolveKimiCodeOAuthRef,
-  resolveKimiCodeRuntimeAuth,
-  toManagedModelAlias,
-} from './managed-kimi-code';
-export type {
-  FetchManagedKimiCodeModelsOptions,
-  ManagedKimiCodeApplyResult,
-  ManagedKimiCodeCleanupResult,
-  ManagedKimiCodeProtocol,
-  ManagedKimiEnv,
-  ManagedKimiLoginAuth,
-  ManagedKimiCodeModelInfo,
-  ManagedKimiCodeProvisionResult,
-  ManagedKimiConfigAdapter,
-  ManagedKimiConfigShape,
-  ManagedKimiOAuthRef,
-  ManagedKimiOAuthRefInput,
-  ManagedKimiRuntimeAuth,
-  ProvisionManagedKimiCodeConfigOptions,
-} from './managed-kimi-code';
-
-export {
-  fetchManagedUserInfo,
-  kimiCodeUserInfoUrl,
-  managedUserInfoPhoneSchema,
-  managedUserInfoResultSchema,
-  managedUserInfoSchema,
-  parseManagedUserInfoPayload,
-} from './managed-userinfo';
-export type {
-  FetchManagedUserInfoError,
-  FetchManagedUserInfoResult,
-  ManagedUserInfo,
-  ManagedUserInfoPhone,
-  ManagedUserInfoResult,
-} from './managed-userinfo';
-
-export {
-  fetchManagedUsage,
-  formatDuration,
-  isManagedKimiCode,
-  isManagedKimiCodeBaseUrl,
-  kimiCodeBaseUrl,
-  kimiCodeUsageUrl,
-  parseManagedUsagePayload,
-} from './managed-usage';
-export type {
-  FetchManagedUsageError,
-  FetchManagedUsageResult,
-  ParsedManagedUsage,
-  UsageRow,
-  UsageWindow,
-} from './managed-usage';
-
-export { fetchSubmitFeedback, kimiCodeFeedbackUrl } from './managed-feedback';
-export type {
-  FetchSubmitFeedbackError,
-  FetchSubmitFeedbackOk,
-  FetchSubmitFeedbackResult,
-  SubmitFeedbackBody,
-} from './managed-feedback';
-
-export {
-  fetchCompleteFeedbackUpload,
-  fetchCreateFeedbackUploadUrl,
-  kimiCodeFeedbackUploadCompleteUrl,
-  kimiCodeFeedbackUploadUrl,
-} from './managed-feedback-upload';
-export type {
-  CompleteFeedbackUploadBody,
-  CreateFeedbackUploadUrlBody,
-  CreateFeedbackUploadUrlResponse,
-  FetchCompleteFeedbackUploadResult,
-  FetchCreateFeedbackUploadUrlResult,
-  FetchFeedbackUploadError,
-} from './managed-feedback-upload';
+  ProviderConfigShape,
+  ProviderModelAlias,
+  ProviderModelInfo,
+  ProviderOAuthRef,
+  SpiderByteConfigShape,
+} from './config';
 
 export {
   applyOpenPlatformConfig,
@@ -160,10 +59,7 @@ export {
   OpenPlatformApiError,
   removeOpenPlatformConfig,
 } from './open-platform';
-export type {
-  ApplyOpenPlatformResult,
-  OpenPlatformDefinition,
-} from './open-platform';
+export type { ApplyOpenPlatformResult, OpenPlatformDefinition } from './open-platform';
 
 export {
   applyCustomRegistryEntries,
@@ -183,18 +79,16 @@ export type {
   FetchCustomRegistryOptions,
 } from './custom-registry';
 
-export { KimiOAuthToolkit, resolveKimiTokenStorageName } from './toolkit';
+export { SpiderByteOAuthToolkit, resolveOAuthTokenStorageName } from './toolkit';
 export type {
-  AuthManagedUserInfoResult,
-  AuthManagedUsageResult,
   AuthProviderStatus,
   AuthStatus,
   BearerTokenProvider,
-  KimiOAuthLoginOptions,
-  KimiOAuthLoginResult,
-  KimiOAuthLogoutResult,
-  KimiOAuthTokenRef,
-  KimiOAuthToolkitOptions,
+  SpiderByteOAuthLoginOptions,
+  SpiderByteOAuthLoginResult,
+  SpiderByteOAuthLogoutResult,
+  SpiderByteOAuthTokenRef,
+  SpiderByteOAuthToolkitOptions,
 } from './toolkit';
 
 export { refreshProviderModels } from './refreshProviderModels';

@@ -1,9 +1,9 @@
 /**
- * Server telemetry bootstrap — wires agent-core-v2's `CloudAppender` into the
+ * Server telemetry bootstrap — wires SpiderByte Agent Core's `CloudAppender` into the
  * App-scoped `ITelemetryService` so engine events emitted inside the server
  * process (`session_started`, turn / tool / permission events, `image_compress`,
- * …) actually leave the process. Mirrors the v1 `kimi web` host
- * (`initializeServerTelemetry` in apps/kimi-code): same product app name, the
+ * …) actually leave the process. Mirrors the canonical `spyderbyte web` host
+ * (`initializeServerTelemetry` in apps/cli): same product app name, the
  * surface distinguished by `ui_mode = "web"`, the config `telemetry` toggle
  * honored at startup (a change takes effect on restart).
  */
@@ -14,17 +14,16 @@ import {
   IBootstrapService,
   IConfigService,
   type IDisposable,
-  IOAuthToolkit,
   ITelemetryService,
   type Scope,
-} from '@moonshot-ai/agent-core-v2';
-import { createKimiDeviceId } from '@moonshot-ai/kimi-code-oauth';
+} from '@spiderbyte/agent-core';
+import { createSpiderByteDeviceId } from '@spiderbyte/oauth';
 
 // Same product as the CLI; the surface is distinguished by ui_mode (v1
-// convention: CLI_USER_AGENT_PRODUCT / WEB_UI_MODE in apps/kimi-code).
-const SERVER_TELEMETRY_APP_NAME = 'kimi-code-cli';
+// convention: CLI_USER_AGENT_PRODUCT / WEB_UI_MODE in apps/cli).
+const SERVER_TELEMETRY_APP_NAME = 'spiderbyte-cli';
 const SERVER_TELEMETRY_UI_MODE = 'web';
-const TELEMETRY_DISABLE_ENV = 'KIMI_DISABLE_TELEMETRY';
+const TELEMETRY_DISABLE_ENV = 'SPIDERBYTE_DISABLE_TELEMETRY';
 const TELEMETRY_DISABLE_ENV_VALUES = new Set(['1', 'true', 't', 'yes', 'y']);
 
 /**
@@ -54,13 +53,12 @@ export async function initializeServerTelemetry(
   const enabled = config.get('telemetry') !== false;
   if (!enabled || isTelemetryDisabledByEnv(core)) return {};
 
-  const auth = core.accessor.get(IOAuthToolkit);
   const appender = createCloudAppender(core.accessor, {
-    deviceId: createKimiDeviceId(homeDir),
+    deviceId: createSpiderByteDeviceId(homeDir),
     appName: SERVER_TELEMETRY_APP_NAME,
     uiMode: SERVER_TELEMETRY_UI_MODE,
     model: config.get<string>('defaultModel') ?? undefined,
-    getAccessToken: async () => (await auth.getCachedAccessToken()) ?? null,
+    getAccessToken: async () => null,
   });
   const registration = service.addAppender(appender);
   try {

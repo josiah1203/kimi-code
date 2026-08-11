@@ -1,15 +1,35 @@
 import { readApiErrorMessage } from './api-error';
 import { isRecord } from './utils';
-import { parseKimiCodeCustomHeaders } from './identity';
-import { parseSupportsThinkingType, parseThinkEfforts } from './managed-kimi-code';
-import { MANAGED_KIMI_MODEL_FIELDS, mergeRefreshedModelAlias } from './model-alias-merge';
+import { parseSpiderByteCustomHeaders } from './identity';
+import { REMOTE_MODEL_FIELDS, mergeRefreshedModelAlias } from './model-alias-merge';
 import type {
-  ManagedKimiCodeModelInfo,
-  ManagedKimiConfigShape,
-  ManagedKimiModelAlias,
-} from './managed-kimi-code';
+  ProviderModelInfo,
+  SpiderByteConfigShape,
+  ProviderModelAlias,
+} from './config';
 
-export type { ManagedKimiConfigShape };
+export type { SpiderByteConfigShape } from './config';
+
+function parseSupportsThinkingType(value: unknown): ProviderModelInfo['supportsThinkingType'] {
+  if (value === 'no' || value === 'both' || value === 'only') return value;
+  return undefined;
+}
+
+function parseThinkEfforts(value: unknown): {
+  readonly supportEfforts?: readonly string[];
+  readonly defaultEffort?: string;
+} {
+  if (!isRecord(value)) return {};
+  const efforts = value['valid_efforts'];
+  const supportEfforts = Array.isArray(efforts)
+    ? efforts.filter((item): item is string => typeof item === 'string')
+    : undefined;
+  const defaultEffort = typeof value['default_effort'] === 'string' ? value['default_effort'] : undefined;
+  return {
+    ...(supportEfforts !== undefined && supportEfforts.length > 0 ? { supportEfforts } : {}),
+    ...(defaultEffort !== undefined ? { defaultEffort } : {}),
+  };
+}
 
 export interface OpenPlatformDefinition {
   readonly id: string;
@@ -44,7 +64,7 @@ export function isOpenPlatformId(id: string): boolean {
   return OPEN_PLATFORMS.some((p) => p.id === id);
 }
 
-function toModelInfo(item: unknown): ManagedKimiCodeModelInfo | undefined {
+function toModelInfo(item: unknown): ProviderModelInfo | undefined {
   if (!isRecord(item) || typeof item['id'] !== 'string' || item['id'].length === 0) {
     return undefined;
   }
@@ -75,7 +95,7 @@ function toModelInfo(item: unknown): ManagedKimiCodeModelInfo | undefined {
   };
 }
 
-export function capabilitiesForModel(model: ManagedKimiCodeModelInfo): string[] | undefined {
+export function capabilitiesForModel(model: ProviderModelInfo): string[] | undefined {
   const caps = new Set<string>();
   // supports_thinking_type is the full three-state declaration and wins over
   // the legacy supports_reasoning boolean; absent (older servers) falls back.
@@ -113,10 +133,10 @@ export async function fetchOpenPlatformModels(
   apiKey: string,
   fetchImpl: typeof fetch = fetch,
   signal?: AbortSignal,
-): Promise<ManagedKimiCodeModelInfo[]> {
+): Promise<ProviderModelInfo[]> {
   const res = await fetchImpl(`${platform.baseUrl.replace(/\/+$/, '')}/models`, {
     headers: {
-      ...parseKimiCodeCustomHeaders(),
+      ...parseSpiderByteCustomHeaders(),
       Authorization: `Bearer ${apiKey}`,
       Accept: 'application/json',
     },
@@ -134,13 +154,13 @@ export async function fetchOpenPlatformModels(
   }
   return payload['data']
     .map((item) => toModelInfo(item))
-    .filter((item): item is ManagedKimiCodeModelInfo => item !== undefined);
+    .filter((item): item is ProviderModelInfo => item !== undefined);
 }
 
 export function filterModelsByPrefix(
-  models: ManagedKimiCodeModelInfo[],
+  models: ProviderModelInfo[],
   platform: OpenPlatformDefinition,
-): ManagedKimiCodeModelInfo[] {
+): ProviderModelInfo[] {
   if (!platform.allowedPrefixes || platform.allowedPrefixes.length === 0) {
     return models;
   }
@@ -154,11 +174,11 @@ export interface ApplyOpenPlatformResult {
 }
 
 export function applyOpenPlatformConfig(
-  config: ManagedKimiConfigShape,
+  config: SpiderByteConfigShape,
   options: {
     readonly platform: OpenPlatformDefinition;
-    readonly models: readonly ManagedKimiCodeModelInfo[];
-    readonly selectedModel: ManagedKimiCodeModelInfo;
+    readonly models: readonly ProviderModelInfo[];
+    readonly selectedModel: ProviderModelInfo;
     readonly thinking: boolean;
     /** Concrete thinking effort to persist (e.g. 'low'/'high'/'max'). Omit
      * for boolean models, where thinking is simply enabled with no effort. */
@@ -190,7 +210,7 @@ export function applyOpenPlatformConfig(
   for (const model of options.models) {
     const aliasKey = `${providerKey}/${model.id}`;
     const existing = isRecord(existingModels[aliasKey]) ? existingModels[aliasKey] : {};
-    const remoteAlias: ManagedKimiModelAlias = {
+    const remoteAlias: ProviderModelAlias = {
       provider: providerKey,
       model: model.id,
       maxContextSize: model.contextLength,
@@ -202,7 +222,7 @@ export function applyOpenPlatformConfig(
     existingModels[aliasKey] = mergeRefreshedModelAlias(
       existing,
       remoteAlias,
-      MANAGED_KIMI_MODEL_FIELDS,
+      REMOTE_MODEL_FIELDS,
     );
   }
 
@@ -218,7 +238,7 @@ export function applyOpenPlatformConfig(
 }
 
 export function removeOpenPlatformConfig(
-  config: ManagedKimiConfigShape,
+  config: SpiderByteConfigShape,
   platformId: string,
 ): void {
   delete config.providers[platformId];

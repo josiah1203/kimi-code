@@ -211,7 +211,7 @@ export interface GoalChange {
   readonly actor?: GoalActor;
 }
 
-export type KimiErrorCode =
+export type SpiderByteErrorCode =
   | 'config.invalid'
   | 'session.not_found'
   | 'session.already_exists'
@@ -341,13 +341,13 @@ export type KimiErrorCode =
   | 'not_implemented'
   | 'internal';
 
-export interface KimiErrorPayload {
-  readonly code: KimiErrorCode;
+export interface SpiderByteErrorPayload {
+  readonly code: SpiderByteErrorCode;
   readonly message: string;
   readonly name?: string;
   readonly details?: Record<string, unknown>;
   readonly retryable: boolean;
-  readonly cause?: KimiErrorPayload;
+  readonly cause?: SpiderByteErrorPayload;
 }
 
 export interface TaskInfoBase {
@@ -616,7 +616,7 @@ export interface PluginCommandActivatedEvent {
   readonly trigger: 'user-slash';
 }
 
-export interface ErrorEvent extends KimiErrorPayload {
+export interface ErrorEvent extends SpiderByteErrorPayload {
   readonly type: 'error';
 }
 
@@ -637,7 +637,7 @@ export interface TurnEndedEvent {
   readonly type: 'turn.ended';
   readonly turnId: number;
   readonly reason: TurnEndReason;
-  readonly error?: KimiErrorPayload;
+  readonly error?: SpiderByteErrorPayload;
   readonly durationMs?: number;
 }
 
@@ -1179,7 +1179,7 @@ export const goalChangeSchema = z.object({
   actor: goalActorSchema.optional(),
 }) satisfies z.ZodType<GoalChange>;
 
-export const kimiErrorCodeSchema = z.enum([
+export const providerErrorCodeSchema = z.enum([
   'config.invalid',
   'session.not_found',
   'session.already_exists',
@@ -1308,20 +1308,20 @@ export const kimiErrorCodeSchema = z.enum([
   'validation.failed',
   'not_implemented',
   'internal',
-]) satisfies z.ZodType<KimiErrorCode>;
+]) satisfies z.ZodType<SpiderByteErrorCode>;
 
-export const kimiErrorPayloadSchema: z.ZodType<KimiErrorPayload> = z.lazy(
-  () => kimiErrorPayloadObjectSchema,
+export const providerErrorPayloadSchema: z.ZodType<SpiderByteErrorPayload> = z.lazy(
+  () => providerErrorPayloadObjectSchema,
 );
 
-const kimiErrorPayloadObjectSchema = z.object({
-  code: kimiErrorCodeSchema,
+const providerErrorPayloadObjectSchema = z.object({
+  code: providerErrorCodeSchema,
   message: z.string(),
   name: z.string().optional(),
   details: z.record(z.string(), z.unknown()).optional(),
   retryable: z.boolean(),
-  cause: kimiErrorPayloadSchema.optional(),
-}) satisfies z.ZodType<KimiErrorPayload>;
+  cause: providerErrorPayloadSchema.optional(),
+}) satisfies z.ZodType<SpiderByteErrorPayload>;
 
 export const taskInfoBaseSchema = z.object({
   taskId: z.string(),
@@ -1547,7 +1547,7 @@ export const pluginCommandActivatedEventSchema = z.object({
   trigger: z.literal('user-slash'),
 }) satisfies z.ZodType<PluginCommandActivatedEvent>;
 
-export const errorEventSchema = kimiErrorPayloadObjectSchema.extend({
+export const errorEventSchema = providerErrorPayloadObjectSchema.extend({
   type: z.literal('error'),
 }) satisfies z.ZodType<ErrorEvent>;
 
@@ -1568,7 +1568,7 @@ export const turnEndedEventSchema = z.object({
   type: z.literal('turn.ended'),
   turnId: z.number(),
   reason: turnEndReasonSchema,
-  error: kimiErrorPayloadSchema.optional(),
+  error: providerErrorPayloadSchema.optional(),
   durationMs: z.number().optional(),
 }) satisfies z.ZodType<TurnEndedEvent>;
 

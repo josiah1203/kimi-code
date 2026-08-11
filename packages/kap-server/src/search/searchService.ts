@@ -1,6 +1,6 @@
 /**
  * `search` module — `IGlobalSearchService` implementation (temporary feature,
- * lives in kap-server until it graduates into agent-core-v2).
+ * lives in kap-server until it graduates into SpiderByte Agent Core).
  *
  * Cross-session full-text search over user messages, assistant text and
  * session titles, backed by a single minidb database at
@@ -29,7 +29,7 @@
  *     query execution never share this process's event loop. A worker that
  *     fails to start or dies mid-flight yields recognizable degraded
  *     responses (never a silent fallback onto the main thread); the
- *     `search_worker` experimental flag (`KIMI_CODE_EXPERIMENTAL_SEARCH_WORKER`,
+ *     `search_worker` experimental flag (`SPIDERBYTE_EXPERIMENTAL_SEARCH_WORKER`,
  *     default ON) is the explicit rollback switch back to the inline host.
  *   - INLINE host (rollback / tests): the same core runs in-process.
  *   - The main thread keeps only: query normalization, page-token
@@ -73,9 +73,9 @@ import {
   sessionDirOf,
   workspacePersistenceScope,
   type SessionSummary,
-} from '@moonshot-ai/agent-core-v2';
-import { normalizeLiteral, tokenize } from '@moonshot-ai/minidb';
-import type { TranscriptStore } from '@moonshot-ai/transcript';
+} from '@spiderbyte/agent-core';
+import { normalizeLiteral, tokenize } from '@spiderbyte/minidb';
+import type { TranscriptStore } from '@spiderbyte/transcript';
 
 import {
   GlobalSearchError,
@@ -165,7 +165,7 @@ async function pathExists(path: string): Promise<boolean> {
 
 /**
  * `search_worker` — run the global search index in a dedicated worker
- * thread (default ON). Disable via `KIMI_CODE_EXPERIMENTAL_SEARCH_WORKER=false`
+ * thread (default ON). Disable via `SPIDERBYTE_EXPERIMENTAL_SEARCH_WORKER=false`
  * or the `[experimental]` config section to fall back to the in-process
  * (inline) host. Read once at service construction.
  */
@@ -176,7 +176,7 @@ registerFlagDefinition({
   title: 'search worker isolation',
   description:
     'Run the global search-index MiniDB (open, WAL replay, sync, queries) in a dedicated worker thread instead of the server main thread.',
-  env: 'KIMI_CODE_EXPERIMENTAL_SEARCH_WORKER',
+  env: 'SPIDERBYTE_EXPERIMENTAL_SEARCH_WORKER',
   default: true,
   surface: 'core',
 });

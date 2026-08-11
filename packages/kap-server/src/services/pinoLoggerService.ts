@@ -3,7 +3,7 @@
  *
  * Produces the `ServerLogger` handed to Fastify via `loggerInstance`. Unlike the
  * v1 server, server-v2 does not adapt this logger into the engine's
- * `ILogService` — `agent-core-v2` registers its own `ILogService` at Core scope,
+ * `ILogService` — `SpiderByte Agent Core` registers its own `ILogService` at Core scope,
  * so the HTTP-layer logger stays a plain pino instance.
  *
  * Output is always newline-delimited JSON (pino's default). The HTTP status is
@@ -24,7 +24,7 @@ export interface CreateLoggerOptions {
 export function createServerLogger(opts: CreateLoggerOptions): ServerLogger {
   const base: LoggerOptions = {
     level: opts.level,
-    base: { name: 'kimi-server-v2' },
+    base: { name: 'spiderbyte-server' },
     timestamp: pino.stdTimeFunctions.isoTime,
   };
   return pino(base);

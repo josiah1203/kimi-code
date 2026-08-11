@@ -9,7 +9,7 @@ import { isoDateTimeSchema } from './time';
 /**
  * Stable identifiers for the platform contract layer.
  *
- * Existing Kimi ids (including `wd_...` workspace ids) remain valid. The
+ * Existing legacy ids (including `wd_...` workspace ids) remain valid. The
  * platform layer deliberately does not require a particular id generator so
  * that local persistence and remote services can share the same contract.
  */
@@ -111,7 +111,7 @@ export const agentSessionStateSchema = z.enum([
 export type AgentSessionState = z.infer<typeof agentSessionStateSchema>;
 
 /**
- * Platform projection of the existing Kimi session. The v1 Session object
+ * Platform projection of the existing session. The v1 Session object
  * remains unchanged at the transport boundary; adapters map it to this
  * durable AgentSession projection.
  */
@@ -634,10 +634,8 @@ export type PolicyDecision = z.infer<typeof policyDecisionSchema>;
 
 export const usageMeterSchema = z.enum([
   'intelligence',
-  'hosted_execution',
-  'customer_cloud_execution',
-  'managed_llm',
-  'managed_compute',
+  'model',
+  'execution',
   'artifact_storage',
   'plugin_usage',
 ]);
@@ -647,7 +645,7 @@ export type UsageMeter = z.infer<typeof usageMeterSchema>;
 export const usageUnitSchema = z.enum(['intelligence_percent', 'seconds', 'usd', 'units']);
 export type UsageUnit = z.infer<typeof usageUnitSchema>;
 
-export const usageSourceSchema = z.enum(['managed', 'byok', 'customer_cloud', 'local']);
+export const usageSourceSchema = z.enum(['byok', 'local', 'self_hosted']);
 export type UsageSource = z.infer<typeof usageSourceSchema>;
 
 /** Customer-facing usage; model/tool token counters remain internal telemetry. */
@@ -671,8 +669,6 @@ export type UsageRecord = z.infer<typeof usageRecordSchema>;
 export const executionTargetTypeSchema = z.enum([
   'local',
   'customer-managed',
-  'customer-cloud',
-  'managed',
 ]);
 
 export type ExecutionTargetType = z.infer<typeof executionTargetTypeSchema>;
@@ -902,59 +898,14 @@ export const usageSummarySchema = z.strictObject({
   period_start: isoDateTimeSchema,
   period_end: isoDateTimeSchema,
   intelligence_percent: z.number().finite().nonnegative(),
-  hosted_execution_seconds: z.number().finite().nonnegative(),
-  customer_cloud_execution_seconds: z.number().finite().nonnegative(),
-  managed_llm_units: z.number().finite().nonnegative().default(0),
-  managed_compute_seconds: z.number().finite().nonnegative().default(0),
+  model_units: z.number().finite().nonnegative().default(0),
+  execution_seconds: z.number().finite().nonnegative().default(0),
   artifact_storage_units: z.number().finite().nonnegative().default(0),
   plugin_usage_units: z.number().finite().nonnegative().default(0),
   record_count: z.number().int().nonnegative(),
 });
 
 export type UsageSummary = z.infer<typeof usageSummarySchema>;
-
-export const workspaceMemberRoleSchema = z.enum(['owner', 'admin', 'member', 'viewer']);
-export type WorkspaceMemberRole = z.infer<typeof workspaceMemberRoleSchema>;
-
-export const workspaceMemberSchema = z.strictObject({
-  workspace_id: workspaceIdSchema,
-  member_id: platformIdentifierSchema,
-  role: workspaceMemberRoleSchema,
-  joined_at: isoDateTimeSchema,
-});
-
-export type WorkspaceMember = z.infer<typeof workspaceMemberSchema>;
-
-export const workspaceMemberUpsertInputSchema = z.strictObject({
-  request_id: platformIdentifierSchema,
-  actor_id: platformIdentifierSchema,
-  member_id: platformIdentifierSchema,
-  role: workspaceMemberRoleSchema,
-});
-
-export type WorkspaceMemberUpsertInput = z.infer<typeof workspaceMemberUpsertInputSchema>;
-
-export const workspaceEntitlementSchema = z.strictObject({
-  workspace_id: workspaceIdSchema,
-  key: platformIdentifierSchema,
-  enabled: z.boolean(),
-  limit: z.number().finite().nonnegative().optional(),
-  unit: usageUnitSchema.optional(),
-  updated_at: isoDateTimeSchema,
-});
-
-export type WorkspaceEntitlement = z.infer<typeof workspaceEntitlementSchema>;
-
-export const workspaceEntitlementUpdateInputSchema = z.strictObject({
-  request_id: platformIdentifierSchema,
-  actor_id: platformIdentifierSchema,
-  key: platformIdentifierSchema,
-  enabled: z.boolean(),
-  limit: z.number().finite().nonnegative().optional(),
-  unit: usageUnitSchema.optional(),
-});
-
-export type WorkspaceEntitlementUpdateInput = z.infer<typeof workspaceEntitlementUpdateInputSchema>;
 
 export const usageSummaryQuerySchema = z.strictObject({
   period_start: isoDateTimeSchema.optional(),

@@ -19,7 +19,7 @@ import {
   IFileService,
   Error2,
   type Scope,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import { z } from 'zod';
 
 import { requestLog } from '../lib/requestLog';

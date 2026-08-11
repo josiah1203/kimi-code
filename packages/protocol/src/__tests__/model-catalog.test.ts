@@ -14,16 +14,16 @@ import {
 
 describe('model catalog schemas', () => {
   const model: ModelCatalogItem = {
-    provider: 'kimi',
+    provider: 'openai',
     model: 'k2',
-    display_name: 'Kimi K2',
+    display_name: 'Example Model',
     max_context_size: 131072,
     capabilities: ['thinking'],
   };
 
   const provider: ProviderCatalogItem = {
-    id: 'kimi',
-    type: 'kimi',
+    id: 'openai',
+    type: 'openai',
     base_url: 'https://api.example.test/v1',
     default_model: 'k2',
     has_api_key: true,

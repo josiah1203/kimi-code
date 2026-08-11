@@ -660,7 +660,7 @@ function convertHistoryMessages(
   };
 
   for (const msg of history) {
-    // Message-level tool declarations are a Kimi wire feature; skipped here
+    // Message-level tool declarations are a external provider wire feature; skipped here
     // because the leftover content-free message item is rejected by the
     // Responses API. See isToolDeclarationOnlyMessage.
     if (isToolDeclarationOnlyMessage(msg)) continue;

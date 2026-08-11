@@ -1,9 +1,9 @@
-// bench/import-kimi-code.js
+// bench/import-spiderbyte.js
 //
-// Import all workspaces + sessions from ~/.kimi-code into minidb and build a
+// Import all workspaces + sessions from ~/.spiderbyte into minidb and build a
 // full-text index over the session content, then measure import + search speed.
 //
-// Run:  node bench/import-kimi-code.js [--data ~/.kimi-code] [--out <dir>]
+// Run:  node bench/import-spiderbyte.js [--data ~/.spiderbyte] [--out <dir>]
 
 import fs from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
@@ -16,8 +16,8 @@ const arg = (name, def) => {
   const i = argv.indexOf(`--${name}`);
   return i === -1 ? def : argv[i + 1];
 };
-const DATA = path.resolve(arg('data', path.join(os.homedir(), '.kimi-code')));
-const OUT = path.resolve(arg('out', path.join(os.tmpdir(), 'minidb-kimi-code-' + Date.now())));
+const DATA = path.resolve(arg('data', path.join(os.homedir(), '.spiderbyte')));
+const OUT = path.resolve(arg('out', path.join(os.tmpdir(), 'minidb-spiderbyte-' + Date.now())));
 const FULL = argv.includes('--full'); // also index full tool results (stress test)
 
 const fmt = (n) => n.toLocaleString('en-US', { maximumFractionDigits: 0 });
@@ -234,8 +234,8 @@ async function main() {
 
   // secondary index lookup by workspace
   const w0 = performance.now();
-  const byWs = db.findEq('byWorkspace', 'kimi-code-dev-1');
-  console.log(`  index lookup (workspace=kimi-code-dev-1) -> ${byWs.length} in ${(performance.now() - w0).toFixed(2)} ms`);
+  const byWs = db.findEq('byWorkspace', 'spiderbyte-dev-1');
+  console.log(`  index lookup (workspace=spiderbyte-dev-1) -> ${byWs.length} in ${(performance.now() - w0).toFixed(2)} ms`);
 
   await db.close();
   console.log(`\ndone. db at: ${OUT}`);

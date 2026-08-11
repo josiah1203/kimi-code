@@ -37,8 +37,8 @@ import {
   IWorkspaceService,
   type Scope,
   type SessionSummary,
-} from '@moonshot-ai/agent-core-v2';
-import { IGitService, type FsPullRequest } from '@moonshot-ai/agent-core-v2/app/git/git';
+} from '@spiderbyte/agent-core';
+import { IGitService, type FsPullRequest } from '@spiderbyte/agent-core/app/git/git';
 import { z } from 'zod';
 
 import { defineRoute } from '../../middleware/defineRoute';

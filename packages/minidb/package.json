@@ -1,21 +1,21 @@
 {
-  "name": "@moonshot-ai/minidb",
+  "name": "@spiderbyte/minidb",
   "version": "0.2.0",
-  "private": true,
+  "private": false,
   "description": "A pure-Node.js embedded key-value database mixing Redis-style in-memory KV with SQLite-style durable persistence (WAL + snapshot).",
   "license": "MIT",
-  "author": "Moonshot AI",
-  "homepage": "https://github.com/MoonshotAI/kimi-code/tree/main/packages/minidb#readme",
+  "author": "SpiderByte contributors",
+  "homepage": "https://github.com/SpiderByte/spiderbyte/tree/main/packages/minidb#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/MoonshotAI/kimi-code.git",
+    "url": "git+https://github.com/SpiderByte/spiderbyte.git",
     "directory": "packages/minidb"
   },
   "bugs": {
-    "url": "https://github.com/MoonshotAI/kimi-code/issues"
+    "url": "https://github.com/SpiderByte/spiderbyte/issues"
   },
   "keywords": [
-    "kimi",
+    "spiderbyte",
     "database",
     "key-value",
     "embedded",
@@ -51,5 +51,29 @@
     "bench:cluster": "node --import tsx bench/cluster.ts",
     "bench:open": "node --import tsx bench/open-lifecycle.ts",
     "clean": "rm -rf dist"
-  }
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.mts",
+        "import": "./dist/index.mjs",
+        "default": "./dist/index.mjs"
+      },
+      "./cluster": {
+        "types": "./dist/cluster/index.d.mts",
+        "import": "./dist/cluster/index.mjs",
+        "default": "./dist/cluster/index.mjs"
+      },
+      "./worker-runtime": {
+        "types": "./dist/worker-runtime.d.mts",
+        "import": "./dist/worker-runtime.mjs",
+        "default": "./dist/worker-runtime.mjs"
+      }
+    }
+  },
+  "dependencies": {}
 }

@@ -1,6 +1,6 @@
 // bench/session-store.ts
 //
-// Schema + query layer for the kimi-code session store, built on minidb.
+// Schema + query layer for the spiderbyte session store, built on minidb.
 //
 // Two logical "tables" via key prefixes in one db:
 //   ws:<workspaceId>    -> WorkspaceDoc
@@ -112,7 +112,7 @@ export class SessionStore {
 
   // ---- ingest -------------------------------------------------------------
 
-  async ingestKimiCode(homeDir: string): Promise<{ workspaces: number; sessions: number; textBytes: number }> {
+  async ingestLegacySessionData(homeDir: string): Promise<{ workspaces: number; sessions: number; textBytes: number }> {
     const wsRaw = JSON.parse(readFileSync(path.join(homeDir, 'workspaces.json'), 'utf8')) as {
       workspaces?: Record<string, { name: string; root: string; created_at?: string; last_opened_at?: string }>;
     };

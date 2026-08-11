@@ -1,10 +1,10 @@
 {
-  description = "Kimi Code CLI";
+  description = "SpiderByte CLI";
 
   inputs = {
     # Pinned to the 25.11 release channel because nixpkgs-unstable currently
     # ships nodejs_24 = 24.14.1, which trips the >= 24.15.0 floor that the
-    # native SEA build enforces (see apps/kimi-code/scripts/native/build.mjs).
+    # native SEA build enforces (see apps/cli/scripts/native/build.mjs).
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
   };
 
@@ -42,7 +42,7 @@
           node
         else
           throw ''
-            Kimi Code requires Node.js >= ${minNodeVersion},
+            SpiderByte requires Node.js >= ${minNodeVersion},
             but nixpkgs only offers ${node.version}.
             Pin a newer nixpkgs revision or update minNodeVersion in flake.nix.
           '';
@@ -62,57 +62,45 @@
       # pnpmConfigHook (dependencies for that workspace won't be fetched).
       # -------------------------------------------------------------------
       workspacePaths = [
-        ./packages/acp-adapter
         ./packages/acp-server
         ./packages/agent-core
-        ./packages/agent-core-v2
         ./packages/kap-server
         ./packages/kaos
-        ./packages/klient
+        ./packages/client
         ./packages/kosong
-        ./packages/migration-legacy
         ./packages/minidb
-        ./packages/node-sdk
+        ./packages/sdk
         ./packages/oauth
         ./packages/pi-tui
         ./packages/protocol
         ./packages/telemetry
         ./packages/transcript
         ./packages/tree-sitter-bash
-        ./apps/kimi-code
-        ./apps/vscode
-        ./apps/kimi-inspect
-        ./apps/vis
-        ./apps/vis/server
-        ./apps/vis/web
+        ./apps/cli
+        ./apps/spiderbyte-vscode
+        ./apps/inspect
         ./docs
       ];
 
       workspaceNames = [
-        "@moonshot-ai/acp-adapter"
-        "@moonshot-ai/acp-server"
-        "@moonshot-ai/agent-core"
-        "@moonshot-ai/agent-core-v2"
-        "@moonshot-ai/kap-server"
-        "@moonshot-ai/kaos"
-        "@moonshot-ai/kosong"
-        "@moonshot-ai/migration-legacy"
-        "@moonshot-ai/minidb"
-        "@moonshot-ai/kimi-code-sdk"
-        "@moonshot-ai/kimi-code-oauth"
-        "@moonshot-ai/klient"
-        "@moonshot-ai/pi-tui"
-        "@moonshot-ai/protocol"
-        "@moonshot-ai/kimi-telemetry"
-        "@moonshot-ai/transcript"
-        "@moonshot-ai/tree-sitter-bash"
-        "@moonshot-ai/kimi-code"
-        "kimi-code"
-        "@moonshot-ai/kimi-inspect"
-        "@moonshot-ai/vis"
-        "@moonshot-ai/vis-server"
-        "@moonshot-ai/vis-web"
-        "kimi-code-docs"
+        "@spiderbyte/acp-server"
+        "@spiderbyte/agent-core"
+        "@spiderbyte/kap-server"
+        "@spiderbyte/kaos"
+        "@spiderbyte/kosong"
+        "@spiderbyte/minidb"
+        "@spiderbyte/sdk"
+        "@spiderbyte/oauth"
+        "@spiderbyte/client"
+        "@spiderbyte/pi-tui"
+        "@spiderbyte/protocol"
+        "@spiderbyte/telemetry"
+        "@spiderbyte/transcript"
+        "@spiderbyte/tree-sitter-bash"
+        "@spiderbyte/cli"
+        "spiderbyte-vscode"
+        "@spiderbyte/inspect"
+        "spiderbyte-docs"
       ];
     in
     {
@@ -121,7 +109,7 @@
         let
           nodejs = nodejsFor pkgs;
           pnpm = pnpmFor pkgs;
-          appPackageJson = builtins.fromJSON (builtins.readFile ./apps/kimi-code/package.json);
+          appPackageJson = builtins.fromJSON (builtins.readFile ./apps/cli/package.json);
           nativeTarget =
             if pkgs.stdenv.hostPlatform.isLinux && pkgs.stdenv.hostPlatform.isAarch64 then
               "linux-arm64"
@@ -132,10 +120,10 @@
             else if pkgs.stdenv.hostPlatform.isDarwin then
               "darwin-x64"
             else
-              throw "Unsupported Kimi Code native target for ${pkgs.stdenv.hostPlatform.system}";
+              throw "Unsupported SpiderByte native target for ${pkgs.stdenv.hostPlatform.system}";
 
-          kimi-code = pkgs.stdenv.mkDerivation (finalAttrs: {
-            pname = "kimi-code";
+          spyderbyte = pkgs.stdenv.mkDerivation (finalAttrs: {
+            pname = "spyderbyte";
             version = appPackageJson.version;
 
             src = lib.fileset.toSource {
@@ -188,24 +176,18 @@
 
             buildPhase = ''
               runHook preBuild
-              export KIMI_CODE_BUILD_TARGET=${nativeTarget}
+              export SPIDERBYTE_BUILD_TARGET=${nativeTarget}
               ${lib.optionalString pkgs.stdenv.hostPlatform.isDarwin ''
                 # pkgs.darwin.sigtool's codesign supports `--sign -` (ad-hoc)
                 # but not the inspection mode (`-dv`) that 05-verify.mjs runs
                 # afterwards. Disable the verify step for the Nix build; the
                 # release CI keeps it via the unmodified script.
-                substituteInPlace apps/kimi-code/scripts/native/build.mjs \
+                substituteInPlace apps/cli/scripts/native/build.mjs \
                   --replace-fail \
                     "await runVerifyStep({ requireGatekeeper: false });" \
                     "// runVerifyStep skipped in nix sandbox (sigtool lacks -dv)"
               ''}
-              # The SEA blob step (scripts/native/02-sea-blob.mjs) embeds the
-              # Kimi web assets from apps/kimi-code/dist-web and fails if that
-              # directory is missing. The bundle is committed (synced from the
-              # code-app repo) — verify it is in place before producing the
-              # native executable.
-              node apps/kimi-code/scripts/check-web-assets.mjs
-              pnpm --filter=@moonshot-ai/kimi-code run build:native:sea
+              pnpm --filter=@spiderbyte/cli run build:native:sea
               runHook postBuild
             '';
 
@@ -213,37 +195,37 @@
               runHook preInstall
 
               install -Dm755 \
-                "apps/kimi-code/dist-native/bin/${nativeTarget}/kimi" \
-                "$out/bin/kimi"
+                "apps/cli/dist-native/bin/${nativeTarget}/spyderbyte" \
+                "$out/bin/spyderbyte"
 
               runHook postInstall
             '';
 
             postInstall = ''
-              wrapProgram $out/bin/kimi --prefix PATH : ${lib.makeBinPath [ pkgs.ripgrep pkgs.fd ]}
+              wrapProgram $out/bin/spyderbyte --prefix PATH : ${lib.makeBinPath [ pkgs.ripgrep pkgs.fd ]}
             '';
 
             meta = {
-              description = "Kimi Code CLI";
-              homepage = "https://github.com/MoonshotAI/kimi-code";
+              description = "SpiderByte CLI";
+              homepage = "https://github.com/josiah1203/spiderbyte";
               license = lib.licenses.mit;
-              mainProgram = "kimi";
+              mainProgram = "spyderbyte";
               platforms = systems;
             };
           });
         in
         {
-          inherit kimi-code;
-          default = kimi-code;
+          inherit spyderbyte;
+          default = spyderbyte;
         }
       );
 
       apps = forAllSystems (pkgs: {
-        kimi-code = {
+        spyderbyte = {
           type = "app";
-          program = "${self.packages.${pkgs.system}.kimi-code}/bin/kimi";
+          program = "${self.packages.${pkgs.system}.spyderbyte}/bin/spyderbyte";
         };
-        default = self.apps.${pkgs.system}.kimi-code;
+        default = self.apps.${pkgs.system}.spyderbyte;
       });
 
       devShells = forAllSystems (pkgs: {

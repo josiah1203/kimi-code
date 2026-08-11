@@ -47,7 +47,7 @@ describe('permissionRuleSchema', () => {
 describe('sessionSchema', () => {
   const fullSession: Session = {
     id: '01HXYZABCDEFGHJKMNPQRSTVWX',
-    workspace_id: 'wd_kimi_0123456789ab',
+    workspace_id: 'wd_workspace_0123456789ab',
     title: 'Test session',
     created_at: '2026-06-04T10:30:00.000Z',
     updated_at: '2026-06-04T10:35:00.000Z',
@@ -56,7 +56,7 @@ describe('sessionSchema', () => {
     pending_interaction: 'approval',
     archived: false,
     metadata: { cwd: '/tmp/test' },
-    agent_config: { model: 'moonshot-v1-128k' },
+    agent_config: { model: 'example-model' },
     usage: emptySessionUsage(),
     permission_rules: [],
     message_count: 0,
@@ -128,17 +128,17 @@ describe('sessionCreateSchema', () => {
   it('parses a create with workspace_id only', () => {
     expect(
       sessionCreateSchema.parse({
-        workspace_id: 'wd_kimi_0123456789ab',
+        workspace_id: 'wd_workspace_0123456789ab',
       }),
-    ).toEqual({ workspace_id: 'wd_kimi_0123456789ab' });
+    ).toEqual({ workspace_id: 'wd_workspace_0123456789ab' });
   });
 
   it('parses a create with BOTH workspace_id and metadata.cwd (route layer enforces agreement)', () => {
     const parsed = sessionCreateSchema.parse({
-      workspace_id: 'wd_kimi_0123456789ab',
+      workspace_id: 'wd_workspace_0123456789ab',
       metadata: { cwd: '/tmp/test' },
     });
-    expect(parsed.workspace_id).toBe('wd_kimi_0123456789ab');
+    expect(parsed.workspace_id).toBe('wd_workspace_0123456789ab');
     expect(parsed.metadata?.cwd).toBe('/tmp/test');
   });
 
@@ -146,10 +146,10 @@ describe('sessionCreateSchema', () => {
     const parsed = sessionCreateSchema.parse({
       title: 'My session',
       metadata: { cwd: '/tmp/test' },
-      agent_config: { model: 'moonshot-v1-128k' },
+      agent_config: { model: 'example-model' },
     });
     expect(parsed.title).toBe('My session');
-    expect(parsed.agent_config?.model).toBe('moonshot-v1-128k');
+    expect(parsed.agent_config?.model).toBe('example-model');
   });
 
   it('accepts an entirely empty body (route layer rejects when neither workspace_id nor metadata.cwd is present)', () => {
@@ -180,8 +180,8 @@ describe('sessionUpdateSchema', () => {
 
   it('parses a partial agent_config patch', () => {
     expect(
-      sessionUpdateSchema.parse({ agent_config: { model: 'moonshot-v1-256k' } }),
-    ).toEqual({ agent_config: { model: 'moonshot-v1-256k' } });
+      sessionUpdateSchema.parse({ agent_config: { model: 'example-model' } }),
+    ).toEqual({ agent_config: { model: 'example-model' } });
   });
 
   it('parses a runtime-controls patch (thinking + permission_mode + plan_mode)', () => {

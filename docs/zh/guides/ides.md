@@ -1,29 +1,28 @@
-# 在 IDE 中使用
+# 在 IDE 中使用 SpiderByte CLI
 
-Kimi Code CLI 支持通过 [Agent Client Protocol (ACP)](https://agentclientprotocol.com/) 集成到 IDE 中，让你在编辑器内直接使用 AI 辅助编程。
+SpiderByte CLI 通过 [Agent Client Protocol（ACP）](https://agentclientprotocol.com/) 集成 IDE。IDE 启动本地 `spyderbyte acp` 进程，并通过标准输入/输出上的 JSON-RPC 与它通信。
 
-## 前置准备
+## 前置条件
 
-在配置 IDE 之前，请确保已安装 Kimi Code CLI 并完成登录配置。
+安装并构建 SpiderByte CLI，配置本地或 BYOK 供应商，然后检查可执行文件：
 
-ACP 适配层暴露子命令 `kimi acp`，IDE 通过子进程方式启动它，并在标准输入/输出上跑 JSON-RPC。每次 IDE 创建会话时，CLI 会复用它的鉴权状态——不需要重复登录。
+```sh
+spyderbyte --version
+spyderbyte doctor
+```
 
-::: tip 路径提示
-macOS 下从 IDE GUI 启动的子进程通常**不会**继承终端 shell 的 `PATH`，所以如果 `kimi` 不在 `/usr/local/bin` 这类系统目录里，IDE 配置中要使用绝对路径。终端里运行 `which kimi` 可以查到当前生效的路径。
-:::
+ACP 使用 IDE 启动进程的配置和凭据，不执行托管账号登录。
 
-## 在 Zed 中使用
+## Zed
 
-[Zed](https://zed.dev/) 是一个原生支持 ACP 的现代编辑器。
-
-在 Zed 的配置文件 `~/.config/zed/settings.json` 中添加：
+将以下内容加入 `~/.config/zed/settings.json`：
 
 ```json
 {
   "agent_servers": {
-    "Kimi Code CLI": {
+    "SpiderByte CLI": {
       "type": "custom",
-      "command": "kimi",
+      "command": "spyderbyte",
       "args": ["acp"],
       "env": {}
     }
@@ -31,28 +30,17 @@ macOS 下从 IDE GUI 启动的子进程通常**不会**继承终端 shell 的 `P
 }
 ```
 
-配置说明：
+如果 IDE 进程的 `PATH` 中没有 `spyderbyte`，请把 `command` 改为绝对路径。新建 Zed Agent 会话后，IDE 会启动本地 ACP 子进程。IDE 声明的 MCP server 会在传输类型受支持时通过 ACP 转发。
 
-- `type`：固定值 `"custom"`
-- `command`：Kimi Code CLI 的可执行路径。如果 `kimi` 不在 PATH 中，请使用完整路径（例如 `/Users/you/.local/bin/kimi`）。
-- `args`：启动参数。`acp` 子命令切换到 ACP 模式。
-- `env`：附加环境变量，通常留空即可。Zed 会自动注入一份默认环境。
+## JetBrains IDE
 
-保存配置后，在 Zed 的 Agent 面板里新建一次对话，就会以你刚才配置的 `Kimi Code CLI` 启动一个 ACP 子进程。Zed 在 `agent_servers` 这层声明的 MCP 服务也会通过 ACP 协议转发到 kimi 这一侧。
-
-## 在 JetBrains IDE 中使用
-
-JetBrains 系列 IDE（IntelliJ IDEA、PyCharm、WebStorm 等）通过 AI 聊天插件支持 ACP。
-
-如果没有 JetBrains AI 订阅，可以在注册表中启用 `llm.enable.mock.response`，便于在仅使用 ACP 的场景里访问 AI 聊天面板。连按两次 Shift 搜索 "Registry / 注册表" 即可打开。
-
-在 AI 聊天面板的菜单中点击 "Configure ACP agents"，添加以下配置：
+在 AI Chat 面板中选择 **Configure ACP agents**，加入：
 
 ```json
 {
   "agent_servers": {
-    "Kimi Code CLI": {
-      "command": "~/.local/bin/kimi",
+    "SpiderByte CLI": {
+      "command": "/absolute/path/to/spyderbyte",
       "args": ["acp"],
       "env": {}
     }
@@ -60,37 +48,26 @@ JetBrains 系列 IDE（IntelliJ IDEA、PyCharm、WebStorm 等）通过 AI 聊天
 }
 ```
 
-JetBrains 这一侧对 `command` 字段处理较严格——务必填写**绝对路径**，可以在终端执行 `which kimi` 拿到。保存后，AI 聊天的 Agent 选择器里就会出现 `Kimi Code CLI`。
+当 IDE 不继承终端 `PATH` 时，请使用绝对路径。
 
-## 在 Paseo 中使用
+## 其他 ACP 客户端
 
-[Paseo](https://paseo.sh/) 是一个自托管的编排器，能在桌面、网页和手机上统一启动并接管各类 agent 的 CLI。它和 IDE 一样，通过 ACP 接入 Kimi Code CLI。
+任何兼容 ACP 的客户端都可以启动：
 
-在 Paseo 内置的 ACP provider 目录里选择 **Kimi Code CLI**，或在 `~/.paseo/config.json` 里添加一个自定义 provider：
-
-```json
-{
-  "agents": {
-    "providers": {
-      "kimi": {
-        "extends": "acp",
-        "label": "Kimi Code CLI",
-        "command": ["kimi", "acp"]
-      }
-    }
-  }
-}
+```sh
+spyderbyte acp
 ```
 
-Paseo 的通用 ACP 适配层不会帮你走登录流程，所以请先完成终端登录（见[前置准备](#前置准备)）——否则创建会话会以 `Authentication required` 失败。
+客户端必须提供工作目录，并继承或显式设置 `SPIDERBYTE_HOME`。供应商凭据仍然只属于该本地配置。
 
-## 故障排查
+## 排查问题
 
-- **会话立刻被中断 / IDE 提示 "agent exited"**：通常是 `command` 路径不对或 kimi 没登录。先在终端跑一次 `kimi acp` 验证：如果阻塞等待标准输入则说明 CLI 本身没问题，问题在 IDE 配置；如果立刻报错则按报错提示处理（多数是没 `/login`）。
-- **IDE 显示 "auth required"**：表示 CLI 没有可用的鉴权令牌。退出 IDE，在终端执行 `kimi` 完成登录后再启动 IDE 即可。
-- **MCP 工具看不到**：参考 [`kimi acp`](../reference/kimi-acp.md) 中的能力表确认 IDE 配的 MCP 传输类型是否被支持。当前 Kimi Code CLI 的 ACP 适配层支持 `http`、`stdio` 与 `sse` 三种传输方式；`acp` 传输的 MCP server 会被静默丢弃并在日志中给出 warn。
+- 如果进程立即退出，请在终端运行 `spyderbyte acp` 并检查配置错误。
+- 如果模型请求失败，请运行 `spyderbyte doctor`，确认供应商端点和 BYOK 凭据。
+- 如果 MCP 工具不可见，请确认配置的传输类型受 ACP 适配器支持，并检查本地日志。
+- 如果 IDE 找不到可执行文件，请使用绝对路径，并确认 IDE 进程可以使用相同的 Node/runtime 环境。
 
 ## 下一步
 
-- [kimi acp 参考](../reference/kimi-acp.md) — ACP 能力矩阵和方法覆盖详情
-- [kimi 命令参考](../reference/kimi-command.md) — 完整子命令列表
+- [ACP 参考](../reference/spyderbyte-acp.md)
+- [命令参考](../reference/spyderbyte-command.md)

@@ -20,8 +20,8 @@ import type {
   QuestionRequest,
   SessionApprovalRequest as ApprovalRequest,
   SessionApprovalResponse as ApprovalResponse,
-} from '@moonshot-ai/agent-core-v2';
-import type { IDisposable, SessionHandle } from '@moonshot-ai/klient';
+} from '@spiderbyte/agent-core';
+import type { IDisposable, SessionHandle } from '@spiderbyte/client';
 
 import type { AcpClient } from './acp-client';
 

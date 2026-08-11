@@ -60,7 +60,7 @@ describe('server-v2 gui store routes', () => {
   let server: RunningServer | undefined;
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-gui-store-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-gui-store-'));
     server = await startServer({ hostIdentity: TEST_HOST_IDENTITY, host: '127.0.0.1', port: 0, homeDir: home, logLevel: 'silent' });
   });
 
@@ -150,12 +150,12 @@ describe('server-v2 gui store routes', () => {
 
   it('quotes dotted keys in the persisted TOML and reads them back', async () => {
     const api = appOf(server as RunningServer);
-    await setItem(api, 'kimi-web.theme', 'modern');
+    await setItem(api, 'spiderbyte-web.theme', 'modern');
 
     const text = await readFile(join(home as string, 'gui.toml'), 'utf-8');
-    expect(text).toContain('"kimi-web.theme" = "modern"');
+    expect(text).toContain('"spiderbyte-web.theme" = "modern"');
 
-    const env = envelopeOf<{ value: string | null }>((await getItem(api, 'kimi-web.theme')).json());
+    const env = envelopeOf<{ value: string | null }>((await getItem(api, 'spiderbyte-web.theme')).json());
     expect(env.data?.value).toBe('modern');
   });
 

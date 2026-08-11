@@ -2,9 +2,8 @@
  * `/models` + `/providers` catalog route handlers — server-v2 port.
  *
  * Implements the v1 model/provider catalog wire contract on top of
- * `agent-core-v2`'s `IModelCatalog` (the remote-discovery refresh lives on
- * `IProviderDiscoveryService`; the OAuth-only managed refresh additionally
- * lives on `IOAuthService`; the models.dev directory browse and the
+ * `@spiderbyte/agent-core`'s `IModelCatalog` (the remote-discovery refresh lives on
+ * `IProviderDiscoveryService`; the models.dev directory browse and the
  * catalog/registry imports live on `IModelsDevImportService`):
  *   GET    /models                       — list configured model aliases
  *   GET    /providers                    — list configured providers
@@ -17,15 +16,14 @@
  *   POST   /providers:import_catalog     — import a directory entry as a provider
  *   POST   /models/{tail} (:set_default) — set the global default model alias
  *   POST   /providers:refresh            — refresh ALL refreshable providers
- *   POST   /providers:refresh_oauth      — refresh OAuth-backed provider models
  *   POST   /providers/{tail} (:refresh)  — refresh a single provider by id
  *
- * **Wire fidelity**: reuses agent-core-v2's catalog schemas and the local
+ * **Wire fidelity**: reuses SpiderByte Agent Core's catalog schemas and the local
  * numeric `ErrorCode` envelope verbatim, so the response shape and error codes
  * (`40412` provider-not-found, `40413` model-not-found, `40001` validation) are
  * byte-for-byte compatible with v1's `routes/modelCatalog.ts`. The v2 domain
  * throws coded `Error2`s (`provider.not_found` / `model.not_found` /
- * `provider.catalog_*` / `provider.*_import_invalid` / `provider.oauth_managed`);
+ * `provider.catalog_*` / `provider.*_import_invalid` / `provider.oauth_unsupported`);
  * this edge maps them to the numeric protocol codes by `code` (never
  * `instanceof`).
  *
@@ -49,7 +47,6 @@ import {
   IConfigService,
   IKosongConfigService,
   IModelCatalog,
-  IOAuthService,
   IProviderDiscoveryService,
   IModelsDevImportService,
   isError2,
@@ -60,15 +57,15 @@ import {
   type ProviderConfig,
   type ProvidersSection,
   type Scope,
-} from '@moonshot-ai/agent-core-v2';
-import { setDefaultModelResponseSchema } from '@moonshot-ai/agent-core-v2/kosong/model/catalog';
-import { refreshProviderModelsResponseSchema } from '@moonshot-ai/agent-core-v2/app/kosongConfig/discovery';
+} from '@spiderbyte/agent-core';
+import { setDefaultModelResponseSchema } from '@spiderbyte/agent-core/kosong/model/catalog';
+import { refreshProviderModelsResponseSchema } from '@spiderbyte/agent-core/app/kosongConfig/discovery';
 import {
   DEFAULT_MODEL_SECTION,
   DEFAULT_PROVIDER_SECTION,
   MODELS_SECTION,
   PROVIDERS_SECTION,
-} from '@moonshot-ai/agent-core-v2/app/kosongConfig/configSection';
+} from '@spiderbyte/agent-core/app/kosongConfig/configSection';
 import { z } from 'zod';
 
 import { errEnvelope, okEnvelope } from '../envelope';
@@ -182,10 +179,6 @@ async function loadDiscovery(core: Scope): Promise<IProviderDiscoveryService> {
   return core.accessor.get(IProviderDiscoveryService);
 }
 
-async function loadOAuth(core: Scope): Promise<IOAuthService> {
-  await core.accessor.get(IConfigService).ready;
-  return core.accessor.get(IOAuthService);
-}
 
 /**
  * Serializes the provider write routes' multi-step sequences (inspect → build
@@ -399,12 +392,12 @@ export function registerModelCatalogRoutes(app: ModelCatalogRouteHost, core: Sco
       success: { data: replaceProviderResponseSchema },
       errors: {
         [ErrorCode.VALIDATION_FAILED]: {},
-        [ErrorCode.PROVIDER_OAUTH_MANAGED]: {},
+        [ErrorCode.PROVIDER_OAUTH_UNSUPPORTED]: {},
         [ErrorCode.PROVIDER_NOT_FOUND]: {},
         [ErrorCode.PROVIDER_ALREADY_EXISTS]: {},
       },
       description:
-        'Replace a provider in one save (type + base_url + model list), optionally renaming it via `new_id` (the providers key, model aliases, default_provider and a default_model pointing at an old alias all migrate). `api_key` is tri-state: omitted keeps the stored key, "" clears it, any other value replaces it. The provider\'s model aliases are rebuilt from `models` — aliases no longer listed disappear from config.toml, other providers\' aliases are untouched. Beyond the rename migration, the global default pointers are never modified. Answers 200 with `{provider}`. OAuth-managed providers are rejected: log out via /oauth/logout instead.',
+        'Replace a provider in one save (type + base_url + model list), optionally renaming it via `new_id` (the providers key, model aliases, default_provider and a default_model pointing at an old alias all migrate). `api_key` is tri-state: omitted keeps the stored key, "" clears it, any other value replaces it. The provider\'s model aliases are rebuilt from `models` — aliases no longer listed disappear from config.toml, other providers\' aliases are untouched. Beyond the rename migration, the global default pointers are never modified. Answers 200 with `{provider}`. Provider OAuth records are not edited by this local route; use a provider-neutral adapter or BYOK configuration.',
       tags: ['providers'],
       operationId: 'replaceProvider',
     },
@@ -427,8 +420,8 @@ export function registerModelCatalogRoutes(app: ModelCatalogRouteHost, core: Sco
         if (target.oauth !== undefined) {
           reply.send(
             errEnvelope(
-              ErrorCode.PROVIDER_OAUTH_MANAGED,
-              `provider ${provider_id} is managed by OAuth login; use POST /oauth/logout instead`,
+              ErrorCode.PROVIDER_OAUTH_UNSUPPORTED,
+              `provider ${provider_id} uses an OAuth record that is not supported by the local route`,
               req.id,
             ),
           );
@@ -598,23 +591,18 @@ export function registerModelCatalogRoutes(app: ModelCatalogRouteHost, core: Sco
         [ErrorCode.VALIDATION_FAILED]: {},
         [ErrorCode.CATALOG_IMPORT_INVALID]: {},
         [ErrorCode.REGISTRY_IMPORT_INVALID]: {},
-        [ErrorCode.PROVIDER_OAUTH_MANAGED]: {},
+        [ErrorCode.PROVIDER_OAUTH_UNSUPPORTED]: {},
         [ErrorCode.CATALOG_ENTRY_NOT_FOUND]: {},
         [ErrorCode.CATALOG_UNAVAILABLE]: {},
       },
       description:
-        'Provider collection actions. Use `:refresh` for all providers or `:refresh_oauth` for OAuth-backed providers only. Use `:import_catalog` to import a models.dev directory entry as a configured provider (201): the wire protocol and endpoint come from the catalog resolution (`base_url` overrides it; required when the entry resolves to needs-base-url), all catalogued models are written as aliases, and importing an id that already exists is a refresh — the provider entry and its aliases are rewritten from the catalog (OAuth-managed providers are rejected instead). `id` overrides the catalog id as the local provider id. Use `:import_registry` to import a models.dev-shaped private registry (api.json `url` + optional Bearer `api_key`, 201): every listed provider is written with a `source` blob so scheduled refreshes rediscover it, and re-importing the same URL removes providers that disappeared upstream (the URL is the stable registry identity). For both imports the global default_provider/default_model pointers are never modified — except that a default_model is seeded from the first imported model when none is configured at all (fresh setup).',
+        'Provider collection actions. Use `:refresh` for all locally refreshable providers. Use `:import_catalog` to import a models.dev directory entry as a configured provider (201): the wire protocol and endpoint come from the catalog resolution (`base_url` overrides it; required when the entry resolves to needs-base-url), all catalogued models are written as aliases, and importing an id that already exists is a refresh — the provider entry and its aliases are rewritten from the catalog. Provider OAuth records are rejected because no hosted identity service ships in Open Core. `id` overrides the catalog id as the local provider id. Use `:import_registry` to import a models.dev-shaped private registry (api.json `url` + optional Bearer `api_key`, 201): every listed provider is written with a `source` blob so scheduled refreshes rediscover it, and re-importing the same URL removes providers that disappeared upstream (the URL is the stable registry identity). For both imports the global default_provider/default_model pointers are never modified — except that a default_model is seeded from the first imported model when none is configured at all (fresh setup).',
       tags: ['providers'],
       operationId: 'providerCollectionAction',
     },
     async (req, reply) => {
       const raw = req.params.action;
       const action = raw.startsWith(':') ? raw.slice(1) : raw;
-      if (action === 'refresh_oauth') {
-        const result = await (await loadOAuth(core)).refreshOAuthProviderModels();
-        reply.send(okEnvelope(result, req.id));
-        return;
-      }
       if (action === 'refresh') {
         const result = await (await loadDiscovery(core)).refreshProviderModels({ scope: 'all' });
         reply.send(okEnvelope(result, req.id));
@@ -727,14 +715,14 @@ export function registerModelCatalogRoutes(app: ModelCatalogRouteHost, core: Sco
       params: providerIdParamSchema,
       errors: {
         [ErrorCode.VALIDATION_FAILED]: {},
-        [ErrorCode.PROVIDER_OAUTH_MANAGED]: {},
+        [ErrorCode.PROVIDER_OAUTH_UNSUPPORTED]: {},
         [ErrorCode.PROVIDER_NOT_FOUND]: {},
       },
       rawResponse: {
         204: { description: 'Provider deleted.' },
       },
       description:
-        'Delete a provider and all of its model aliases (204, no body). The global default_provider/default_model pointers are left untouched — they are the user\'s settings, not this endpoint\'s to garbage-collect. OAuth-managed providers are rejected: log out via /oauth/logout instead.',
+        'Delete a provider and all of its model aliases (204, no body). The global default_provider/default_model pointers are left untouched — they are the user\'s settings, not this endpoint\'s to garbage-collect. Provider OAuth records are rejected because no hosted identity service ships in Open Core.',
       tags: ['providers'],
       operationId: 'deleteProvider',
     },
@@ -757,8 +745,8 @@ export function registerModelCatalogRoutes(app: ModelCatalogRouteHost, core: Sco
         if (target.oauth !== undefined) {
           reply.send(
             errEnvelope(
-              ErrorCode.PROVIDER_OAUTH_MANAGED,
-              `provider ${provider_id} is managed by OAuth login; use POST /oauth/logout instead`,
+              ErrorCode.PROVIDER_OAUTH_UNSUPPORTED,
+              `provider ${provider_id} uses an OAuth record that is not supported by the local route`,
               req.id,
             ),
           );
@@ -868,7 +856,7 @@ const MODELS_DEV_IMPORT_ERROR_CODES: Record<string, number> = {
   [ModelsDevImportErrors.codes.CATALOG_ENTRY_NOT_FOUND]: ErrorCode.CATALOG_ENTRY_NOT_FOUND,
   [ModelsDevImportErrors.codes.CATALOG_IMPORT_INVALID]: ErrorCode.CATALOG_IMPORT_INVALID,
   [ModelsDevImportErrors.codes.REGISTRY_IMPORT_INVALID]: ErrorCode.REGISTRY_IMPORT_INVALID,
-  [ModelsDevImportErrors.codes.PROVIDER_OAUTH_MANAGED]: ErrorCode.PROVIDER_OAUTH_MANAGED,
+  [ModelsDevImportErrors.codes.PROVIDER_OAUTH_UNSUPPORTED]: ErrorCode.PROVIDER_OAUTH_UNSUPPORTED,
 };
 
 /** Map a provider-import domain error to the numeric protocol envelope. Returns true if handled. */
@@ -964,4 +952,3 @@ async function handleImportRegistry(
     throw err;
   }
 }
-

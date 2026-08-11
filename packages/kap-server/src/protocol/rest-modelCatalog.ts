@@ -13,11 +13,11 @@
 
 import { z } from 'zod';
 
-import { PROVIDER_ID_PATTERN } from '@moonshot-ai/agent-core-v2';
+import { PROVIDER_ID_PATTERN } from '@spiderbyte/agent-core';
 import {
   modelCatalogItemSchema,
   providerCatalogItemSchema,
-} from '@moonshot-ai/agent-core-v2/kosong/model/catalog';
+} from '@spiderbyte/agent-core/kosong/model/catalog';
 
 export const listModelsResponseSchema = z.object({
   items: z.array(modelCatalogItemSchema),

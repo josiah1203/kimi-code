@@ -11,9 +11,9 @@ import type {
   ILogService,
   ISessionIndex,
   SessionSummary,
-} from '@moonshot-ai/agent-core-v2';
-import { MiniDb } from '@moonshot-ai/minidb';
-import { TranscriptStore, type TranscriptOperation } from '@moonshot-ai/transcript';
+} from '@spiderbyte/agent-core';
+import { MiniDb } from '@spiderbyte/minidb';
+import { TranscriptStore, type TranscriptOperation } from '@spiderbyte/transcript';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { SyncSessionInput } from '../../src/search/indexCore';
@@ -296,7 +296,7 @@ describe('GlobalSearchService', () => {
   const services: GlobalSearchService[] = [];
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-kap-search-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-kap-search-'));
   });
 
   afterEach(async () => {
@@ -2409,7 +2409,7 @@ describe('GlobalSearchService', () => {
       expect(drained).toBe(false);
 
       // A second disposal registers WHILE the drain is awaiting the first.
-      const homeB = await mkdtemp(join(tmpdir(), 'kimi-kap-search-drain-'));
+      const homeB = await mkdtemp(join(tmpdir(), 'spiderbyte-kap-search-drain-'));
       try {
         const b = await setupBlockedService(homeB);
         b.service.dispose();
@@ -2456,7 +2456,7 @@ describe('search worker host (stage 4)', () => {
   const hosts: SearchWorkerHost[] = [];
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-kap-search-worker-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-kap-search-worker-'));
   });
 
   afterEach(async () => {
@@ -2993,7 +2993,7 @@ describe('search lifecycle diagnostics (stage 5)', () => {
   const hosts: SearchWorkerHost[] = [];
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-kap-search-lifecycle-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-kap-search-lifecycle-'));
   });
 
   afterEach(async () => {
@@ -3313,7 +3313,7 @@ describe('baseline: synthetic corpus', () => {
   const services: GlobalSearchService[] = [];
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-kap-search-baseline-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-kap-search-baseline-'));
   });
 
   afterEach(async () => {

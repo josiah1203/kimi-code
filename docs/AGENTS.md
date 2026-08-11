@@ -9,7 +9,7 @@ This repository uses VitePress for the documentation site. Most user-facing page
   - Guides: getting-started, migration, use-cases, interaction, sessions
   - Customization: mcp, skills, plugins, datasource, agents, hooks
   - Configuration: config-files, providers, overrides, env-vars, data-locations
-  - Reference: kimi-command, tools, slash-commands, keyboard
+  - Reference: spyderbyte-command, tools, slash-commands, keyboard
   - Release notes: changelog
 - Navigation and sidebar are defined in `docs/.vitepress/config.ts`. Any new or renamed page must be wired there for both locales.
 
@@ -29,7 +29,7 @@ Before rewriting a page, always: (1) understand why the original is structured t
 
 ## Readers
 
-Kimi Code documentation serves two overlapping audiences. Write for both simultaneously.
+SpiderByte documentation serves two overlapping audiences. Write for both simultaneously.
 
 **Technical users** — familiar with the terminal, config files, API keys, and environment variables. Give them commands and paths directly; do not explain basics.
 
@@ -74,7 +74,7 @@ Term mapping (Chinese <-> English, and proper noun handling):
 | YOLO 模式 | YOLO mode | yes | yes (YOLO mode) |
 | Thinking 模式 | Thinking mode | yes | yes (Thinking mode) |
 | MCP | MCP | yes | yes |
-| Kimi Code CLI | Kimi Code CLI | yes | yes |
+| SpiderByte CLI | SpiderByte CLI | yes | yes |
 | Agent Skills | Agent Skills | yes | yes |
 | Skill | skill | yes | no |
 | 系统提示词 | system prompt | no | no |
@@ -90,7 +90,6 @@ Term mapping (Chinese <-> English, and proper noun handling):
 | Node.js | Node.js | yes | yes |
 | npm | npm | yes | yes |
 | pnpm | pnpm | yes | yes |
-| kimi | kimi | yes | yes |
 | 审批请求 | approval request | no | no |
 | 斜杠命令 | slash command | no | no |
 | 工具调用 | tool call | no | no |
@@ -103,22 +102,13 @@ Term mapping (Chinese <-> English, and proper noun handling):
 | Prompt Flow | Prompt Flow | yes | yes |
 | Diff | diff | yes | no |
 
-### Kimi platform rules
+### SpiderByte Open Core rules
 
-Two distinct platforms exist and must never be mixed:
+Open Core documentation describes a local, accountless platform. Use local endpoints, explicit BYOK configuration, and `spyderbyte` commands in examples. Do not imply that hosted identity, subscriptions, billing, managed workers, or hosted provider quotas are available in this checkout.
 
-| | Kimi Code platform | Kimi Open Platform |
-|---|---|---|
-| Audience | Individual developers, subscription-based | Enterprise / product integration, pay-per-token |
-| OpenAI-compatible base URL | `https://api.kimi.com/coding/v1` | `https://api.moonshot.cn/v1` |
-| Anthropic-compatible base URL | `https://api.kimi.com/coding/` | Not supported |
-| API key entry | [Kimi Code console](https://www.kimi.com/code/console) | [platform.kimi.com](https://platform.kimi.com) |
+External provider names, protocol names, model identifiers, and provider URLs may appear when they are required to explain a technical adapter. Label them as external provider integrations and never present them as SpiderByte account or product surfaces.
 
-Rules:
-- When documenting Kimi Code CLI or VS Code: always use `api.kimi.com/coding/…`. Never write `api.moonshot.cn` in this context.
-- When documenting Open Platform integration: use `api.moonshot.cn/v1`.
-- Distinguish context explicitly: "in Kimi Code CLI / VS Code" vs "in third-party tools / your own product".
-- Product full names: **Kimi Code CLI** and **Kimi Code for VS Code**. Do not abbreviate to "Kimi CLI".
+Product full names: **SpiderByte CLI**, **SpiderByte Agent Core**, and **SpiderByte for VS Code**.
 
 ## Typography
 
@@ -134,9 +124,9 @@ Rules:
   - Chinese: use `提示` for tip, `注意` for warning, `说明` for info, `警告` for danger.
   - English: use no title or short words like `Note` for warning.
   - ✓ `::: tip 提示` + content starting with the key point
-  - ✓ `::: warning 注意` + content `部分 \`.agents\` 资源不受 \`KIMI_CODE_HOME\` 影响。...`
+  - ✓ `::: warning 注意` + content `部分 \`.agents\` 资源不受 \`SPIDERBYTE_HOME\` 影响。...`
   - ✗ `::: warning 不影响 .agents` (title too long, should be in content)
-  - ✗ `::: tip .agents 路径独立于 KIMI_CODE_HOME` (title too long)
+  - ✗ `::: tip .agents 路径独立于 SPIDERBYTE_HOME` (title too long)
 - **Version info blocks**: For version change callouts, use `::: info` with a category title (Added/Changed/Removed in English; 新增/变更/移除 in Chinese). The content should be a complete sentence.
   - ✓ `::: info 新增` + content `新增于 0.2.0。`
   - ✗ `::: info 新增于 0.2.0` (title too long)
@@ -197,9 +187,9 @@ Outline prompt:
 ```markdown
 ## Install and upgrade
 
-Kimi Code CLI requires Node.js 24.15.0 or later. We recommend using pnpm for installation and management.
+SpiderByte CLI requires Node.js 24.15.0 or later. We recommend using pnpm for installation and management.
 
-If you haven't installed pnpm yet, please refer to the pnpm installation docs first. Install Kimi Code CLI:
+If you haven't installed pnpm yet, please refer to the pnpm installation docs first. Install SpiderByte CLI:
 
 (code block)
 
@@ -300,16 +290,16 @@ Run through this before marking any doc change ready for review.
 | Changed zh without changing en (or vice versa) | Update both locales |
 | Code block has no language tag | Add language (e.g., `sh`, `toml`, `json`); exception: natural-language prompt examples may omit the tag |
 
-### Kimi-specific consistency
+### SpiderByte-specific consistency
 
 Before shipping, verify these values match the rest of the docs:
 
-- **Base URL**: matches the [Kimi platform rules](#kimi-platform-rules) table above
+- **Base URL**: use a local or explicitly configured BYOK endpoint
 - **Upgrade command**: matches `guides/getting-started.md`
-- **Model ID**: use `kimi-for-coding`, not a versioned model name
-- **Login command**: `/login`, not `/setup`
-- **Product full name**: **Kimi Code CLI** or **Kimi Code for VS Code** — never "Kimi CLI"
-- **Platform URLs**: `api.kimi.com/coding/…` for Kimi Code platform; `api.moonshot.cn/v1` for Open Platform — never mix the two
+- **Model ID**: use a neutral example such as `your-local-model`
+- **Authentication**: document local credentials or external provider OAuth only; do not document a SpiderByte hosted login
+- **Product full name**: use **SpiderByte CLI** or **SpiderByte for VS Code** consistently
+- **Provider URLs**: use `example.test` or localhost in examples unless an external provider URL is technically required
 
 ## Build and preview
 

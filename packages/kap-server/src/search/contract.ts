@@ -1,6 +1,6 @@
 /**
  * `search` module — global message search contract (temporary feature, lives
- * in kap-server until it graduates into agent-core-v2).
+ * in kap-server until it graduates into SpiderByte Agent Core).
  *
  * The API shape borrows from Lark/Feishu's IM message endpoints:
  *   - a `container` concept (`container_id_type` + `container_id`) — here a

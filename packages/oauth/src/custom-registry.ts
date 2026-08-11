@@ -1,9 +1,9 @@
 import { readApiErrorMessage } from './api-error';
 import { CUSTOM_REGISTRY_MODEL_FIELDS, mergeRefreshedModelAlias } from './model-alias-merge';
 import { isRecord } from './utils';
-import type { ManagedKimiConfigShape, ManagedKimiModelAlias } from './managed-kimi-code';
+import type { ProviderModelAlias, SpiderByteConfigShape } from './config';
 
-export type { ManagedKimiConfigShape };
+export type { SpiderByteConfigShape } from './config';
 
 /**
  * Identifies where a custom-registry-managed provider came from. The same
@@ -61,7 +61,7 @@ export interface CustomRegistryProviderEntry {
 /**
  * Tuned slightly below typical real values so the local compactor kicks in
  * before the upstream rejects with a context-overflow 4xx. Users can override
- * by editing `~/.kimi-code/config.toml`.
+ * by editing `~/.spiderbyte/config.toml`.
  */
 export const CUSTOM_REGISTRY_DEFAULT_MAX_CONTEXT = 131072;
 export const CUSTOM_REGISTRY_DEFAULT_CAPABILITIES = ['tool_use'] as const;
@@ -196,7 +196,7 @@ function toProviderEntry(value: unknown): CustomRegistryProviderEntry | undefine
  * the top-level provider key in the document (which may differ from
  * `entry.id`); callers should iterate `Object.values` to apply each entry.
  *
- * `userAgent` identifies the host product (e.g. `kimi-code-cli/1.2.3`); when
+ * `userAgent` identifies the host product (e.g. `spiderbyte-cli/1.2.3`); when
  * omitted the request falls back to the runtime default (`User-Agent: node`).
  */
 export async function fetchCustomRegistry(
@@ -306,11 +306,11 @@ function resolveCapabilities(model: CustomRegistryModelEntry): string[] {
  * Mirrors `applyOpenPlatformConfig`'s shape: provider goes to `config.providers`
  * keyed by `entry.id`, each model in `entry.models` becomes an alias under
  * `config.models[\`${entry.id}/${modelId}\`]`. The `source` blob is parked on the
- * provider object via `ManagedKimiProviderConfig`'s index signature so the
+ * provider object via the local provider-config index signature so the
  * refresh dispatcher can rediscover it later.
  */
 export function applyCustomRegistryProvider(
-  config: ManagedKimiConfigShape,
+  config: SpiderByteConfigShape,
   entry: CustomRegistryProviderEntry,
   source: CustomRegistrySource,
 ): void {
@@ -345,7 +345,7 @@ export function applyCustomRegistryProvider(
       typeof model.name === 'string' && model.name.length > 0 ? model.name : model.id;
     const existing = isRecord(existingModels[aliasKey]) ? existingModels[aliasKey] : {};
 
-    const remoteAlias: ManagedKimiModelAlias = {
+    const remoteAlias: ProviderModelAlias = {
       provider: providerKey,
       model: model.id,
       maxContextSize,
@@ -370,7 +370,7 @@ export function applyCustomRegistryProvider(
  * `removeOpenPlatformConfig`.
  */
 export function removeCustomRegistryProvider(
-  config: ManagedKimiConfigShape,
+  config: SpiderByteConfigShape,
   providerId: string,
 ): void {
   delete config.providers[providerId];
@@ -414,7 +414,7 @@ export function removeCustomRegistryProvider(
  * registry".
  */
 export function applyCustomRegistryEntries(
-  config: ManagedKimiConfigShape,
+  config: SpiderByteConfigShape,
   entries: Record<string, CustomRegistryProviderEntry>,
   source: CustomRegistrySource,
 ): void {

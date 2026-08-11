@@ -7,7 +7,7 @@ import {
   getLiveSessionById,
   type QuestionRequest,
   type QuestionResult,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { type RunningServer, startServer } from '../src/start';
@@ -69,7 +69,7 @@ describe('server-v2 /api/v1/sessions/{sid}/questions', () => {
   let base: string;
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-questions-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-questions-'));
     server = await startServer({
       hostIdentity: TEST_HOST_IDENTITY,
       host: '127.0.0.1',

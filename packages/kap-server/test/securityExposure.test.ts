@@ -12,7 +12,7 @@ describe('server-v2 exposure hardening hooks', () => {
   let home: string | undefined;
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-exposure-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-exposure-'));
   });
 
   afterEach(async () => {

@@ -10,9 +10,9 @@ import {
 import { workspaceIdSchema, workspaceSchema, type Workspace } from '../workspace';
 
 const sampleWorkspace: Workspace = {
-  id: 'wd_kimi-code_0123456789ab',
-  root: '/Users/foo/code/kimi-code',
-  name: 'kimi-code',
+  id: 'wd_spiderbyte_0123456789ab',
+  root: '/Users/foo/code/spiderbyte',
+  name: 'spiderbyte',
   created_at: '2026-06-08T09:00:00.000Z',
   last_opened_at: '2026-06-08T09:30:00.000Z',
   session_count: 3,
@@ -20,25 +20,25 @@ const sampleWorkspace: Workspace = {
 
 describe('workspaceIdSchema', () => {
   it('accepts a wd_<slug>_<hash12> string', () => {
-    expect(workspaceIdSchema.parse('wd_kimi_0123456789ab')).toBe('wd_kimi_0123456789ab');
+    expect(workspaceIdSchema.parse('wd_workspace_0123456789ab')).toBe('wd_workspace_0123456789ab');
   });
 
   it('accepts dots, dashes, underscores in slug', () => {
-    expect(workspaceIdSchema.parse('wd_kimi-code.v2_0123456789ab')).toBe(
-      'wd_kimi-code.v2_0123456789ab',
+    expect(workspaceIdSchema.parse('wd_spiderbyte.v2_0123456789ab')).toBe(
+      'wd_spiderbyte.v2_0123456789ab',
     );
   });
 
   it('rejects missing wd_ prefix', () => {
-    expect(workspaceIdSchema.safeParse('kimi_0123456789ab').success).toBe(false);
+    expect(workspaceIdSchema.safeParse('workspace_0123456789ab').success).toBe(false);
   });
 
   it('rejects non-hex tail', () => {
-    expect(workspaceIdSchema.safeParse('wd_kimi_xyzxyzxyzxyz').success).toBe(false);
+    expect(workspaceIdSchema.safeParse('wd_workspace_xyzxyzxyzxyz').success).toBe(false);
   });
 
   it('rejects truncated hash', () => {
-    expect(workspaceIdSchema.safeParse('wd_kimi_0123456789').success).toBe(false);
+    expect(workspaceIdSchema.safeParse('wd_workspace_0123456789').success).toBe(false);
   });
 });
 
@@ -107,8 +107,8 @@ describe('updateWorkspaceRequestSchema (PATCH /api/v1/workspaces/{id})', () => {
 describe('workspaceIdParamSchema', () => {
   it('accepts a wd_-shaped workspace_id', () => {
     expect(
-      workspaceIdParamSchema.parse({ workspace_id: 'wd_kimi_0123456789ab' }).workspace_id,
-    ).toBe('wd_kimi_0123456789ab');
+      workspaceIdParamSchema.parse({ workspace_id: 'wd_workspace_0123456789ab' }).workspace_id,
+    ).toBe('wd_workspace_0123456789ab');
   });
 
   it('rejects a non-wd-shaped id', () => {

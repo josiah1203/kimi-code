@@ -17,7 +17,7 @@ export interface TempDirHandle {
 }
 
 export async function createTempWorkDir(): Promise<TempDirHandle> {
-  const path = await mkdtemp(join(tmpdir(), 'kimi-oauth-test-work-'));
+  const path = await mkdtemp(join(tmpdir(), 'spiderbyte-oauth-test-work-'));
   let disposed = false;
   return {
     path,
@@ -66,8 +66,8 @@ export async function spawnInlineWorkers(
     const child = spawn(tsxCli, [scriptPath, String(id)], {
       env: {
         ...process.env,
-        KIMI_CODE_HOME: opts.shareDir,
-        KIMI_WORKER_ID: String(id),
+        SPIDERBYTE_HOME: opts.shareDir,
+        SPIDERBYTE_WORKER_ID: String(id),
         ...opts.env,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -78,12 +78,8 @@ export async function spawnInlineWorkers(
       stdout: '',
       stderr: '',
       exit: new Promise((resolve) => {
-        child.on('exit', (code, signal) => {
-          resolve({ code, signal });
-        });
-        child.on('error', () => {
-          resolve({ code: -1, signal: null });
-        });
+        child.on('exit', (code, signal) => resolve({ code, signal }));
+        child.on('error', () => resolve({ code: -1, signal: null }));
       }),
     };
     child.stdout.setEncoding('utf8');
@@ -98,12 +94,13 @@ export async function spawnInlineWorkers(
   }
 
   let timedOut = false;
+  const timeoutMs = opts.timeoutMs ?? 60_000;
   const timer = setTimeout(() => {
     timedOut = true;
     for (const worker of running) {
       if (worker.child.exitCode === null) worker.child.kill('SIGKILL');
     }
-  }, opts.timeoutMs ?? 60_000);
+  }, timeoutMs);
 
   try {
     const results = await Promise.all(
@@ -119,9 +116,7 @@ export async function spawnInlineWorkers(
         };
       }),
     );
-    if (timedOut) {
-      throw new Error(`spawnInlineWorkers timed out after ${String(opts.timeoutMs ?? 60_000)}ms`);
-    }
+    if (timedOut) throw new Error(`spawnInlineWorkers timed out after ${String(timeoutMs)}ms`);
     return results;
   } finally {
     clearTimeout(timer);

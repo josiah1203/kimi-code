@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   resetModelsDevUpstreamForTest,
   setModelsDevUpstreamForTest,
-} from '@moonshot-ai/agent-core-v2/app/kosongConfig/modelsDevUpstream';
+} from '@spiderbyte/agent-core/app/kosongConfig/modelsDevUpstream';
 import { type RunningServer, startServer } from '../src/start';
 import { TEST_HOST_IDENTITY } from './helpers/hostIdentity';
 import { authHeaders } from './helpers/auth';
@@ -130,9 +130,9 @@ describe('server-v2 /api/v1 catalog browse + import endpoints', () => {
   let base: string;
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-catalog-'));
-    process.env['KIMI_CODE_MODEL_CATALOG_REFRESH_ON_START'] = '0';
-    process.env['KIMI_CODE_MODEL_CATALOG_REFRESH_INTERVAL_MS'] = '0';
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-catalog-'));
+    process.env['SPIDERBYTE_MODEL_CATALOG_REFRESH_ON_START'] = '0';
+    process.env['SPIDERBYTE_MODEL_CATALOG_REFRESH_INTERVAL_MS'] = '0';
     resetModelsDevUpstreamForTest();
     setModelsDevUpstreamForTest({ fetchImpl: catalogFetchOk() });
   });
@@ -147,8 +147,8 @@ describe('server-v2 /api/v1 catalog browse + import endpoints', () => {
       await rm(home, { recursive: true, force: true });
       home = undefined;
     }
-    delete process.env['KIMI_CODE_MODEL_CATALOG_REFRESH_ON_START'];
-    delete process.env['KIMI_CODE_MODEL_CATALOG_REFRESH_INTERVAL_MS'];
+    delete process.env['SPIDERBYTE_MODEL_CATALOG_REFRESH_ON_START'];
+    delete process.env['SPIDERBYTE_MODEL_CATALOG_REFRESH_INTERVAL_MS'];
   });
 
   async function boot(toml?: string): Promise<void> {

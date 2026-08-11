@@ -3,7 +3,7 @@
  * handlers — server-v2 port.
  *
  * The folder-picker pair mirrors `packages/server/src/routes/workspaceFs.ts`
- * path-for-path: two distinct `GET` routes backed by `agent-core-v2`'s native
+ * path-for-path: two distinct `GET` routes backed by `SpiderByte Agent Core`'s native
  * `IHostFolderBrowser` (Core scope), translating its domain errors to wire
  * codes (server-align.md Case A):
  *
@@ -26,7 +26,7 @@
  * All file handling lives here in the transport layer on top of the os
  * `IHostFileSystem` primitives — the engine deliberately has no "unconfined
  * read" domain Service. The mime / etag helpers are shared with the engine's
- * `workspaceFs` via `agent-core-v2/_base/utils/fileMeta` so both surfaces label
+ * `workspaceFs` via `SpiderByte Agent Core/_base/utils/fileMeta` so both surfaces label
  * content the same way. `IHostFileSystem` failures arrive as coded `os.fs.*`
  * errors and are mapped here:
  *
@@ -68,18 +68,18 @@ import {
   isError2,
   type HostFileStat,
   type Scope,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import {
   fsBrowseQuerySchema,
   fsBrowseResponseSchema,
   fsHomeResponseSchema,
-} from '@moonshot-ai/agent-core-v2/app/hostFolderBrowser/hostFolderBrowser';
+} from '@spiderbyte/agent-core/app/hostFolderBrowser/hostFolderBrowser';
 import {
   buildEtag,
   detectBinary,
   FS_BINARY_SAMPLE_BYTES,
   guessMime,
-} from '@moonshot-ai/agent-core-v2/_base/utils/fileMeta';
+} from '@spiderbyte/agent-core/_base/utils/fileMeta';
 import { z } from 'zod';
 
 import { errEnvelope, okEnvelope } from '../envelope';

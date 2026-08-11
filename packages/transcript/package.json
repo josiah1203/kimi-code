@@ -1,17 +1,17 @@
 {
-  "name": "@moonshot-ai/transcript",
+  "name": "@spiderbyte/transcript",
   "version": "0.0.1",
-  "private": true,
+  "private": false,
   "description": "Isomorphic transcript rendering data layer: agent-granular L1 store, idempotent L2 operations, granularity-gated L3 subscriptions, framework-free L4 view registry.",
   "license": "MIT",
-  "author": "Moonshot AI",
+  "author": "SpiderByte contributors",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/MoonshotAI/kimi-code.git",
+    "url": "git+https://github.com/SpiderByte/spiderbyte.git",
     "directory": "packages/transcript"
   },
   "bugs": {
-    "url": "https://github.com/MoonshotAI/kimi-code/issues"
+    "url": "https://github.com/SpiderByte/spiderbyte/issues"
   },
   "type": "module",
   "imports": {
@@ -31,5 +31,22 @@
   },
   "dependencies": {
     "zod": "catalog:"
+  },
+  "homepage": "https://github.com/SpiderByte/spiderbyte/tree/main/packages/transcript#readme",
+  "files": [
+    "dist"
+  ],
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.mts",
+        "import": "./dist/index.mjs",
+        "default": "./dist/index.mjs"
+      }
+    }
   }
 }

@@ -35,12 +35,12 @@ class InMemoryStorage implements TokenStorage {
   }
 
   async list(): Promise<string[]> {
-    return this.token === undefined ? [] : ['kimi-code'];
+    return this.token === undefined ? [] : ['spiderbyte'];
   }
 }
 
 const config: OAuthFlowConfig = {
-  name: 'kimi-code',
+  name: 'spiderbyte',
   oauthHost: 'https://unused.test',
   clientId: 'test-client-id',
 };

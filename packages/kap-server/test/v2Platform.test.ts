@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import WebSocket from 'ws';
 
-import { IFlagService } from '@moonshot-ai/agent-core-v2';
+import { IFlagService } from '@spiderbyte/agent-core';
 import { type RunningServer, startServer } from '../src/start';
 import { authedFetch } from './helpers/auth';
 import { TEST_HOST_IDENTITY } from './helpers/hostIdentity';
@@ -54,8 +54,8 @@ describe('server /api/v2 platform surface', () => {
   const sockets: WebSocket[] = [];
 
   beforeEach(async () => {
-    vi.stubEnv('KIMI_CODE_EXPERIMENTAL_PLATFORM_SERVICES', '1');
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-platform-'));
+    vi.stubEnv('SPIDERBYTE_EXPERIMENTAL_PLATFORM_SERVICES', '1');
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-platform-'));
     server = await startServer({
       hostIdentity: TEST_HOST_IDENTITY,
       host: '127.0.0.1',
@@ -358,8 +358,8 @@ describe('server /api/v2 platform surface', () => {
   });
 
   it('keeps the platform routes disabled unless the experimental flag is enabled', async () => {
-    const disabledHome = await mkdtemp(join(tmpdir(), 'kimi-server-v2-platform-disabled-'));
-    vi.stubEnv('KIMI_CODE_EXPERIMENTAL_PLATFORM_SERVICES', '0');
+    const disabledHome = await mkdtemp(join(tmpdir(), 'spiderbyte-server-platform-disabled-'));
+    vi.stubEnv('SPIDERBYTE_EXPERIMENTAL_PLATFORM_SERVICES', '0');
     const disabledServer = await startServer({
       hostIdentity: TEST_HOST_IDENTITY,
       host: '127.0.0.1',
@@ -392,17 +392,17 @@ describe('server /api/v2 platform surface', () => {
       expect(platformResponse.status).toBe(200);
       expect(envelope).toMatchObject({ code: 40301, data: null, request_id: expect.any(String) });
     } finally {
-      vi.stubEnv('KIMI_CODE_EXPERIMENTAL_PLATFORM_SERVICES', '1');
+      vi.stubEnv('SPIDERBYTE_EXPERIMENTAL_PLATFORM_SERVICES', '1');
       await disabledServer.close();
       await rm(disabledHome, { recursive: true, force: true });
     }
   });
 
   it('honors the emergency rollback even when platform activation is requested', async () => {
-    const rollbackHome = await mkdtemp(join(tmpdir(), 'kimi-server-v2-platform-rollback-'));
-    vi.stubEnv('KIMI_CODE_EXPERIMENTAL_PLATFORM_SERVICES', '1');
-    vi.stubEnv('KIMI_CODE_EXPERIMENTAL_FLAG', '1');
-    vi.stubEnv('KIMI_CODE_DISABLE_PLATFORM_SERVICES', '1');
+    const rollbackHome = await mkdtemp(join(tmpdir(), 'spiderbyte-server-platform-rollback-'));
+    vi.stubEnv('SPIDERBYTE_EXPERIMENTAL_PLATFORM_SERVICES', '1');
+    vi.stubEnv('SPIDERBYTE_EXPERIMENTAL_FLAG', '1');
+    vi.stubEnv('SPIDERBYTE_DISABLE_PLATFORM_SERVICES', '1');
     const rollbackServer = await startServer({
       hostIdentity: TEST_HOST_IDENTITY,
       host: '127.0.0.1',
@@ -416,7 +416,7 @@ describe('server /api/v2 platform surface', () => {
       expect(flagService.enabled('platform_services')).toBe(false);
       expect(flagService.explain('platform_services')).toMatchObject({
         source: 'emergency-disable-env',
-        emergencyDisableEnv: 'KIMI_CODE_DISABLE_PLATFORM_SERVICES',
+        emergencyDisableEnv: 'SPIDERBYTE_DISABLE_PLATFORM_SERVICES',
       });
 
       const workspaceResponse = await authedFetch(

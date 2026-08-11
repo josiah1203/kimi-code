@@ -54,7 +54,7 @@ import {
   type IDisposable,
   type Scope,
   type SessionMeta,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import {
   TranscriptStore,
   foldWireRecordFacts,
@@ -68,7 +68,7 @@ import {
   type TranscriptOperation,
   type TranscriptTaskRef,
   type TranscriptTurn,
-} from '@moonshot-ai/transcript';
+} from '@spiderbyte/transcript';
 
 import { readWireRecords } from './wireRecords';
 import {

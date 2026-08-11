@@ -5,8 +5,8 @@
  */
 import { z } from 'zod';
 
-import { isoDateTimeSchema } from '@moonshot-ai/agent-core-v2/_base/utils/isoDateTime';
-import { transcriptGradeSpecSchema, transcriptSeqSchema } from '@moonshot-ai/transcript';
+import { isoDateTimeSchema } from '@spiderbyte/agent-core/_base/utils/isoDateTime';
+import { transcriptGradeSpecSchema, transcriptSeqSchema } from '@spiderbyte/transcript';
 
 import { eventSchema } from './events-zod';
 
@@ -169,7 +169,7 @@ export type SubscribeMessage = z.infer<typeof subscribeMessageSchema>;
  * `subscribe_v2` — the transcript subscription channel. Owns ONLY the
  * per-agent transcript grades (and the optional op-batch seq cursor) for one
  * session; legacy event subscription stays on `client_hello` / `subscribe`.
- * The grade/seq schemas are owned by `@moonshot-ai/transcript`.
+ * The grade/seq schemas are owned by `@spiderbyte/transcript`.
  */
 export const subscribeV2PayloadSchema = z.object({
   session_id: z.string().min(1),
@@ -269,7 +269,7 @@ export const watchFsAckMessageSchema = wsAckEnvelopeSchema(watchFsAckPayloadSche
 
 /**
  * Filesystem change-notification payloads, ported verbatim from the v1
- * protocol's `fs.ts` (agent-core-v2 only carries the plain types). Emitted by
+ * protocol's `fs.ts` (SpiderByte Agent Core only carries the plain types). Emitted by
  * the `watch_fs` notification path on subscribed sessions.
  */
 export const fsChangeKindSchema = z.enum(['file', 'directory', 'symlink']);

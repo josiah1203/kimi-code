@@ -1,7 +1,7 @@
 /**
  * "Real" end-to-end ACP turn test.
  *
- * Unlike the mapper / wiring unit tests, this boots the FULL agent-core-v2
+ * Unlike the mapper / wiring unit tests, this boots the FULL SpiderByte Agent Core
  * engine and the real ACP wire (ND-JSON over an in-memory stream), drives an
  * actual `session/prompt` turn, and only fakes the network LLM call via the
  * scripted-provider seam. Every layer is exercised for real: the agent turn
@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { getLiveSessionById, IAgentLifecycleService, IEventBus } from '@moonshot-ai/agent-core-v2';
+import { getLiveSessionById, IAgentLifecycleService, IEventBus } from '@spiderbyte/agent-core';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { mapPromptLaunchError } from '../src/session';
@@ -23,9 +23,9 @@ import { writeFakeModelConfig } from './_helpers/fakeModelConfig';
 import { solidPngBase64 } from './_helpers/png';
 import { createScriptedProvider, type ScriptedProvider } from './_helpers/scriptedProvider';
 
-/** Real stdio MCP fixture server from the agent-core-v2 test suite. */
+/** Real stdio MCP fixture server from the SpiderByte Agent Core test suite. */
 const STDIO_MCP_FIXTURE = fileURLToPath(
-  new URL('../../agent-core-v2/test/mcpCore/fixtures/mock-stdio-server.mjs', import.meta.url),
+  new URL('../../SpiderByte Agent Core/test/mcpCore/fixtures/mock-stdio-server.mjs', import.meta.url),
 );
 
 describe('acp-server real prompt turn (scripted LLM)', () => {
@@ -711,7 +711,7 @@ describe('acp-server builtin slash commands (local execution, no LLM turn)', () 
           name: 'mock',
           command: process.execPath,
           args: [STDIO_MCP_FIXTURE],
-          env: [{ name: 'KIMI_TEST_MCP_START_DELAY_MS', value: '0' }],
+          env: [{ name: 'SPIDERBYTE_TEST_MCP_START_DELAY_MS', value: '0' }],
         },
       ],
     })) as { sessionId: string };

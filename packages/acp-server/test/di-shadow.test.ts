@@ -2,7 +2,7 @@
  * ACP terminal reverse-RPC tests (`clientCapabilities.terminal`).
  *
  * The first suite is the DI verification experiment that decided the design.
- * Facts under test (from `agent-core-v2/src/_base/di`):
+ * Facts under test (from `SpiderByte Agent Core/src/_base/di`):
  *  1. A scope seed beats a registry entry ON THE SAME scope level —
  *     `buildCollection` applies `extra` after the registered descriptors, and
  *     `ServiceCollection.set` overwrites. This is why a Session-scope
@@ -26,7 +26,7 @@ import {
   ServiceCollection,
   SyncDescriptor,
   type ServiceIdentifier,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import { describe, expect, it } from 'vitest';
 
 interface IShadowProbe {

@@ -2,17 +2,17 @@
 
 - **Status:** Accepted
 - **Date:** 2026-08-08
-- **Scope:** Kimi Platform Enhancement Program, PEP-01
+- **Scope:** SpiderByte Platform Enhancement Program, PEP-01
 - **Base commit:** `01c74e9372fcbbbe99614e859b53b505ed1664a8`
 
 ## Context
 
 The enhancement program adds durable Runs, artifacts, policies, provider
 connections, resources, usage, and execution targets while preserving the
-existing Kimi CLI, TUI, session behavior, and client integrations. The current
+existing SpiderByte CLI, TUI, session behavior, and client integrations. The current
 repository already contains several compatible but different boundaries:
 
-- `packages/agent-core-v2` owns the in-process agent and session runtime.
+- `packages/SpiderByte Agent Core` owns the in-process agent and session runtime.
 - `packages/protocol` owns the existing REST and WebSocket wire schemas.
 - `packages/klient` provides the contract-driven client facade.
 - `packages/node-sdk` exposes the public harness and legacy compatibility API.
@@ -24,7 +24,7 @@ Run and usage semantics.
 
 ## Decision
 
-1. `packages/agent-core-v2` remains the only runtime and session authority. The
+1. `packages/SpiderByte Agent Core` remains the only runtime and session authority. The
    enhancement program adds platform services around it; it does not introduce
    another agent engine or session lifecycle.
 2. `packages/protocol` is the canonical public contract authority. Platform
@@ -35,10 +35,10 @@ Run and usage semantics.
    ACP, VS Code, REST, and WebSocket adapters consume the same contracts rather
    than importing agent-core internals.
 4. `packages/node-sdk` preserves its current API by adapting platform contracts
-   to the existing Kimi session and harness types. Existing sessions remain
+   to the existing SpiderByte session and harness types. Existing sessions remain
    readable without a storage rewrite.
 5. A platform `AgentSession` is the durable conversational container and a
-   `Run` is the durable unit of work inside it. An existing Kimi `Session` maps
+   `Run` is the durable unit of work inside it. An existing SpiderByte `Session` maps
    to an `AgentSession` with an implicit Run when no explicit Run record exists.
 6. A provider `Connection` is distinct from the existing live WebSocket
    connection resource. Provider connections are therefore namespaced in new
@@ -81,9 +81,9 @@ contracts are reviewed and versioned.
 
 ## Rejected alternatives
 
-- **Rewrite the Kimi session engine:** rejected because it creates a second
+- **Rewrite the SpiderByte session engine:** rejected because it creates a second
   authority and risks breaking the CLI/TUI interaction model.
-- **Expose `agent-core-v2` internals directly to clients:** rejected because it
+- **Expose `SpiderByte Agent Core` internals directly to clients:** rejected because it
   couples every client to runtime implementation details.
 - **Reuse the existing live `/connections` resource for provider credentials:**
   rejected because it conflates WebSocket transport state with customer-owned

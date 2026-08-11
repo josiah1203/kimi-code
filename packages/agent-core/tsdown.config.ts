@@ -10,11 +10,9 @@ export default defineConfig({
   clean: true,
   plugins: [rawTextPlugin()],
   deps: {
-    alwaysBundle: ['picomatch'],
     neverBundle: [
-      '@moonshot-ai/kosong',
-      '@moonshot-ai/kaos',
-      '@moonshot-ai/kimi-code-oauth',
+      '@spiderbyte/oauth',
+      '@spiderbyte/telemetry',
     ],
   },
 });

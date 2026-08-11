@@ -3,7 +3,6 @@
 import {
   IWorkspaceArtifactService,
   IWorkspaceAutomationService,
-  IWorkspaceCommercialService,
   IWorkspaceExecutionTargetService,
   IWorkspaceDatasetService,
   IFlagService,
@@ -15,7 +14,6 @@ import {
   IWorkspaceUsageService,
   IWorkspaceBudgetService,
   IPlatformGovernanceService,
-  IPlatformIdentityService,
   IPlatformAuthorizationService,
   IPlatformPluginService,
   ProviderRuntimeError,
@@ -26,7 +24,7 @@ import {
   IWorkspacePipelineService,
   IWorkspaceServingService,
   type Scope,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import {
   artifactCreateInputSchema,
   artifactDownloadRangeInputSchema,
@@ -59,8 +57,6 @@ import {
   budgetReserveInputSchema,
   budgetReleaseInputSchema,
   budgetReconcileInputSchema,
-  workspaceEntitlementUpdateInputSchema,
-  workspaceMemberUpsertInputSchema,
   datasetCreateInputSchema,
   datasetProfileInputSchema,
   datasetQueryInputSchema,
@@ -87,14 +83,12 @@ import {
   projectBindingRemoveInputSchema,
   projectMemberUpsertInputSchema,
   projectWorkspaceBindInputSchema,
-  platformIdentityDevicePollInputSchema,
-  platformIdentityPkceCompleteInputSchema,
   platformAuthorizationEvaluateInputSchema,
   platformPluginCommandInputSchema,
   platformPluginConfigureInputSchema,
   platformPluginDiscoverInputSchema,
   platformPluginInstallInputSchema,
-} from '@moonshot-ai/protocol';
+} from '@spiderbyte/protocol';
 import { z } from 'zod';
 
 import { errEnvelope, okEnvelope } from '../../protocol/envelope';
@@ -154,28 +148,6 @@ const pluginParamsSchema = z.object({ plugin_id: z.string().min(1) });
 export function registerPlatformRoutes(app: PlatformRouteHost, core: Scope): void {
   const opts = { preHandler: [] };
 
-  app.get('/auth/status', opts, async (req, reply) => {
-    await identityRequest(req, reply, core, z.object({}), (service) => service.status());
-  });
-  app.post('/auth/pkce/start', opts, async (req, reply) => {
-    await identityRequest(req, reply, core, z.object({}), (service) => service.startPkce());
-  });
-  app.post('/auth/pkce/complete', opts, async (req, reply) => {
-    await identityRequest(req, reply, core, z.object({}), (service) =>
-      service.completePkce(platformIdentityPkceCompleteInputSchema.parse(req.body)),
-    );
-  });
-  app.post('/auth/device/start', opts, async (req, reply) => {
-    await identityRequest(req, reply, core, z.object({}), (service) => service.startDevice());
-  });
-  app.post('/auth/device/poll', opts, async (req, reply) => {
-    await identityRequest(req, reply, core, z.object({}), (service) =>
-      service.pollDevice(platformIdentityDevicePollInputSchema.parse(req.body)),
-    );
-  });
-  app.post('/auth/logout', opts, async (req, reply) => {
-    await identityRequest(req, reply, core, z.object({}), (service) => service.logout());
-  });
   app.post('/authorization/evaluate', opts, async (req, reply) => {
     await authorizationRequest(req, reply, core, (service) =>
       service.evaluate(platformAuthorizationEvaluateInputSchema.parse(req.body)),
@@ -780,34 +752,12 @@ export function registerPlatformRoutes(app: PlatformRouteHost, core: Scope): voi
     );
   });
 
-  app.get('/workspaces/:workspace_id/platform/commercial/members', opts, async (req, reply) => {
+  app.post('/workspaces/:workspace_id/platform/usage', opts, async (req, reply) => {
     await workspaceRequest(req, reply, core, paramsSchema, async (accessor) =>
-      accessor.get(IWorkspaceCommercialService).listMembers(),
-    );
-  });
-  app.post('/workspaces/:workspace_id/platform/commercial/members', opts, async (req, reply) => {
-    await workspaceRequest(req, reply, core, paramsSchema, async (accessor) =>
-      accessor.get(IWorkspaceCommercialService).upsertMember(workspaceMemberUpsertInputSchema.parse(req.body)),
-    );
-  });
-  app.get('/workspaces/:workspace_id/platform/commercial/entitlements', opts, async (req, reply) => {
-    await workspaceRequest(req, reply, core, paramsSchema, async (accessor) =>
-      accessor.get(IWorkspaceCommercialService).listEntitlements(),
-    );
-  });
-  app.post('/workspaces/:workspace_id/platform/commercial/entitlements', opts, async (req, reply) => {
-    await workspaceRequest(req, reply, core, paramsSchema, async (accessor) =>
-      accessor.get(IWorkspaceCommercialService).setEntitlement(workspaceEntitlementUpdateInputSchema.parse(req.body)),
-    );
-  });
-  app.post('/workspaces/:workspace_id/platform/commercial/usage', opts, async (req, reply) => {
-    await workspaceRequest(req, reply, core, paramsSchema, async (accessor) =>
-      // Keep the released compatibility URL, but route it to the canonical
-      // Run-linked usage authority rather than the legacy commercial store.
       accessor.get(IWorkspaceUsageService).recordUsage(usageRecordCreateInputSchema.parse(req.body)),
     );
   });
-  app.get('/workspaces/:workspace_id/platform/commercial/usage/summary', opts, async (req, reply) => {
+  app.get('/workspaces/:workspace_id/platform/usage/summary', opts, async (req, reply) => {
     await workspaceRequest(req, reply, core, paramsSchema, async (accessor) =>
       accessor.get(IWorkspaceUsageService).usageSummary(usageSummaryQuerySchema.parse(req.query ?? {})),
     );
@@ -999,38 +949,6 @@ async function governanceRequest<TParams extends z.ZodTypeAny>(
       reply.send(errEnvelope(ErrorCode.PLATFORM_RESOURCE_NOT_FOUND, 'platform resource not found', req.id));
       return;
     }
-    reply.send(okEnvelope(data, req.id));
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      reply.send(
-        validationEnvelope(
-          error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })),
-          req.id,
-        ),
-      );
-      return;
-    }
-    reply.send(mapPlatformError(error, req.id));
-  }
-}
-
-async function identityRequest<TParams extends z.ZodTypeAny>(
-  req: PlatformRequest,
-  reply: PlatformReply,
-  core: Scope,
-  schema: TParams,
-  operation: (
-    service: IPlatformIdentityService,
-    params: z.infer<TParams>,
-  ) => Promise<unknown>,
-): Promise<void> {
-  if (!core.accessor.get(IFlagService).enabled('platform_services')) {
-    reply.send(errEnvelope(ErrorCode.PLATFORM_DISABLED, 'platform services are disabled', req.id));
-    return;
-  }
-  try {
-    const params = schema.parse(req.params);
-    const data = await operation(core.accessor.get(IPlatformIdentityService), params);
     reply.send(okEnvelope(data, req.id));
   } catch (error) {
     if (error instanceof z.ZodError) {

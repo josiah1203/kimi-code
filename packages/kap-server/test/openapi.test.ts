@@ -33,7 +33,7 @@ describe('server-v2 OpenAPI', () => {
   });
 
   async function fetchOpenApi(): Promise<Record<string, unknown>> {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-openapi-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-openapi-'));
     server = await startServer({
       hostIdentity: TEST_HOST_IDENTITY,
       host: '127.0.0.1',
@@ -54,7 +54,7 @@ describe('server-v2 OpenAPI', () => {
 
     expect(doc['openapi']).toMatch(/^3\.\d+\.\d+$/);
     const info = asRecord(doc['info']);
-    expect(info['title']).toBe('Kimi Code Server API');
+    expect(info['title']).toBe('SpiderByte Server API');
     expect(typeof info['version']).toBe('string');
   });
 

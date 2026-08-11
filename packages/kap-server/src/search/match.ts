@@ -14,7 +14,7 @@
 
 import { createHash } from 'node:crypto';
 
-import { normalizeLiteral } from '@moonshot-ai/minidb';
+import { normalizeLiteral } from '@spiderbyte/minidb';
 
 import {
   GlobalSearchError,

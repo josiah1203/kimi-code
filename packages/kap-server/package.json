@@ -1,8 +1,8 @@
 {
-  "name": "@moonshot-ai/kap-server",
+  "name": "@spiderbyte/kap-server",
   "version": "0.2.1",
-  "private": true,
-  "description": "Kimi Code server backed by the DI × Scope agent engine (agent-core-v2)",
+  "private": false,
+  "description": "SpiderByte server backed by the DI × Scope agent engine (SpiderByte Agent Core)",
   "type": "module",
   "exports": {
     ".": {
@@ -27,11 +27,11 @@
   "dependencies": {
     "@fastify/multipart": "^10.0.0",
     "@fastify/swagger": "^9.7.0",
-    "@moonshot-ai/agent-core-v2": "workspace:^",
-    "@moonshot-ai/protocol": "workspace:^",
-    "@moonshot-ai/kimi-code-oauth": "workspace:^",
-    "@moonshot-ai/minidb": "workspace:*",
-    "@moonshot-ai/transcript": "workspace:^",
+    "@spiderbyte/agent-core": "workspace:^",
+    "@spiderbyte/minidb": "workspace:^",
+    "@spiderbyte/oauth": "workspace:^",
+    "@spiderbyte/protocol": "workspace:^",
+    "@spiderbyte/transcript": "workspace:^",
     "bcryptjs": "^2.4.3",
     "fastify": "^5.1.0",
     "pino": "^9.5.0",
@@ -44,5 +44,42 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/ws": "^8.18.0",
     "tsx": "^4.21.0"
+  },
+  "license": "MIT",
+  "author": "SpiderByte contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SpiderByte/spiderbyte.git",
+    "directory": "packages/kap-server"
+  },
+  "homepage": "https://github.com/SpiderByte/spiderbyte/tree/main/packages/kap-server#readme",
+  "bugs": {
+    "url": "https://github.com/SpiderByte/spiderbyte/issues"
+  },
+  "files": [
+    "dist"
+  ],
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.mts",
+        "import": "./dist/index.mjs",
+        "default": "./dist/index.mjs"
+      },
+      "./contract": {
+        "types": "./dist/contract.d.mts",
+        "import": "./dist/contract.mjs",
+        "default": "./dist/contract.mjs"
+      },
+      "./search-worker-runtime": {
+        "types": "./dist/search-worker-runtime.d.mts",
+        "import": "./dist/search-worker-runtime.mjs",
+        "default": "./dist/search-worker-runtime.mjs"
+      }
+    }
   }
 }

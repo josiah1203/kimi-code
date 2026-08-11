@@ -45,7 +45,7 @@ export class APIStatusError extends ChatProviderError {
   readonly retryAfterMs: number | null;
   /**
    * Provider trace identifier from the `x-trace-id` response header
-   * (Kimi/KFC only), or `null` when the error response did not carry one.
+   * (external provider/KFC only), or `null` when the error response did not carry one.
    * A failed request usually still returns response headers, so hosts can
    * attribute the failure to its server-side request.
    */
@@ -127,7 +127,7 @@ export class APIProviderRateLimitError extends APIStatusError {
  * account is recharged — so this class is excluded from retry and from the
  * rate-limit requeue/suspend paths.
  *
- * Observed shapes: Moonshot returns `error.type =
+ * Observed shapes: upstream provider returns `error.type =
  * "exceeded_current_quota_error"` with wording that varies by account state
  * ("You exceeded your current token quota: ... please check your account
  * balance" vs "Your account ... is suspended due to insufficient balance,
@@ -254,7 +254,7 @@ const IMAGE_FORMAT_PROVIDER_MESSAGE_PATTERNS = [
 // Server-side image rejections that are safe to recover by stripping media:
 // an unsupported/invalid media type or undecodable image data. These are
 // deliberately narrow and grounded in the documented messages of the major
-// providers (Anthropic, OpenAI, Moonshot/Kimi, Gemini) — image COUNT/SIZE
+// providers (Anthropic, OpenAI, upstream provider/external provider, Gemini) — image COUNT/SIZE
 // limits or image-input-disabled errors also mention "image", but stripping
 // media either over-recovers or hides a real configuration problem the user
 // should see; only format/data rejections are guaranteed to be fixed by
@@ -270,7 +270,7 @@ const IMAGE_FORMAT_PROVIDER_MESSAGE_PATTERNS = [
 // as image errors here. All documented provider image rejections mention
 // "image", so the restriction costs no known match.
 const IMAGE_FORMAT_STATUS_MESSAGE_PATTERNS = [
-  // Unsupported format — OpenAI / Moonshot "unsupported image …".
+  // Unsupported format — OpenAI / upstream provider "unsupported image …".
   /unsupported image (?:url|format|type)/,
   // Undecodable / corrupt image data.
   /does not represent a valid image/,
@@ -373,7 +373,7 @@ const PROVIDER_RATE_LIMIT_MESSAGE_PATTERNS = [
 // Vertex phrases prompt-too-long as a 413, so the status alone is not proof
 // of a body-size rejection.
 const REQUEST_TOO_LARGE_MESSAGE_PATTERNS = [
-  // Moonshot / Kimi: "Request exceeds the maximum size".
+  // upstream provider / external provider: "Request exceeds the maximum size".
   /request exceeds the maximum size/,
   // Reverse proxies (nginx-style HTML body): "413 Request Entity Too Large".
   /request entity too large/,
@@ -390,7 +390,7 @@ const REQUEST_TOO_LARGE_MESSAGE_PATTERNS = [
 ] as const;
 
 const THINKING_EFFORT_CONFIG_DOCS_URL =
-  'https://moonshotai.github.io/kimi-code/en/configuration/config-files.html#thinking';
+  'https://moonshotai.github.io/spiderbyte/en/configuration/config-files.html#thinking';
 
 const THINKING_EFFORT_STATUS_MESSAGE_PATTERNS = [
   /reasoning[_ .-]?effort/,
@@ -409,7 +409,7 @@ function appendThinkingEffortConfigHint(statusCode: number, message: string): st
   if (message.includes(THINKING_EFFORT_CONFIG_DOCS_URL)) return message;
   return `${message}
 
-The provider rejected the configured thinking effort. Non-Kimi providers receive effort strings without client-side mapping; choose an effort supported by the selected model. For Kimi models, check support_efforts and default_effort. See ${THINKING_EFFORT_CONFIG_DOCS_URL}`;
+The provider rejected the configured thinking effort. Non-external provider providers receive effort strings without client-side mapping; choose an effort supported by the selected model. For external provider models, check support_efforts and default_effort. See ${THINKING_EFFORT_CONFIG_DOCS_URL}`;
 }
 
 export function isContextOverflowErrorCode(code: string | null | undefined): boolean {
@@ -459,7 +459,7 @@ function readResponseHeader(headers: unknown, name: string): string | null {
 
 /**
  * Parse the provider trace identifier from the `x-trace-id` response header
- * (Kimi/KFC only). Returns `null` when the header is absent or empty.
+ * (external provider/KFC only). Returns `null` when the header is absent or empty.
  */
 export function parseTraceId(headers: unknown): string | null {
   const raw = readResponseHeader(headers, 'x-trace-id');
@@ -499,7 +499,7 @@ export function isRequestTooLargeStatusError(statusCode: number, message: string
 // result, a stray result with no matching call, or a result that does not
 // immediately follow its call. Anthropic phrases this in terms of
 // `tool_use`/`tool_result`. OpenAI-compatible providers phrase it in terms of
-// `tool_call_id` / `role 'tool'` / `tool_calls`: Moonshot / Kimi as a
+// `tool_call_id` / `role 'tool'` / `tool_calls`: upstream provider / external provider as a
 // `tool_call_id` that "is not found", and OpenAI / DeepSeek / vLLM / Qwen as a
 // `role 'tool'` message without a preceding `tool_calls`, or an assistant
 // `tool_calls` not followed by its tool results. The validation runs before any
@@ -510,7 +510,7 @@ const TOOL_EXCHANGE_ADJACENCY_MESSAGE_PATTERNS = [
   /tool_use[\s\S]*tool_result/,
   /tool_result[\s\S]*tool_use/,
   /unexpected\s+`?tool_result/,
-  // OpenAI-compatible (Moonshot / Kimi): a `tool` message references a
+  // OpenAI-compatible (upstream provider / external provider): a `tool` message references a
   // `tool_call_id` with no matching `tool_calls` entry in the preceding
   // assistant message. Observed verbatim as `tool_call_id  is not found`
   // (doubled space). Anchored on `tool_call_id` so an unrelated "not found"
@@ -566,7 +566,7 @@ const STRUCTURAL_REQUEST_MESSAGE_PATTERNS = [
   // when a provider reused a call id (e.g. per-response counter ids) earlier
   // in the session; the strict resend dedupes the ids.
   /tool_use[\s\S]*ids must be unique/,
-  // Moonshot / Kimi rejects a message whose serialized form carries nothing —
+  // upstream provider / external provider rejects a message whose serialized form carries nothing —
   // no content, no tool_calls, an empty reasoning_content: "the message at
   // position N with role 'assistant' must not be empty". Seen when a filtered
   // response left an assistant message holding only an empty thinking part in

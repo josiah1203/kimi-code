@@ -44,7 +44,7 @@
  * the `plan.revision` reference records carry no tool-call linkage.
  */
 
-import { MAIN_AGENT_ID, type Scope } from '@moonshot-ai/agent-core-v2';
+import { MAIN_AGENT_ID, type Scope } from '@spiderbyte/agent-core';
 import {
   isPlainAgentId,
   paginateTurns,
@@ -58,7 +58,7 @@ import {
   type TranscriptItem,
   type TurnOrigin,
   type TurnState,
-} from '@moonshot-ai/transcript';
+} from '@spiderbyte/transcript';
 import { z } from 'zod';
 
 import { errEnvelope, okEnvelope } from '../envelope';
@@ -681,7 +681,7 @@ function readPlanReviewDisplay(display: unknown): PlanReviewDisplayInfo | undefi
 }
 
 // The wording mirrors `formatPlanForOutput` / `formatAutoApprovedPlanForOutput`
-// in `agent-core-v2/src/features/plan/tools/exit-plan-mode/exitPlanModeTool.ts` — the approved
+// in `SpiderByte Agent Core/src/features/plan/tools/exit-plan-mode/exitPlanModeTool.ts` — the approved
 // tool result embeds the full plan body after one of these markers, and the
 // plan file path on a `Plan saved to: <path>` line.
 const PLAN_SAVED_TO_MARKER = 'Plan saved to: ';

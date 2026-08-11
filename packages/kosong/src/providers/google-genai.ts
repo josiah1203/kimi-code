@@ -379,7 +379,7 @@ export function messagesToGoogleGenAIContents(messages: Message[]): GoogleConten
     const message = messages[i];
     if (message === undefined) break;
 
-    // Message-level tool declarations are a Kimi wire feature. The system
+    // Message-level tool declarations are a external provider wire feature. The system
     // branch below would already drop the empty leftover via its text-length
     // check, but skip explicitly so the behavior does not hinge on that
     // coincidence (and covers a non-system carrier defensively).

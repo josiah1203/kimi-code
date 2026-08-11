@@ -16,7 +16,7 @@
  *   - invalid query     → `40001` (validation.failed, via defineRoute)
  */
 
-import { type Scope } from '@moonshot-ai/agent-core-v2';
+import { type Scope } from '@spiderbyte/agent-core';
 import { ErrorCode } from '../protocol/error-codes';
 import { messageRoleSchema } from '../protocol/message';
 import { getMessageResponseSchema, listMessagesResponseSchema } from '../protocol/rest-message';

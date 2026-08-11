@@ -26,12 +26,12 @@ describe('/api/v1/meta experimental_flags', () => {
 
   beforeEach(() => {
     // Neutralize flag env vars leaking from the developer shell (e.g. a
-    // globally exported KIMI_CODE_EXPERIMENTAL_FLAG=1) so each test starts
+    // globally exported SPIDERBYTE_EXPERIMENTAL_FLAG=1) so each test starts
     // from the default-off baseline. The master env can be pinned to '0' (it
     // only forces ON), but the per-flag env must be fully ABSENT — an
     // explicit '0' is an env override that outranks the config section.
-    vi.stubEnv('KIMI_CODE_EXPERIMENTAL_FLAG', '0');
-    vi.stubEnv('KIMI_CODE_EXPERIMENTAL_SECONDARY_MODEL', undefined);
+    vi.stubEnv('SPIDERBYTE_EXPERIMENTAL_FLAG', '0');
+    vi.stubEnv('SPIDERBYTE_EXPERIMENTAL_SECONDARY_MODEL', undefined);
   });
 
   afterEach(async () => {
@@ -49,7 +49,7 @@ describe('/api/v1/meta experimental_flags', () => {
   });
 
   async function boot(toml?: string): Promise<string> {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-meta-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-meta-'));
     if (toml !== undefined) {
       await writeFile(join(home, 'config.toml'), toml, 'utf-8');
     }
@@ -88,8 +88,8 @@ describe('/api/v1/meta experimental_flags', () => {
     expect(flags['secondary-model']).toBe(true);
   });
 
-  it('reflects a flag enabled via its KIMI_CODE_EXPERIMENTAL_* env var', async () => {
-    vi.stubEnv('KIMI_CODE_EXPERIMENTAL_SECONDARY_MODEL', '1');
+  it('reflects a flag enabled via its SPIDERBYTE_EXPERIMENTAL_* env var', async () => {
+    vi.stubEnv('SPIDERBYTE_EXPERIMENTAL_SECONDARY_MODEL', '1');
     const base = await boot();
     const flags = await getMetaFlags(base);
     expect(flags['secondary-model']).toBe(true);
@@ -110,7 +110,7 @@ describe('/api/v1/meta experimental_flags', () => {
   });
 
   it('keeps an env-forced flag on when the config section disables it', async () => {
-    vi.stubEnv('KIMI_CODE_EXPERIMENTAL_SECONDARY_MODEL', '1');
+    vi.stubEnv('SPIDERBYTE_EXPERIMENTAL_SECONDARY_MODEL', '1');
     const base = await boot();
 
     const res = await authedFetch(server as RunningServer, base, '/api/v1/config', {

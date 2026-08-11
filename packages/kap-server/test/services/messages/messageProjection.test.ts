@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { ContextMessage } from '@moonshot-ai/agent-core-v2';
+import type { ContextMessage } from '@spiderbyte/agent-core';
 
 import { toProtocolMessage } from '../../../src/services/messages/messageProjection';
 
@@ -40,11 +40,11 @@ describe('toProtocolMessage', () => {
     ]);
   });
 
-  it('projects a kimi-file video reference to a structured file source without leaking the path', () => {
+  it('projects a spiderbyte-file video reference to a structured file source without leaking the path', () => {
     const msg: ContextMessage = {
       role: 'user',
       content: [
-        { type: 'video_url', videoUrl: { url: 'kimi-file://file_9?path=%2Fcache%2Fclip.mp4' } },
+        { type: 'video_url', videoUrl: { url: 'spiderbyte-file://file_9?path=%2Fcache%2Fclip.mp4' } },
       ],
       toolCalls: [],
     };

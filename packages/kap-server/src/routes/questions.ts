@@ -2,7 +2,7 @@
  * `/sessions/{sid}/questions*` route handlers — server-v2 port.
  *
  * Implements the v1 `/api/v1/sessions/{sid}/questions` wire contract on top of
- * `agent-core-v2` services. Backed by the Session-scoped `ISessionInteractionService`
+ * `SpiderByte Agent Core` services. Backed by the Session-scoped `ISessionInteractionService`
  * (for the pending list + recently-resolved ledger) and `ISessionQuestionService`
  * (for `answer` / `dismiss`).
  *
@@ -61,7 +61,7 @@ import {
   type QuestionRequest,
   type QuestionResult,
   type Scope,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import { ErrorCode } from '../protocol/error-codes';
 import {
   type QuestionItem as ProtocolQuestionItem,

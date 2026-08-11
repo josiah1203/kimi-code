@@ -20,7 +20,7 @@ describe('getModelCapability: kimi', () => {
   it('does not infer capabilities from Kimi model names', () => {
     for (const model of [
       'kimi-for-coding',
-      'kimi-code',
+      'spiderbyte',
       'kimi-k2-turbo-preview',
       'kimi-k2.5',
       'kimi-thinking-preview',

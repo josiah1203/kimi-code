@@ -40,20 +40,20 @@
   gap: 8px;
   height: 48px;
   padding: 0 22px;
-  border-radius: var(--kimi-radius-button);
+  border-radius: var(--spiderbyte-radius-button);
   font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.005em;
   text-decoration: none;
-  transition: transform var(--kimi-transition), box-shadow var(--kimi-transition),
-              border-color var(--kimi-transition), background var(--kimi-transition);
+  transition: transform var(--spiderbyte-transition), box-shadow var(--spiderbyte-transition),
+              border-color var(--spiderbyte-transition), background var(--spiderbyte-transition);
   white-space: nowrap;
   cursor: pointer;
   border: 1px solid transparent;
 }
 .KimiBtn--primary {
   color: #ffffff;
-  background: var(--kimi-brand-gradient);
+  background: var(--spiderbyte-brand-gradient);
   box-shadow: var(--vp-shadow-3);
   border: 0;
 }

@@ -1,40 +1,31 @@
-# 从 kimi-cli 迁移
+# 迁移到 SpiderByte Open Core
 
-::: info
-Kimi Code CLI 已完成重大版本升级，底层从 Python/uv 迁移至 Node.js，带来更简单的安装方式、更快的启动速度和全新的终端界面。旧版将逐渐停止维护，建议尽快升级至新版。
-:::
+SpiderByte Open Core 是一个本地 Node.js 发行版，使用 `spyderbyte` 可执行文件和无版本后缀的 SpiderByte Agent Core 运行时。受支持的配置和数据目录是 `.spiderbyte`。
 
-如果你正在从旧版迁移，按照以下步骤操作——一条命令就能把配置、MCP server 与会话历史一并迁移至新版。
+## 使用新的本地配置
 
-## 新版优势
-
-- **不再依赖 Python / uv**：基于 Node.js 重写，无需配置 Python 环境，安装更简单
-- **原生二进制，开箱即用**：启动更快，运行更轻量
-- **终端界面全面重设计**：交互体验更流畅
-- **数据可完整迁移**：配置、MCP、会话历史一键带走，无缝延续
-
-## 如何迁移
-
-迁移有两种方式。
-
-装好 kimi-code 之后**第一次运行 `kimi`** 时，它会自动检测 `~/.kimi/` 下是否存在 kimi-cli 的数据。一旦检测到，就会弹出迁移提示，你可以选择立即迁移、稍后再说，或不再提示。
-
-你也可以**随时手动运行**：
+评估迁移时，可以先使用独立的数据根目录：
 
 ```sh
-kimi migrate
+SPIDERBYTE_HOME="$PWD/.spiderbyte-migration" spyderbyte doctor
 ```
 
-你可以选择是否同时迁移聊天会话。如果暂时不需要历史记录，选 **Config only**；否则选 **Config + N sessions** 一并迁移。结束后会显示结果摘要。
+只把自己理解的供应商、模型、权限和运行循环设置复制到新的 `config.toml`。将托管账号字段改为明确的本地端点或 BYOK 供应商记录。模板中使用 `YOUR_API_KEY`，真实凭据只放在被 Git 忽略的本地文件或进程环境中。
 
-## 迁移会发生什么
+## 会话和制品
 
-**会被迁移的内容**：配置（`config.toml`）、MCP 服务配置、输入历史，以及你选择迁移的聊天会话。
+会话导入/导出使用带版本的本地协议。从源安装导出会话后先检查归档，只有目标版本报告支持对应 schema 时才导入。不要在安装之间复制活动凭据文件、令牌存储、日志或 Plugin 缓存。
 
-**不会被迁移的内容**：OAuth 登录凭证和 MCP 服务的授权都不会被复制，迁移后需要在 kimi-code 里重新执行 `/login` 和重新授权 MCP 服务。kimi-cli 的插件也不在迁移范围内。
+```sh
+spyderbyte export <session-id> -o ./session-export.zip
+```
 
-::: tip 提示
-迁移**不会改动或删除** `~/.kimi/` 下的任何旧数据。kimi-cli 仍可照常使用，两者互不影响。迁移也可以重复运行，已经迁移过的会话不会被重复导入。
-:::
+如果旧归档无法读取，应将其保留为外部记录并创建新本地会话。Open Core 运行时不得静默通过旧引擎处理不支持的归档。
 
-迁移完成后，从 kimi-cli 导入的会话会带上 `[imported]` 标记，方便你与新建的会话区分。
+## 兼容材料
+
+临时兼容代码位于 `compat/` 下，并从 workspace 构建和发行包依赖图中排除。它不是受支持的运行时依赖。兼容性清单和移除计划记录在 [`PACKAGE_RENAME_MAP.md`](../release/PACKAGE_RENAME_MAP.md) 中。
+
+## 不属于本次迁移的内容
+
+Open Core checkout 不迁移托管身份、订阅、计费、托管 Worker、托管审批或托管供应商额度。这些能力属于商业范围；如果未来提供，需要单独维护发行版。

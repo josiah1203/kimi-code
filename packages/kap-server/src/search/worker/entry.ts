@@ -15,7 +15,7 @@
  * `--experimental-transform-types`: relative imports carry explicit `.ts`
  * specifiers, no decorators, erasable TypeScript only. In particular it must
  * NOT import the service (`searchService.ts`, decorators) or the
- * agent-core-v2 barrel (`.md?raw` imports need a bundler).
+ * SpiderByte Agent Core barrel (`.md?raw` imports need a bundler).
  *
  * Concurrency: requests are handled as their messages arrive (async
  * interleaving, same semantics the in-process service had). A `close`
@@ -27,7 +27,7 @@
 
 import { parentPort, workerData } from 'node:worker_threads';
 
-import { configureTextBuildWorkerRuntime } from '@moonshot-ai/minidb/worker-runtime';
+import { configureTextBuildWorkerRuntime } from '@spiderbyte/minidb/worker-runtime';
 
 import { GlobalSearchError, type GlobalSearchErrorReason } from '../contract.ts';
 import {

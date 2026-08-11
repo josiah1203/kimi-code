@@ -1,7 +1,7 @@
 import type { RequestPermissionResponse } from '@agentclientprotocol/sdk';
-import type { Interaction } from '@moonshot-ai/agent-core-v2';
-import type { SessionHandle } from '@moonshot-ai/klient';
-import type { ToolInputDisplay } from '@moonshot-ai/protocol';
+import type { Interaction } from '@spiderbyte/agent-core';
+import type { SessionHandle } from '@spiderbyte/client';
+import type { ToolInputDisplay } from '@spiderbyte/protocol';
 import { describe, expect, it } from 'vitest';
 
 import type { AcpClient } from '../src/acp-client';

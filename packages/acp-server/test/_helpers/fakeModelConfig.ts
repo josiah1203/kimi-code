@@ -6,7 +6,7 @@
  * Uses the flat model path (`baseUrl` + inline `apiKey` on the Model) so no
  * `[providers.*]` entry is required; the resolver synthesizes a Provider from
  * the `baseUrl` origin and builds a `StaticAuthProvider` from the inline key.
- * The `protocol` is any current `ProtocolSchema` enum value (`'kimi'` was
+ * The `protocol` is any current `ProtocolSchema` enum value (`'example'` was
  * removed from the enum — use `'openai'`) — the scripted registry ignores it.
  */
 

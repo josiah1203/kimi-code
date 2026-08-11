@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { authSummarySchema, type AuthSummary } from '@moonshot-ai/agent-core-v2/app/authLegacy/authLegacy';
+import { authSummarySchema, type AuthSummary } from '@spiderbyte/agent-core/app/authSummary/authSummary';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { type RunningServer, startServer } from '../src/start';
@@ -22,7 +22,7 @@ describe('server-v2 GET /api/v1/auth', () => {
   let base: string;
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-auth-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-auth-'));
   });
 
   afterEach(async () => {
@@ -113,25 +113,4 @@ describe('server-v2 GET /api/v1/auth', () => {
     expect(summary.managed_provider).toBeNull();
   });
 
-  it('surfaces managed_provider.unauthenticated without a cached token', async () => {
-    await boot(
-      [
-        '[providers."managed:kimi-code"]',
-        'type = "kimi"',
-        'base_url = "https://example.test/v1"',
-        '',
-        '[providers."managed:kimi-code".oauth]',
-        'storage = "file"',
-        'key = "oauth/kimi-code"',
-        '',
-      ].join('\n'),
-    );
-    const summary = await getAuth();
-    expect(summary.managed_provider).toEqual({
-      name: 'managed:kimi-code',
-      status: 'unauthenticated',
-    });
-    // No default_model → still not ready, even though the provider exists.
-    expect(summary.ready).toBe(false);
-  });
 });

@@ -10,7 +10,7 @@
  * awaits each push in order — replay is a one-shot batch whose completion
  * ordering is what tells `loadSession` the response is safe to return.
  *
- * Turn / tool-call correlation: agent-core-v2 persists tool calls on the
+ * Turn / tool-call correlation: SpiderByte Agent Core persists tool calls on the
  * assistant message that issued them and tool results as separate `tool`-role
  * messages. ACP needs a single `toolCallId` to correlate the create with its
  * terminal update. Since the persisted history carries no real turn ids, the
@@ -20,7 +20,7 @@
  */
 
 import type { SessionNotification } from '@agentclientprotocol/sdk';
-import type { ContentPart, ContextMessage, ToolCall } from '@moonshot-ai/agent-core-v2';
+import type { ContentPart, ContextMessage, ToolCall } from '@spiderbyte/agent-core';
 
 import {
   assistantDeltaToSessionUpdate,

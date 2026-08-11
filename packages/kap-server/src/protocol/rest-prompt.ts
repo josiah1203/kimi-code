@@ -19,15 +19,15 @@
 
 import { z } from 'zod';
 
-import { isoDateTimeSchema } from '@moonshot-ai/agent-core-v2/_base/utils/isoDateTime';
+import { isoDateTimeSchema } from '@spiderbyte/agent-core/_base/utils/isoDateTime';
 import { messageContentSchema } from './message';
 import {
   promptPermissionModeSchema,
   promptThinkingSchema,
-} from '@moonshot-ai/agent-core-v2/app/sessionLegacy/sessionProtocol';
+} from '@spiderbyte/agent-core/app/sessionLegacy/sessionProtocol';
 
 export { promptPermissionModeSchema, promptThinkingSchema };
-export type { PromptPermissionMode, PromptThinking } from '@moonshot-ai/agent-core-v2/app/sessionLegacy/sessionProtocol';
+export type { PromptPermissionMode, PromptThinking } from '@spiderbyte/agent-core/app/sessionLegacy/sessionProtocol';
 
 export const promptSubmissionSchema = z.object({
   content: z.array(messageContentSchema).min(1),

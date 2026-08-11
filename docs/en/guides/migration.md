@@ -1,40 +1,31 @@
-# Migrating from kimi-cli
+# Migrating to SpiderByte Open Core
 
-::: info
-Kimi Code CLI has gone through a major version upgrade — moving from Python/uv to Node.js, bringing a simpler install experience, faster startup, and a redesigned terminal UI. The legacy version will gradually be phased out, so we recommend upgrading as soon as possible.
-:::
+SpiderByte Open Core is a local Node.js distribution with the `spyderbyte` executable and the unversioned SpiderByte Agent Core runtime. Its supported configuration and data directory is `.spiderbyte`.
 
-If you are migrating from the legacy version, follow the steps below — a single command migrates your config, MCP servers, and session history to the new version.
+## Start with a new local profile
 
-## What's new
-
-- **No more Python / uv**: Rebuilt on Node.js — no Python environment needed, simpler to install
-- **Native binary, works out of the box**: Faster startup, lighter footprint
-- **Redesigned terminal UI**: Smoother, more responsive experience
-- **Full data migration**: Config, MCP servers, and session history all carry over seamlessly
-
-## How to migrate
-
-There are two ways to migrate.
-
-The **first time you run `kimi`** after installing kimi-code, it automatically checks whether kimi-cli data exists under `~/.kimi/`. If it finds any, a migration prompt appears, and you can choose to migrate now, do it later, or never be asked again.
-
-You can also **run it manually at any time**:
+Create a separate data root while evaluating the migration:
 
 ```sh
-kimi migrate
+SPIDERBYTE_HOME="$PWD/.spiderbyte-migration" spyderbyte doctor
 ```
 
-You can choose whether to migrate chat sessions as well. If you don't need the history yet, pick **Config only**; otherwise pick **Config + N sessions** to bring everything across in one go. A summary is printed at the end.
+Copy only the provider, model, permission, and loop settings you understand into the new `config.toml`. Replace any hosted account fields with an explicit local endpoint or a BYOK provider record. Use `YOUR_API_KEY` in templates and set real credentials only in an ignored local file or the process environment.
 
-## What happens during migration
+## Sessions and artifacts
 
-**What gets migrated**: configuration (`config.toml`), MCP server configuration, input history, and whichever chat sessions you chose to migrate.
+Session export/import is a versioned local protocol. Export a session from the source installation, inspect the archive, and import it only when the target reports that its schema version is supported. Do not copy live credential files, token stores, logs, or plugin caches between installations.
 
-**What does not get migrated**: OAuth login credentials and MCP service authorizations are not copied, so you will need to run `/login` again and re-authorize MCP servers after migrating. kimi-cli plugins are also out of scope.
+```sh
+spyderbyte export <session-id> -o ./session-export.zip
+```
 
-::: tip
-Migration **never modifies or deletes** any of the old data under `~/.kimi/`. kimi-cli keeps working as before, and the two do not interfere with each other. Migration can also be run repeatedly — sessions that have already been migrated are not imported again.
-:::
+If an older archive cannot be read, retain it as an external record and start a new local session. The Open Core runtime must not silently route an unsupported archive through a legacy engine.
 
-After migration, sessions imported from kimi-cli are tagged with `[imported]` in the session picker so you can tell them apart from new ones.
+## Compatibility material
+
+Temporary compatibility code is quarantined below `compat/` and is excluded from the workspace build and published package graph. It is not a supported runtime dependency. The compatibility inventory and planned removal decisions are recorded in [`PACKAGE_RENAME_MAP.md`](../release/PACKAGE_RENAME_MAP.md).
+
+## What is not part of this migration
+
+The Open Core checkout does not migrate hosted identity, subscriptions, billing, managed workers, hosted approvals, or managed provider quota. Those capabilities are commercial and require a separately maintained distribution if they are offered in the future.

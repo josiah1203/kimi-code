@@ -1,5 +1,5 @@
 /**
- * Kimi host and device identity header factories.
+ * SpiderByte host and device identity header factories.
  *
  * The caller owns the host identity (product name + host app version)
  * and the `homeDir` where the stable device id is stored. This module
@@ -15,31 +15,31 @@ import { join } from 'node:path';
 
 import type { DeviceHeaders } from './types';
 
-export const KIMI_CODE_PLATFORM = 'kimi_code_cli';
+export const SPIDERBYTE_PLATFORM = 'spiderbyte_cli';
 
-export interface KimiHostIdentity {
+export interface SpiderByteHostIdentity {
   readonly productName: string;
   readonly version: string;
   /**
-   * `X-Msh-Platform` value reported to the OAuth host and managed endpoints
-   * (e.g. `kimi_code_cli`, `kimi_code_desktop`). Every host must state its own
-   * explicitly — `KIMI_CODE_PLATFORM` is the CLI's value, not a default to
+   * `X-Msh-Platform` value reported to an OAuth provider
+   * (e.g. `spiderbyte_cli`, `spiderbyte_desktop`). Every host must state its own
+   * explicitly — `SPIDERBYTE_PLATFORM` is the CLI's value, not a default to
    * inherit silently.
    */
   readonly platform: string;
   readonly userAgentSuffix?: string | undefined;
 }
 
-export interface KimiIdentityOptions extends KimiHostIdentity {
+export interface SpiderByteIdentityOptions extends SpiderByteHostIdentity {
   readonly homeDir: string;
 }
 
-export interface CreateKimiDeviceIdOptions {
+export interface CreateSpiderByteDeviceIdOptions {
   /** Invoked synchronously the first time a device id is minted on this machine. */
   readonly onFirstLaunch?: ((id: string) => void) | undefined;
 }
 
-export function readKimiDeviceId(homeDir: string): string | null {
+export function readSpiderByteDeviceId(homeDir: string): string | null {
   const deviceIdPath = join(homeDir, 'device_id');
   if (!existsSync(deviceIdPath)) return null;
   try {
@@ -50,11 +50,11 @@ export function readKimiDeviceId(homeDir: string): string | null {
   }
 }
 
-export function createKimiDeviceId(
+export function createSpiderByteDeviceId(
   homeDir: string,
-  options: CreateKimiDeviceIdOptions = {},
+  options: CreateSpiderByteDeviceIdOptions = {},
 ): string {
-  const existing = readKimiDeviceId(homeDir);
+  const existing = readSpiderByteDeviceId(homeDir);
   if (existing !== null) return existing;
 
   const id = randomUUID();
@@ -74,7 +74,7 @@ export function createKimiDeviceId(
   return id;
 }
 
-export function createKimiDeviceHeaders(options: {
+export function createSpiderByteDeviceHeaders(options: {
   readonly homeDir: string;
   readonly version: string;
   /** Required and validated like the version: non-empty ASCII, no fallback —
@@ -82,22 +82,22 @@ export function createKimiDeviceHeaders(options: {
   readonly platform: string;
 }): DeviceHeaders {
   return {
-    'X-Msh-Platform': requiredAsciiHeader(options.platform, 'Kimi identity platform'),
-    'X-Msh-Version': requiredAsciiHeader(options.version, 'Kimi identity version'),
+    'X-Msh-Platform': requiredAsciiHeader(options.platform, 'SpiderByte identity platform'),
+    'X-Msh-Version': requiredAsciiHeader(options.version, 'SpiderByte identity version'),
     'X-Msh-Device-Name': asciiHeader(hostname()),
     'X-Msh-Device-Model': asciiHeader(deviceModel()),
     'X-Msh-Os-Version': asciiHeader(release()),
-    'X-Msh-Device-Id': createKimiDeviceId(options.homeDir),
+    'X-Msh-Device-Id': createSpiderByteDeviceId(options.homeDir),
   };
 }
 
-export function createKimiUserAgent(options: {
+export function createSpiderByteUserAgent(options: {
   readonly productName: string;
   readonly version: string;
   readonly userAgentSuffix?: string | undefined;
 }): string {
-  const product = requiredAsciiHeader(options.productName, 'Kimi identity product');
-  const version = requiredAsciiHeader(options.version, 'Kimi identity version');
+  const product = requiredAsciiHeader(options.productName, 'SpiderByte identity product');
+  const version = requiredAsciiHeader(options.version, 'SpiderByte identity version');
   const suffix =
     options.userAgentSuffix === undefined ? undefined : asciiHeader(options.userAgentSuffix, '');
   return suffix === undefined || suffix.length === 0
@@ -107,8 +107,8 @@ export function createKimiUserAgent(options: {
 
 /**
  * Swap the product token of a User-Agent produced by
- * {@link createKimiUserAgent}, keeping the version and optional suffix intact
- * (`kimi-code-cli/1.2.3 (web)` → `acme/1.2.3 (web)`).
+ * {@link createSpiderByteUserAgent}, keeping the version and optional suffix intact
+ * (`spiderbyte-cli/1.2.3 (web)` → `acme/1.2.3 (web)`).
  *
  * Lives next to the builder on purpose: the format knowledge — product token,
  * `/`, version, parenthesized suffix — must exist in exactly one place, so a
@@ -120,15 +120,15 @@ export function createKimiUserAgent(options: {
  * replaced wholesale.
  */
 export function replaceUserAgentProduct(userAgent: string, product: string): string {
-  const cleaned = requiredAsciiHeader(product, 'Kimi identity product');
+  const cleaned = requiredAsciiHeader(product, 'SpiderByte identity product');
   const separator = userAgent.indexOf('/');
   return separator < 0 ? cleaned : `${cleaned}${userAgent.slice(separator)}`;
 }
 
-export function createKimiDefaultHeaders(options: KimiIdentityOptions): Record<string, string> {
+export function createSpiderByteDefaultHeaders(options: SpiderByteIdentityOptions): Record<string, string> {
   return {
-    'User-Agent': createKimiUserAgent(options),
-    ...createKimiDeviceHeaders({
+    'User-Agent': createSpiderByteUserAgent(options),
+    ...createSpiderByteDeviceHeaders({
       homeDir: options.homeDir,
       version: options.version,
       platform: options.platform,
@@ -142,7 +142,7 @@ export function createKimiDefaultHeaders(options: KimiIdentityOptions): Record<s
  * newline-separated `Name: Value` lines; lines without a colon are skipped;
  * names and values are trimmed.
  *
- * These headers form the lowest-precedence layer — the Kimi identity headers
+ * These headers form the lowest-precedence layer — the SpiderByte identity headers
  * (User-Agent, X-Msh-*), per-provider `customHeaders`, and request auth
  * (Authorization) all override them.
  *
@@ -150,12 +150,12 @@ export function createKimiDefaultHeaders(options: KimiIdentityOptions): Record<s
  * environment-derived and stateless (re-read on every call) so callers can
  * apply it uniformly without plumbing the value through every host layer.
  */
-export const KIMI_CODE_CUSTOM_HEADERS_ENV = 'KIMI_CODE_CUSTOM_HEADERS';
+export const SPIDERBYTE_CUSTOM_HEADERS_ENV = 'SPIDERBYTE_CUSTOM_HEADERS';
 
-export function parseKimiCodeCustomHeaders(
+export function parseSpiderByteCustomHeaders(
   env: NodeJS.ProcessEnv = process.env,
 ): Record<string, string> {
-  const raw = env[KIMI_CODE_CUSTOM_HEADERS_ENV]?.trim();
+  const raw = env[SPIDERBYTE_CUSTOM_HEADERS_ENV]?.trim();
   if (raw === undefined || raw.length === 0) return {};
   const headers: Record<string, string> = {};
   for (const line of raw.split('\n')) {
@@ -168,12 +168,12 @@ export function parseKimiCodeCustomHeaders(
   return headers;
 }
 
-export function assertKimiHostIdentity(identity: KimiHostIdentity | undefined): KimiHostIdentity {
+export function assertSpiderByteHostIdentity(identity: SpiderByteHostIdentity | undefined): SpiderByteHostIdentity {
   if (identity === undefined) {
-    throw new Error('Kimi host identity is required. Pass the host product name and version.');
+    throw new Error('SpiderByte host identity is required. Pass the host product name and version.');
   }
-  requiredAsciiHeader(identity.productName, 'Kimi identity product');
-  requiredAsciiHeader(identity.version, 'Kimi identity version');
+  requiredAsciiHeader(identity.productName, 'SpiderByte identity product');
+  requiredAsciiHeader(identity.version, 'SpiderByte identity version');
   return identity;
 }
 

@@ -35,12 +35,12 @@ import {
   ISessionWorkspaceContext,
   getLiveSessionById,
   type Scope,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import type {
   FsChangeEntry,
   FsChangeEvent,
   IWorkspaceFsWatchSubscription,
-} from '@moonshot-ai/agent-core-v2/workspace/workspaceFs/fsWatch';
+} from '@spiderbyte/agent-core/workspace/workspaceFs/fsWatch';
 
 import type { EventEnvelope, JournalLogger } from './sessionEventJournal';
 

@@ -13,7 +13,7 @@
  *   3. the model id is on the {@link TOGGLEABLE_THINKING_MODELS} allow-list.
  */
 
-import type { ModelCatalogItem } from '@moonshot-ai/klient';
+import type { ModelCatalogItem } from '@spiderbyte/client';
 
 /**
  * One catalog row per configured model, suitable for an ACP picker.
@@ -42,7 +42,7 @@ export interface AcpModelEntry {
  * Models that support thinking by toggle (not by name match or capability
  * declaration). ACP-picker-specific UX.
  */
-const TOGGLEABLE_THINKING_MODELS = new Set(['kimi-for-coding', 'kimi-code']);
+const TOGGLEABLE_THINKING_MODELS = new Set<string>();
 
 export function deriveThinkingSupported(item: ModelCatalogItem): boolean {
   const capabilities = item.capabilities ?? [];

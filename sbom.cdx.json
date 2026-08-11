@@ -31,7 +31,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/acp-adapter"
+          "value": "@spiderbyte/acp-adapter"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -50,7 +50,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/acp-server"
+          "value": "@spiderbyte/acp-server"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -69,7 +69,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -88,7 +88,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core-v2"
+          "value": "@spiderbyte/agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -107,7 +107,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -126,7 +126,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/kap-server"
+          "value": "@spiderbyte/kap-server"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -145,7 +145,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/kap-server"
+          "value": "@spiderbyte/kap-server"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -164,7 +164,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -183,7 +183,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core-v2"
+          "value": "@spiderbyte/agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -202,7 +202,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/vis-server"
+          "value": "@spiderbyte/vis-server"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -221,7 +221,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -240,7 +240,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/kimi-code"
+          "value": "@spiderbyte/cli"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -259,7 +259,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -273,7 +273,7 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/acp-adapter",
+      "name": "@spiderbyte/acp-adapter",
       "version": "0.3.6",
       "properties": [
         {
@@ -288,7 +288,7 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/acp-server",
+      "name": "@spiderbyte/acp-server",
       "version": "0.0.0",
       "properties": [
         {
@@ -303,7 +303,7 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/agent-core-v2",
+      "name": "@spiderbyte/agent-core",
       "version": "0.3.1",
       "properties": [
         {
@@ -318,12 +318,12 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/agent-core-v2",
+      "name": "@spiderbyte/agent-core",
       "version": "workspace:^",
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/acp-server"
+          "value": "@spiderbyte/acp-server"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -337,7 +337,7 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/agent-core",
+      "name": "@spiderbyte/legacy-agent-core",
       "version": "0.15.7",
       "properties": [
         {
@@ -352,12 +352,12 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/agent-core",
+      "name": "@spiderbyte/legacy-agent-core",
       "version": "workspace:^",
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/acp-adapter"
+          "value": "@spiderbyte/acp-adapter"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -371,7 +371,7 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/kaos",
+      "name": "@spiderbyte/kaos",
       "version": "0.1.6",
       "properties": [
         {
@@ -386,12 +386,12 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/kaos",
+      "name": "@spiderbyte/kaos",
       "version": "workspace:^",
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/acp-adapter"
+          "value": "@spiderbyte/acp-adapter"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -405,7 +405,7 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/kap-server",
+      "name": "@spiderbyte/kap-server",
       "version": "0.2.1",
       "properties": [
         {
@@ -420,7 +420,7 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/kimi-code-oauth",
+      "name": "@spiderbyte/oauth",
       "version": "0.3.0",
       "properties": [
         {
@@ -435,12 +435,12 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/kimi-code-oauth",
+      "name": "@spiderbyte/oauth",
       "version": "workspace:^",
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -454,7 +454,7 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/kimi-code-sdk",
+      "name": "@spiderbyte/sdk",
       "version": "0.15.3",
       "properties": [
         {
@@ -469,12 +469,12 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/kimi-code-sdk",
+      "name": "@spiderbyte/sdk",
       "version": "workspace:^",
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/acp-adapter"
+          "value": "@spiderbyte/acp-adapter"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -488,12 +488,12 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/kimi-code",
+      "name": "@spiderbyte/cli",
       "version": "0.34.0",
       "properties": [
         {
           "name": "org.spyderbyte.source.path",
-          "value": "apps/kimi-code"
+          "value": "apps/spyderbyte"
         },
         {
           "name": "org.spyderbyte.license.declared",
@@ -503,7 +503,7 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/kimi-inspect",
+      "name": "@spiderbyte/inspect",
       "version": "0.0.0",
       "properties": [
         {
@@ -518,7 +518,7 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/kimi-telemetry",
+      "name": "@spiderbyte/telemetry",
       "version": "0.1.1",
       "properties": [
         {
@@ -533,7 +533,7 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/klient",
+      "name": "@spiderbyte/client",
       "version": "0.1.1",
       "properties": [
         {
@@ -548,12 +548,12 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/klient",
+      "name": "@spiderbyte/client",
       "version": "workspace:^",
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/acp-server"
+          "value": "@spiderbyte/acp-server"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -567,7 +567,7 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/kosong",
+      "name": "@spiderbyte/kosong",
       "version": "0.5.5",
       "properties": [
         {
@@ -582,12 +582,12 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/kosong",
+      "name": "@spiderbyte/kosong",
       "version": "workspace:^",
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -601,7 +601,7 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/migration-legacy",
+      "name": "@spiderbyte/legacy-migration",
       "version": "0.1.16",
       "properties": [
         {
@@ -616,12 +616,12 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/migration-legacy",
+      "name": "@spiderbyte/legacy-migration",
       "version": "workspace:^",
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -635,7 +635,7 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/minidb",
+      "name": "@spiderbyte/minidb",
       "version": "0.2.0",
       "properties": [
         {
@@ -650,12 +650,12 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/minidb",
+      "name": "@spiderbyte/minidb",
       "version": "workspace:*",
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/kap-server"
+          "value": "@spiderbyte/kap-server"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -669,12 +669,12 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/minidb",
+      "name": "@spiderbyte/minidb",
       "version": "workspace:^",
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core-v2"
+          "value": "@spiderbyte/agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -688,7 +688,7 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/monorepo",
+      "name": "@spiderbyte/monorepo",
       "version": "0.1.1",
       "properties": [
         {
@@ -703,7 +703,7 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/pi-tui",
+      "name": "@spiderbyte/pi-tui",
       "version": "0.80.8",
       "properties": [
         {
@@ -718,7 +718,7 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/protocol",
+      "name": "@spiderbyte/protocol",
       "version": "0.5.0",
       "properties": [
         {
@@ -733,12 +733,12 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/protocol",
+      "name": "@spiderbyte/protocol",
       "version": "workspace:^",
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/acp-server"
+          "value": "@spiderbyte/acp-server"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -752,7 +752,7 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/transcript",
+      "name": "@spiderbyte/transcript",
       "version": "0.0.1",
       "properties": [
         {
@@ -767,12 +767,12 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/transcript",
+      "name": "@spiderbyte/transcript",
       "version": "workspace:^",
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/kap-server"
+          "value": "@spiderbyte/kap-server"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -786,7 +786,7 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/tree-sitter-bash",
+      "name": "@spiderbyte/tree-sitter-bash",
       "version": "0.1.0",
       "properties": [
         {
@@ -801,12 +801,12 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/tree-sitter-bash",
+      "name": "@spiderbyte/tree-sitter-bash",
       "version": "workspace:^",
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core-v2"
+          "value": "@spiderbyte/agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -820,7 +820,7 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/vis-server",
+      "name": "@spiderbyte/vis-server",
       "version": "0.1.1",
       "properties": [
         {
@@ -835,7 +835,7 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/vis-web",
+      "name": "@spiderbyte/vis-web",
       "version": "0.1.1",
       "properties": [
         {
@@ -850,7 +850,7 @@
     },
     {
       "type": "library",
-      "name": "@moonshot-ai/vis",
+      "name": "@spiderbyte/vis",
       "version": "0.1.1",
       "properties": [
         {
@@ -870,7 +870,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -889,7 +889,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -908,7 +908,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -927,7 +927,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/kimi-inspect"
+          "value": "@spiderbyte/inspect"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -946,7 +946,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/vis-web"
+          "value": "@spiderbyte/vis-web"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -965,7 +965,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -984,7 +984,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1003,7 +1003,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1022,7 +1022,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/kap-server"
+          "value": "@spiderbyte/kap-server"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1041,7 +1041,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1060,7 +1060,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1079,7 +1079,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1098,7 +1098,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1117,7 +1117,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1136,7 +1136,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/kap-server"
+          "value": "@spiderbyte/kap-server"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1155,7 +1155,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1174,7 +1174,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/pi-tui"
+          "value": "@spiderbyte/pi-tui"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1193,7 +1193,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1212,7 +1212,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/vis-server"
+          "value": "@spiderbyte/vis-server"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1231,7 +1231,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1250,7 +1250,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1269,7 +1269,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1288,7 +1288,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1307,7 +1307,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1321,7 +1321,7 @@
     },
     {
       "type": "library",
-      "name": "kimi-code-docs",
+      "name": "spyderbyte-docs",
       "properties": [
         {
           "name": "org.spyderbyte.source.path",
@@ -1335,7 +1335,7 @@
     },
     {
       "type": "library",
-      "name": "kimi-code",
+      "name": "spyderbyte",
       "version": "0.6.7",
       "properties": [
         {
@@ -1355,7 +1355,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1374,7 +1374,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/pi-tui"
+          "value": "@spiderbyte/pi-tui"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1393,7 +1393,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code-docs"
+          "value": "spyderbyte-docs"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1412,7 +1412,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1431,7 +1431,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1450,7 +1450,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1469,7 +1469,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1488,7 +1488,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core-v2"
+          "value": "@spiderbyte/agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1507,7 +1507,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1526,7 +1526,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1545,7 +1545,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/kap-server"
+          "value": "@spiderbyte/kap-server"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1564,7 +1564,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1583,7 +1583,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1602,7 +1602,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/kimi-inspect"
+          "value": "@spiderbyte/inspect"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1621,7 +1621,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1640,7 +1640,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/vis-web"
+          "value": "@spiderbyte/vis-web"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1659,7 +1659,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1678,7 +1678,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1697,7 +1697,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/kimi-inspect"
+          "value": "@spiderbyte/inspect"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1716,7 +1716,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1735,7 +1735,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1754,7 +1754,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1773,7 +1773,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1792,7 +1792,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1811,7 +1811,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1830,7 +1830,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1849,7 +1849,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1868,7 +1868,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1887,7 +1887,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/kaos"
+          "value": "@spiderbyte/kaos"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1906,7 +1906,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1925,7 +1925,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1944,7 +1944,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1963,7 +1963,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -1982,7 +1982,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -2001,7 +2001,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code-docs"
+          "value": "spyderbyte-docs"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -2020,7 +2020,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code-docs"
+          "value": "spyderbyte-docs"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -2039,7 +2039,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/kap-server"
+          "value": "@spiderbyte/kap-server"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -2058,7 +2058,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -2077,7 +2077,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core-v2"
+          "value": "@spiderbyte/agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -2096,7 +2096,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/kosong"
+          "value": "@spiderbyte/kosong"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -2115,7 +2115,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/agent-core"
+          "value": "@spiderbyte/legacy-agent-core"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -2134,7 +2134,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "@moonshot-ai/kap-server"
+          "value": "@spiderbyte/kap-server"
         },
         {
           "name": "org.spyderbyte.source.section",
@@ -2153,7 +2153,7 @@
       "properties": [
         {
           "name": "org.spyderbyte.source.package",
-          "value": "kimi-code"
+          "value": "spyderbyte"
         },
         {
           "name": "org.spyderbyte.source.section",

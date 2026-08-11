@@ -85,7 +85,7 @@ export interface ExtraBody {
   thinking?: ThinkingConfig;
   [key: string]: unknown;
 }
-const KIMI_TOOL_CALL_ID_POLICY: ToolCallIdPolicy = {
+const SPIDERBYTE_TOOL_CALL_ID_POLICY: ToolCallIdPolicy = {
   normalize: (id) => sanitizeToolCallId(id, 64),
   maxLength: 64,
 };
@@ -429,9 +429,9 @@ export class KimiChatProvider implements ChatProvider {
   private _reasoningKeyDialect: ReasoningKeyDialect;
 
   constructor(options: KimiOptions) {
-    const apiKey = options.apiKey ?? process.env['KIMI_API_KEY'];
+    const apiKey = options.apiKey ?? process.env['SPIDERBYTE_API_KEY'];
     this._apiKey = apiKey === undefined || apiKey.length === 0 ? undefined : apiKey;
-    this._baseUrl = options.baseUrl ?? process.env['KIMI_BASE_URL'] ?? 'https://api.moonshot.ai/v1';
+    this._baseUrl = options.baseUrl ?? process.env['SPIDERBYTE_BASE_URL'] ?? 'https://api.moonshot.ai/v1';
     this._defaultHeaders = options.defaultHeaders;
     this._clientFactory = options.clientFactory;
     this._model = options.model;
@@ -505,7 +505,7 @@ export class KimiChatProvider implements ChatProvider {
     // The kimi provider never pins an explicit reasoning key, so the dialect
     // always resolves to one of the known wire keys.
     const reasoningKey = this._reasoningKeyDialect.outboundKey() as ReasoningKey;
-    const normalizedHistory = normalizeToolCallIdsForProvider(history, KIMI_TOOL_CALL_ID_POLICY);
+    const normalizedHistory = normalizeToolCallIdsForProvider(history, SPIDERBYTE_TOOL_CALL_ID_POLICY);
     for (const msg of normalizedHistory) {
       messages.push(convertMessage(msg, preservedThinkingEnabled, reasoningKey));
     }
@@ -594,7 +594,7 @@ export class KimiChatProvider implements ChatProvider {
     // Replace extra_body.thinking wholesale so a stale `effort` from a previous
     // withThinking call can never linger on a disabled or non-effort thinking
     // object — but carry over a `keep` set earlier via withExtraBody (the
-    // KIMI_MODEL_THINKING_KEEP path applies keep after withThinking and merges
+    // SPIDERBYTE_MODEL_THINKING_KEEP path applies keep after withThinking and merges
     // on top, so it is unaffected either way).
     const oldExtra = this._generationKwargs.extra_body ?? {};
     const keep = oldExtra.thinking?.keep;

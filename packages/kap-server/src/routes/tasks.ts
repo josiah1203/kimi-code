@@ -2,7 +2,7 @@
  * `/sessions/{session_id}/tasks*` REST routes — server-v2 port.
  *
  * Implements the v1 `/api/v1/sessions/{sid}/tasks` wire contract on top of
- * `agent-core-v2` (REST.md §3.7):
+ * `SpiderByte Agent Core` (REST.md §3.7):
  *
  *   GET  /sessions/{session_id}/tasks                 query: {status?}        data: {items[]}
  *   GET  /sessions/{session_id}/tasks/{task_id}       query: {with_output?,
@@ -44,7 +44,7 @@ import {
   getLiveSessionById,
   type AgentTaskInfo,
   type Scope,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import { ErrorCode } from '../protocol/error-codes';
 import {
   cancelTaskResultSchema,

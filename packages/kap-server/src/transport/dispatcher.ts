@@ -15,7 +15,7 @@ import {
   type IScopeHandle,
   type Scope,
   type ServiceIdentifier,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 
 import type { ScopeKind } from './channel';
 import { resolveAnyScopedServiceId } from './channelRegistry';

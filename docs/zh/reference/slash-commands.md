@@ -1,6 +1,6 @@
 # 斜杠命令
 
-斜杠命令是 Kimi Code CLI 在交互式 TUI 中提供的内置控制命令，涵盖账号配置、会话管理、模式切换、信息查询等操作。在输入框中输入 `/` 即可触发命令补全，候选列表随后续字符实时过滤；命令的别名也会一并参与匹配。
+斜杠命令是 SpiderByte CLI 在交互式 TUI 中提供的本地控制命令，涵盖供应商配置、会话管理、模式切换和信息查询。在输入框中输入 `/` 即可触发命令补全。
 
 输入完整命令名后按 `Enter` 执行。如果输入的 `/` 开头内容不匹配任何内置或 Skill 命令，则按普通消息发送给 Agent。
 
@@ -8,13 +8,12 @@
 部分命令仅在空闲（idle）状态下可用。会话正在流式输出或压缩上下文时执行这些命令会被拦截，需先按 `Esc` 或 `Ctrl-C` 中断。下表「随时可用」列标注了流式输出期间也可用的命令。
 :::
 
-## 账号与配置
+## 供应商和配置
 
 | 命令 | 别名 | 说明 | 随时可用 |
 | --- | --- | --- | --- |
-| `/login` | — | 选择账号或平台并登录：Kimi Code 走 OAuth 验证码流程，Kimi Platform 通过 API 密钥登录 | 否 |
-| `/logout` | — | 清除当前所选账号的凭据 | 否 |
-| `/provider` | — | 打开交互式供应商管理器，查看、添加和删除已配置的供应商。详见[平台与模型 — `/provider` 与供应商管理](../configuration/providers.md#provider-—-交互式供应商管理) | 是 |
+| `/connect` | — | 配置本地或 BYOK 供应商连接 | 否 |
+| `/disconnect` | — | 删除已配置的供应商连接 | 否 |
 | `/model` | — | 切换当前会话使用的 LLM 模型 | 是 |
 | `/secondary_model` | — | 配置子 Agent 默认绑定的次主力模型（写入 [`[secondary_model]`](../configuration/config-files.md#secondary-model) 配置并在当前会话立即生效）。需开启 `secondary-model` 实验功能 | 是 |
 | `/settings` | `/config` | 打开 TUI 内的设置面板 | 是 |
@@ -36,10 +35,10 @@
 | `/undo [<count>]` | — | 从当前上下文撤销最近的提示词。不带数量时打开选择器；带数量时撤销对应条数。最后一次上下文压缩之前的提示词不能撤销。撤销会一并回滚这些提示词产生的 todo 列表和计划模式状态（不回滚代码改动） | 否 |
 | `/init` | — | 分析当前代码库并生成 `AGENTS.md` | 否 |
 | `/export-md [<path>]` | `/export` | 将当前会话导出为 Markdown 文件 | 否 |
-| `/export-debug-zip` | — | 将当前会话导出为调试用 ZIP 压缩包（与 [`kimi export`](./kimi-command.md#kimi-export) 行为一致） | 否 |
+| `/export-debug-zip` | — | 将当前会话导出为调试用 ZIP 压缩包（与 [`spyderbyte export`](./spyderbyte-command.md#spyderbyte-export) 行为一致） | 否 |
 | `/copy` | — | 将最后一条 AI 回复复制到剪贴板 | 否 |
-| `/add-dir [<path>]` | — | 为当前会话添加额外的工作目录。不带路径（或传入 `list`）运行时列出已配置的目录。添加时可选择是否将目录记入项目的 `.kimi-code/local.toml` | 否 |
-| `/web` | — | 在 web UI 中打开当前会话：选择一个运行中的实例进行连接，或在 TUI 退出后新开一个前台服务器。参见 [`kimi web`](./kimi-command.md#kimi-web) | 是 |
+| `/add-dir [<path>]` | — | 为当前会话添加额外的工作目录。不带路径（或传入 `list`）运行时列出已配置的目录。添加时可选择是否将目录记入项目的 `.spiderbyte/local.toml` | 否 |
+| `/web` | — | 在 web UI 中打开当前会话：选择一个运行中的实例进行连接，或在 TUI 退出后新开一个前台服务器。参见 [`spyderbyte web`](./spyderbyte-command.md#spiderbyte-web) | 是 |
 
 ## 模式与运行控制
 
@@ -59,7 +58,7 @@
 
 ## 目标模式
 
-`/goal` 用于开始或管理目标模式：Kimi Code 会在自动续跑的轮次中持续朝一个持久目标工作。使用指导和示例见[使用目标模式](../guides/goals.md)。
+`/goal` 用于开始或管理目标模式：SpiderByte 会在自动续跑的轮次中持续朝一个持久目标工作。使用指导和示例见[使用目标模式](../guides/goals.md)。
 
 ```sh
 /goal 更新 checkout 文档，运行 docs build，如果 20 轮后仍被阻塞就停止
@@ -90,10 +89,10 @@
 在非交互式 prompt 模式中，只有创建形式会启动目标模式：
 
 ```sh
-kimi -p "/goal 修复 checkout 测试失败"
+spyderbyte -p "/goal 修复 checkout 测试失败"
 ```
 
-Prompt 模式在目标完成时以退出码 `0` 退出，在目标阻塞时以 `3` 退出，在目标暂停时以 `6` 退出。其它 `/goal` 子命令，包括 `next`，都是 TUI 控制命令，不由 `kimi -p` 处理。
+Prompt 模式在目标完成时以退出码 `0` 退出，在目标阻塞时以 `3` 退出，在目标暂停时以 `6` 退出。其它 `/goal` 子命令，包括 `next`，都是 TUI 控制命令，不由 `spyderbyte -p` 处理。
 
 ## 信息与状态
 
@@ -101,29 +100,28 @@ Prompt 模式在目标完成时以退出码 `0` 退出，在目标阻塞时以 `
 | --- | --- | --- | --- |
 | `/help` | `/h`、`/?` | 显示快捷键和所有可用命令 | 是 |
 | `/btw [问题]` | — | 在 fork 出的子 Agent 中打开旁路对话，不改变当前主 Agent 轮次；不带问题时会先打开面板等待输入 | 是 |
-| `/usage` | — | 显示 token 用量、上下文占用以及配额信息 | 是 |
+| `/usage` | — | 显示本地 token 用量和上下文占用 | 是 |
 | `/status` | — | 显示当前会话运行时状态：版本、模型、工作目录、权限模式等 | 是 |
 | `/mcp` | — | 列出当前会话中的 MCP server 及连接状态 | 是 |
 | `/plugins` | — | 打开交互式 plugin 管理器 | 是 |
-| `/version` | — | 显示 Kimi Code CLI 版本号 | 是 |
-| `/feedback` | `/bug` | 提交反馈，可附加诊断日志和代码库上下文 | 是 |
+| `/version` | — | 显示 SpiderByte CLI 版本号 | 是 |
 
 ## 退出
 
 | 命令 | 别名 | 说明 | 随时可用 |
 | --- | --- | --- | --- |
-| `/exit` | `/quit`、`/q` | 退出 Kimi Code CLI | 否 |
+| `/exit` | `/quit`、`/q` | 退出 SpiderByte CLI | 否 |
 
 ## 内置 Skill 命令
 
-Kimi Code CLI 随包内置了一组 Skill，直接以 `/<name>` 形式出现在斜杠命令面板中。与外部 Skill 不同，它们不需要 `skill:` 前缀，开箱即用。
+SpiderByte CLI 随包内置了一组 Skill，直接以 `/<name>` 形式出现在斜杠命令面板中。与外部 Skill 不同，它们不需要 `skill:` 前缀，开箱即用。
 
 | 命令 | 说明 |
 | --- | --- |
 | `/mcp-config` | 配置 MCP server 并处理 MCP OAuth 登录。详见 [MCP](../customization/mcp.md) |
 | `/custom-theme [<text>]` | 创建或编辑自定义 TUI 配色主题。详见 [主题](../customization/themes.md) |
 | `/update-config` | 查看或编辑 `config.toml`（模型、供应商、权限、hooks）和 `tui.toml`（主题、编辑器、通知、自动更新） |
-| `/check-kimi-code-docs` | 依据官方文档回答 Kimi Code 产品问题（CLI 用法、配置、会员、错误码） |
+| `/check-spiderbyte-docs` | 依据仓库文档回答 SpiderByte Open Core 问题（CLI 用法、配置和本地错误） |
 | `/import-from-cc-codex` | 从 Claude Code 和 Codex 导入 instructions、skills 和 MCP 设置 |
 | `/sub-skill` | 发现并将本地 skill 库存重组为分层子 skill 包。包含 `/sub-skill.review`（只读提案）和 `/sub-skill.consolidate`（执行重组） |
 
@@ -149,7 +147,7 @@ Kimi Code CLI 随包内置了一组 Skill，直接以 `/<name>` 形式出现在�
 
 为方便输入，外部 Skill 命令同时支持省略 `skill:` 前缀的简写形式 `/<name>`，前提是该名称未被系统斜杠命令占用——即 `/code-style` 会回退匹配到 `/skill:code-style`。
 
-Kimi Code CLI 随包内置的 Skill 会直接以 `/<name>` 形式出现在斜杠命令面板中。例如，`/mcp-config` 用于配置 MCP server 和处理 MCP OAuth 登录，`/custom-theme [附加文本]` 用于进入自定义主题流程，创建或编辑 TUI 主题。
+SpiderByte CLI 随包内置的 Skill 会直接以 `/<name>` 形式出现在斜杠命令面板中。例如，`/mcp-config` 用于配置 MCP server 和处理 MCP OAuth 登录，`/custom-theme [附加文本]` 用于进入自定义主题流程，创建或编辑 TUI 主题。
 
 ::: info 说明
 所有 Skill 命令仅在空闲状态下可用。`flow` 类型的 Skill 同样通过 `/skill:<name>` 暴露，没有独立的 `/flow:` 命名空间。

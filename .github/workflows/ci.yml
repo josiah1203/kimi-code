@@ -26,7 +26,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
       - name: Smoke test CLI bundle
-        run: pnpm -C apps/kimi-code run smoke
+        run: pnpm -C apps/cli run smoke
 
   test:
     runs-on: ubuntu-latest
@@ -64,7 +64,7 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @moonshot-ai/pi-tui test
+      - run: pnpm --filter @spiderbyte/pi-tui test
 
   test-windows:
     runs-on: windows-latest
@@ -121,13 +121,9 @@ jobs:
       - name: Typecheck
         run: |
           pnpm dlx --package @typescript/native-preview@beta tsgo --version
-          for config in packages/*/tsconfig.json apps/kimi-code/tsconfig.json; do
+          for config in packages/*/tsconfig.json apps/cli/tsconfig.json; do
             echo "Typechecking ${config}"
             pnpm dlx --package @typescript/native-preview@beta tsgo -p "${config}" --noEmit
           done
       - name: Typecheck VS Code extension
-        run: pnpm --filter kimi-code run typecheck
-      - name: Typecheck vis-server
-        run: pnpm --filter @moonshot-ai/vis-server run typecheck
-      - name: Typecheck vis-web
-        run: pnpm --filter @moonshot-ai/vis-web run typecheck
+        run: pnpm --filter spiderbyte-vscode run typecheck

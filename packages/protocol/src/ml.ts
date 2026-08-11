@@ -113,7 +113,7 @@ export const trainingRunSchema = z.strictObject({
   status: trainingStatusSchema,
   execution_target_id: executionTargetIdSchema.optional(),
   execution_target_policy_decision_id: platformIdentifierSchema.optional(),
-  executor: z.enum(['local', 'customer-managed', 'customer-cloud', 'managed']),
+  executor: z.enum(['local', 'customer-managed']),
   dataset_artifact_id: artifactIdSchema,
   metrics: z.record(z.string(), z.number().finite()),
   checkpoint_artifact_ids: z.array(artifactIdSchema),

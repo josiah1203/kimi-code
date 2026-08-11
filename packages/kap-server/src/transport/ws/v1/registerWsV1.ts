@@ -8,7 +8,7 @@
  * bootstrap.
  */
 
-import type { Scope } from '@moonshot-ai/agent-core-v2';
+import type { Scope } from '@spiderbyte/agent-core';
 import { WebSocketServer } from 'ws';
 
 import type { CredentialValidator } from '../../../services/auth/credentials';

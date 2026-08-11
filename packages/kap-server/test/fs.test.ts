@@ -2,7 +2,7 @@ import { chmod, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { IModelCatalog } from '@moonshot-ai/agent-core-v2';
+import { IModelCatalog } from '@spiderbyte/agent-core';
 import { ErrorCode } from '../src/protocol/error-codes';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -37,8 +37,8 @@ describe('server-v2 /api/v1 fs routes', () => {
   let base: string;
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-fs-home-'));
-    work = await mkdtemp(join(tmpdir(), 'kimi-server-v2-fs-work-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-fs-home-'));
+    work = await mkdtemp(join(tmpdir(), 'spiderbyte-server-fs-work-'));
     const modelCatalog: IModelCatalog = {
       _serviceBrand: undefined,
       get: () => {
@@ -213,7 +213,7 @@ describe('server-v2 /api/v1 fs routes', () => {
 
   it('fs:search resolves a registered workspace id when no session exists', async () => {
     await writeFile(join(work!, 'gamma.ts'), '');
-    // Register the workspace without creating any session (the kimi-web
+    // Register the workspace without creating any session (the spiderbyte-web
     // new-session draft addresses the workspace directly).
     const res = await fetch(`${base}/api/v1/workspaces`, {
       method: 'POST',
@@ -283,7 +283,7 @@ describe('server-v2 /api/v1 fs routes', () => {
   });
 
   it('rejects reads and downloads that escape the workspace through a symlink', async () => {
-    const outside = await mkdtemp(join(tmpdir(), 'kimi-server-v2-fs-outside-'));
+    const outside = await mkdtemp(join(tmpdir(), 'spiderbyte-server-fs-outside-'));
     try {
       await writeFile(join(outside, 'secret.txt'), 'top-secret');
       await symlink(outside, join(work!, 'docs'), 'dir');
@@ -303,7 +303,7 @@ describe('server-v2 /api/v1 fs routes', () => {
   });
 
   it('serves fs actions when the session cwd itself goes through a symlink', async () => {
-    const link = join(tmpdir(), `kimi-server-v2-fs-cwd-link-${process.pid}`);
+    const link = join(tmpdir(), `spiderbyte-server-fs-cwd-link-${process.pid}`);
     await symlink(work!, link, 'dir');
     try {
       const res = await fetch(`${base}/api/v1/sessions`, {

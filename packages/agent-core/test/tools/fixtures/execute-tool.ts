@@ -3,8 +3,8 @@ import type {
   ExecutableToolContext,
   ExecutableToolResult,
   ToolExecution,
-} from '../../../src/loop';
-import { PathSecurityError } from '../../../src/tools/policies/path-access';
+} from '#/tool/toolContract';
+import { PathSecurityError } from '#/tool/path-access';
 
 export type TestExecutableToolContext<Input> = ExecutableToolContext & {
   readonly args: Input;

@@ -101,7 +101,7 @@ export function toolToOpenAI(tool: Tool): OpenAIToolParam {
 // OpenAI's own documented signal that the account quota/balance is exhausted:
 // the API sets `insufficient_quota` as both the body `error.type` and
 // `error.code` on a 429. This is protocol knowledge of the OpenAI wire — the
-// equivalent vendor-specific signals (e.g. Moonshot's
+// equivalent vendor-specific signals (e.g. upstream provider's
 // `exceeded_current_quota_error`) live with their vendor and reach this
 // converter through the optional `convertErrorHook` instead.
 export function isOpenAIInsufficientQuotaCode(code: string | null | undefined): boolean {
@@ -210,7 +210,7 @@ export function extractUsage(usage: unknown): TokenUsage | null {
   const completionTokens = typeof u['completion_tokens'] === 'number' ? u['completion_tokens'] : 0;
 
   let cached = 0;
-  // Moonshot proprietary: top-level cached_tokens
+  // upstream provider proprietary: top-level cached_tokens
   if (typeof u['cached_tokens'] === 'number') {
     cached = u['cached_tokens'];
   } else if (
@@ -234,7 +234,7 @@ export function extractUsage(usage: unknown): TokenUsage | null {
  * Normalize an OpenAI Chat Completions–style `finish_reason` string to the
  * unified {@link FinishReason} enum.
  *
- * Used by both the Kimi and OpenAI Legacy adapters because they share the
+ * Used by both the external provider and OpenAI Legacy adapters because they share the
  * Chat Completions wire format. Returns `{ finishReason: null,
  * rawFinishReason: null }` when the upstream value is missing or `null` so
  * callers can treat "no signal" uniformly.

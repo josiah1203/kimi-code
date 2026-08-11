@@ -6,4 +6,8 @@ export default defineConfig({
   dts: true,
   outDir: 'dist',
   clean: true,
+  deps: {
+    alwaysBundle: [/^@spiderbyte\/agent-core(?:\/|$)/, /^@spiderbyte\/client(?:\/|$)/],
+    neverBundle: [],
+  },
 });

@@ -33,7 +33,7 @@ import {
   type IAgentScopeHandle,
   type Scope,
   type WireRecord,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 
 import type { Message, MessageRole } from '../../protocol/message';
 import { toProtocolMessage } from './messageProjection';

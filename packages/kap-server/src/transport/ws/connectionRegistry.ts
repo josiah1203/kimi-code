@@ -9,7 +9,7 @@
  *
  * Owned by the server bootstrap (`start.ts`) and passed by parameter to the WS
  * layers and the route. It is intentionally NOT registered into the
- * `agent-core-v2` Core `Scope`: the registry is transport state, not a business
+ * `SpiderByte Agent Core` Core `Scope`: the registry is transport state, not a business
  * service, so it carries no `_serviceBrand` and is not DI-managed.
  */
 

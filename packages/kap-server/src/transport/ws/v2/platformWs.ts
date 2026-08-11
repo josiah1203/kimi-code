@@ -1,18 +1,18 @@
 /** `/api/v2/platform/ws` — replayable workspace platform event stream. */
 
-import type { Scope } from '@moonshot-ai/agent-core-v2';
+import type { Scope } from '@spiderbyte/agent-core';
 import {
   IFlagService,
   IWorkspaceLifecycleService,
   IWorkspacePlatformEventService,
   IWorkspaceService,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import {
   platformEntityTypeSchema,
   platformLifecycleEventTypeSchema,
   type PlatformLifecycleEvent,
   type PlatformReplayPage,
-} from '@moonshot-ai/protocol';
+} from '@spiderbyte/protocol';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { z } from 'zod';
 

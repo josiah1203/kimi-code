@@ -24,7 +24,7 @@ import {
   ISessionToolPolicy,
   IModelCatalog,
   type ExecutableTool,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import {
   listMcpServersResponseSchema,
   listToolsResponseSchema,
@@ -57,7 +57,7 @@ describe('server-v2 /api/v1 tools + mcp', () => {
   let base: string;
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-server-v2-tools-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-tools-'));
     const modelCatalog: IModelCatalog = {
       _serviceBrand: undefined,
       get: () => {

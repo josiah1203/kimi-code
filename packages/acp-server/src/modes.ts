@@ -13,7 +13,7 @@
  */
 
 import type { SessionMode } from '@agentclientprotocol/sdk';
-import type { PermissionMode } from '@moonshot-ai/agent-core-v2';
+import type { PermissionMode } from '@spiderbyte/agent-core';
 
 /**
  * Canonical 4-mode taxonomy. Order matters: the array is rendered as-is by the

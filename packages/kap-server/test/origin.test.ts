@@ -76,7 +76,7 @@ describe('parseCorsOrigins', () => {
   it('splits, trims, and drops empties', () => {
     expect(
       parseCorsOrigins({
-        KIMI_CODE_CORS_ORIGINS: ' https://a.example.com, https://b.example.com, ',
+        SPIDERBYTE_CORS_ORIGINS: ' https://a.example.com, https://b.example.com, ',
       }),
     ).toEqual(['https://a.example.com', 'https://b.example.com']);
   });
@@ -162,13 +162,13 @@ describe('createOriginHook (onRequest hook)', () => {
         origin: 'https://foo.example.com',
         host: 'localhost:80',
         'access-control-request-method': 'GET',
-        'access-control-request-headers': 'x-request-id, x-kimi-client-version, authorization',
+        'access-control-request-headers': 'x-request-id, x-spiderbyte-client-version, authorization',
       },
     });
     expect(res.statusCode).toBe(204);
     expect(res.headers['access-control-allow-origin']).toBe('https://foo.example.com');
     expect(res.headers['access-control-allow-headers']).toBe(
-      'x-request-id, x-kimi-client-version, authorization',
+      'x-request-id, x-spiderbyte-client-version, authorization',
     );
   });
 
@@ -180,7 +180,7 @@ describe('createOriginHook (onRequest hook)', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.headers['access-control-allow-headers']).toBe(
-      'Content-Type, Authorization, X-Kimi-Client-Id, X-Kimi-Client-Name, X-Kimi-Client-Version, X-Kimi-Client-Ui-Mode',
+      'Content-Type, Authorization, X-SpiderByte-Client-Id, X-SpiderByte-Client-Name, X-SpiderByte-Client-Version, X-SpiderByte-Client-Ui-Mode',
     );
   });
 });

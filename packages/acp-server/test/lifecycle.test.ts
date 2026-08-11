@@ -1,67 +1,27 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-  IOAuthToolkit,
   ISessionLifecycleService,
   ISessionMcpHandle,
   IWorkspaceDirs,
   IWorkspaceLifecycleService,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import type { SessionSummary } from '@moonshot-ai/klient';
+import type { SessionSummary } from '@spiderbyte/client';
 
 import { filterSessionSummariesByCwd } from '../src/server';
 import { createTestClient, type TestClient } from './_helpers/acpClient';
 import { writeFakeModelConfig } from './_helpers/fakeModelConfig';
 import { createScriptedProvider } from './_helpers/scriptedProvider';
 
-/** Real stdio MCP fixture server from the agent-core-v2 test suite. */
+/** Real stdio MCP fixture server from the SpiderByte Agent Core test suite. */
 const STDIO_MCP_FIXTURE = fileURLToPath(
-  new URL('../../agent-core-v2/test/mcpCore/fixtures/mock-stdio-server.mjs', import.meta.url),
+  new URL('../../SpiderByte Agent Core/test/mcpCore/fixtures/mock-stdio-server.mjs', import.meta.url),
 );
-
-/**
- * config.toml declaring one OAuth provider so `auth.summarize()` considers it;
- * the token itself lives in the seeded fake `IOAuthToolkit`.
- */
-const OAUTH_PROVIDER_CONFIG = `[providers.test-oauth]
-type = "kimi"
-baseUrl = "http://localhost"
-
-[providers.test-oauth.oauth]
-storage = "file"
-key = "test-key"
-`;
-
-/**
- * In-memory `IOAuthToolkit` stub: starts logged in, `logout()` clears the
- * token. Seeded at App scope so the real `OAuthService` / `AuthSummaryService`
- * chain runs against it.
- */
-function createFakeOAuthToolkit(): {
-  readonly seed: readonly [typeof IOAuthToolkit, IOAuthToolkit];
-  hasToken(): boolean;
-} {
-  let token: string | undefined = 'fake-token';
-  const fake = {
-    login: () => Promise.reject(new Error('fakeOAuthToolkit: login not implemented')),
-    logout: (providerName?: string) => {
-      token = undefined;
-      return Promise.resolve({ providerName: providerName ?? 'test-oauth' });
-    },
-    getCachedAccessToken: () => Promise.resolve(token),
-    tokenProvider: () => {
-      throw new Error('fakeOAuthToolkit: tokenProvider not implemented');
-    },
-    getManagedUsage: () => Promise.reject(new Error('fakeOAuthToolkit: not implemented')),
-    getManagedUserInfo: () => Promise.reject(new Error('fakeOAuthToolkit: not implemented')),
-  } as unknown as IOAuthToolkit;
-  return { seed: [IOAuthToolkit, fake], hasToken: () => token !== undefined };
-}
 
 describe('acp-server session lifecycle', () => {
   let homeDir: string | undefined;
@@ -302,7 +262,7 @@ describe('acp-server session lifecycle', () => {
             name: 'mock',
             command: process.execPath,
             args: [STDIO_MCP_FIXTURE],
-            env: [{ name: 'KIMI_TEST_MCP_START_DELAY_MS', value: '0' }],
+            env: [{ name: 'SPIDERBYTE_TEST_MCP_START_DELAY_MS', value: '0' }],
           },
         ],
       })) as { sessionId: string };
@@ -381,52 +341,6 @@ describe('acp-server session lifecycle', () => {
       const notification = await c.waitForSessionUpdate('session_info_update', 10_000);
       const update = (notification.params as { update?: { title?: string | null } }).update;
       expect(update?.title).toBe('Renamed Session');
-    },
-    30_000,
-  );
-
-  it(
-    'logout drops the token and the auth gate closes again',
-    async () => {
-      homeDir = await mkdtemp(join(tmpdir(), 'acp-logout-'));
-      await writeFile(join(homeDir, 'config.toml'), OAUTH_PROVIDER_CONFIG, 'utf8');
-      const toolkit = createFakeOAuthToolkit();
-      client = await createTestClient({
-        homeDir,
-        disableAuth: false,
-        extraSeeds: [toolkit.seed],
-      });
-      const c = client;
-      await c.send('initialize', { protocolVersion: 1, clientCapabilities: {} });
-
-      // Provider hydration from config.toml is async (kosongConfig initialize
-      // → providerService.loadAll); wait until summarize sees the fake token.
-      await expect
-        .poll(
-          async () => (await c.server.klient.global.auth.summarize()).some((s) => s.loggedIn),
-          { timeout: 10_000 },
-        )
-        .toBe(true);
-
-      // Logged in (fake token present): the gate lets session/new through.
-      const created = (await c.send('session/new', { cwd: homeDir, mcpServers: [] })) as {
-        sessionId: string;
-      };
-      expect(created.sessionId).toMatch(/^session_/);
-
-      await c.send('logout', {});
-      expect(toolkit.hasToken()).toBe(false);
-
-      // Logged out: the summarize-driven gate rejects with auth_required.
-      await expect
-        .poll(
-          async () => (await c.server.klient.global.auth.summarize()).some((s) => s.loggedIn),
-          { timeout: 10_000 },
-        )
-        .toBe(false);
-      await expect(c.send('session/new', { cwd: homeDir, mcpServers: [] })).rejects.toThrow(
-        /[Aa]uthentication required/,
-      );
     },
     30_000,
   );

@@ -1,21 +1,21 @@
 {
-  "name": "@moonshot-ai/agent-core",
-  "version": "0.15.7",
-  "private": true,
-  "description": "The unified agent engine for Kimi",
+  "name": "@spiderbyte/agent-core",
+  "version": "0.3.1",
+  "private": false,
+  "description": "SpiderByte Agent Core — DI × Scope runtime",
   "license": "MIT",
-  "author": "Moonshot AI",
-  "homepage": "https://github.com/MoonshotAI/kimi-code/tree/main/packages/agent-core#readme",
+  "author": "SpiderByte contributors",
+  "homepage": "https://github.com/SpiderByte/spiderbyte/tree/main/packages/agent-core#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/MoonshotAI/kimi-code.git",
+    "url": "git+https://github.com/SpiderByte/spiderbyte.git",
     "directory": "packages/agent-core"
   },
   "bugs": {
-    "url": "https://github.com/MoonshotAI/kimi-code/issues"
+    "url": "https://github.com/SpiderByte/spiderbyte/issues"
   },
   "keywords": [
-    "kimi",
+    "spiderbyte",
     "agent",
     "ai",
     "llm",
@@ -23,26 +23,11 @@
     "tools"
   ],
   "files": [
-    "dist"
+    "dist",
+    "src"
   ],
   "type": "module",
   "imports": {
-    "#/agent": "./src/agent/index.ts",
-    "#/agent/background": "./src/agent/background/index.ts",
-    "#/agent/compaction": "./src/agent/compaction/index.ts",
-    "#/agent/config": "./src/agent/config/index.ts",
-    "#/agent/context": "./src/agent/context/index.ts",
-    "#/agent/cron": "./src/agent/cron/index.ts",
-    "#/agent/goal": "./src/agent/goal/index.ts",
-    "#/agent/permission": "./src/agent/permission/index.ts",
-    "#/agent/plan": "./src/agent/plan/index.ts",
-    "#/agent/swarm": "./src/agent/swarm/index.ts",
-    "#/agent/tool": "./src/agent/tool/index.ts",
-    "#/config": "./src/config/index.ts",
-    "#/flags": "./src/flags/index.ts",
-    "#/loop": "./src/loop/index.ts",
-    "#/rpc": "./src/rpc/index.ts",
-    "#/session": "./src/session/index.ts",
     "#/*": "./src/*.ts"
   },
   "exports": {
@@ -54,10 +39,6 @@
       "types": "./package.json",
       "default": "./package.json"
     },
-    "./session/store": {
-      "types": "./src/session/store/index.ts",
-      "default": "./src/session/store/index.ts"
-    },
     "./*": {
       "types": "./src/*.ts",
       "default": "./src/*.ts"
@@ -66,19 +47,25 @@
   "scripts": {
     "build": "tsdown",
     "test": "vitest run",
-    "test:baseline": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "gen:contract-types": "node scripts/gen-contract-types.mjs",
+    "gen:config-manifest": "tsx --import ../../build/register-raw-text-loader.mjs scripts/gen-config-manifest.mts",
+    "gen:wire-manifest": "tsx --import ../../build/register-raw-text-loader.mjs scripts/gen-wire-manifest.mts",
+    "gen:state-manifest": "tsx scripts/gen-state-manifest.mts",
+    "lint:imports": "node scripts/check-import-boundaries.mjs",
     "clean": "rm -rf dist"
   },
   "dependencies": {
     "@antfu/utils": "^9.3.0",
+    "@anthropic-ai/sdk": "^0.95.2",
+    "@google/genai": "^1.49.0",
     "@jsquash/webp": "^1.5.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@moonshot-ai/kaos": "workspace:^",
-    "@moonshot-ai/kimi-code-oauth": "workspace:^",
-    "@moonshot-ai/kosong": "workspace:^",
-    "@moonshot-ai/protocol": "workspace:^",
     "@mozilla/readability": "^0.6.0",
+    "@spiderbyte/minidb": "workspace:^",
+    "@spiderbyte/oauth": "workspace:^",
+    "@spiderbyte/protocol": "workspace:^",
+    "@spiderbyte/tree-sitter-bash": "workspace:^",
     "ajv": "^8.18.0",
     "ajv-formats": "^3.0.1",
     "chokidar": "^4.0.3",
@@ -87,12 +74,9 @@
     "js-yaml": "^4.1.1",
     "linkedom": "^0.18.12",
     "node-pty": "^1.1.0",
-    "nunjucks": "^3.2.4",
-    "open": "^10.2.0",
+    "openai": "^6.34.0",
     "pathe": "^2.0.3",
     "picomatch": "^4.0.4",
-    "proper-lockfile": "^4.1.2",
-    "regexp.escape": "^2.0.1",
     "retry": "0.13.1",
     "smol-toml": "^1.6.1",
     "socks": "^2.8.9",
@@ -100,20 +84,36 @@
     "ulid": "^3.0.1",
     "undici": "^7.27.1",
     "yauzl": "^3.3.0",
+    "yazl": "^3.3.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
-    "@types/nunjucks": "^3.2.6",
     "@types/picomatch": "^4.0.3",
-    "@types/proper-lockfile": "^4.1.4",
-    "@types/regexp.escape": "^2.0.0",
     "@types/retry": "0.12.0",
     "@types/sinon": "^21.0.1",
     "@types/tar": "^7.0.87",
     "@types/yauzl": "^2.10.3",
     "@types/yazl": "^2.4.6",
     "sinon": "^22.0.0",
-    "yazl": "^3.3.1"
+    "ts-morph": "^28.0.0",
+    "tsx": "^4.21.0"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.mts",
+        "import": "./dist/index.mjs",
+        "default": "./dist/index.mjs"
+      },
+      "./package.json": "./package.json",
+      "./*": {
+        "types": "./src/*.ts"
+      }
+    }
   }
 }

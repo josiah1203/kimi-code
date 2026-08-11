@@ -1,9 +1,10 @@
 /**
- * acp-server bootstrap — wires `@moonshot-ai/agent-core-v2` (the DI × Scope
+ * acp-server bootstrap — wires `@spiderbyte/agent-core` (the DI × Scope
  * engine) into an ACP (Agent Client Protocol) stdio server.
  *
- * Composition root: `bootstrap()` builds the App `Scope`; a `@moonshot-ai/
- * klient` facade over the in-memory transport is created on top of it, and
+ * Composition root: `bootstrap()` builds the App `Scope`; a
+ * `@spiderbyte/client` facade over the in-memory transport is created on top
+ * of it, and
  * every ACP method handler drives the engine through that facade. The
  * ACP-backed `IHostFileSystem` (./acp-fs) is imported for its Session-scope
  * registration side effect (see the import below) — being registered on the
@@ -25,14 +26,14 @@ import {
   ISessionIndexMirror,
   logSeed,
   resolveConfigPath,
-  resolveKimiHome,
+  resolveSpiderByteHome,
   resolveLoggingConfig,
   type Scope,
   type ScopeSeed,
   sessionMediaOriginalsDir,
-} from '@moonshot-ai/agent-core-v2';
-import type { Klient } from '@moonshot-ai/klient';
-import { createKlient } from '@moonshot-ai/klient/memory';
+} from '@spiderbyte/agent-core';
+import type { Klient } from '@spiderbyte/client';
+import { createKlient } from '@spiderbyte/client/memory';
 
 import { acpClientFromContext } from './acp-client';
 // Importing the `acp-fs` barrel also registers the ACP-backed Session-scope
@@ -83,7 +84,7 @@ function redirectConsoleToStderr(): void {
 /**
  * Drive an {@link AcpServer} over an arbitrary ACP {@link Stream}.
  *
- * Boots `agent-core-v2`, creates the in-memory `Klient` facade over the app
+ * Boots SpiderByte Agent Core, creates the in-memory client facade over the app
  * scope, binds the ACP client connection into {@link IAcpConnection} (so the
  * `acp` `IHostFileSystem` can reverse-RPC file IO), and resolves when the
  * connection closes.
@@ -92,7 +93,7 @@ export async function runAcpServerWithStream(
   stream: Stream,
   opts: RunAcpServerOptions = {},
 ): Promise<RunningAcpServer> {
-  const homeDir = resolveKimiHome(opts.homeDir);
+  const homeDir = resolveSpiderByteHome(opts.homeDir);
   const configPath = resolveConfigPath({ homeDir, configPath: opts.configPath });
   // `ILogOptions` (logSeed) is required by the Session-scoped log writer; any
   // session creation would otherwise fail to instantiate the Session scope.
@@ -102,16 +103,16 @@ export async function runAcpServerWithStream(
   // session index all persist to disk. `clientIdentity` is required by the
   // engine: reuse the advertised ACP `agentInfo` (the embedding CLI's
   // name/version) with the CLI platform — the literal matches
-  // `KIMI_CODE_PLATFORM` from `@moonshot-ai/kimi-code-oauth`, which this
+  // `SPIDERBYTE_PLATFORM` from `@spiderbyte/oauth`, which this
   // package does not depend on.
   const { app: core } = bootstrap(
     {
       homeDir,
       configPath,
       clientIdentity: {
-        productName: opts.agentInfo?.name ?? 'kimi-code-acp',
+        productName: opts.agentInfo?.name ?? 'spyderbyte-acp',
         version: opts.agentInfo?.version ?? '0.0.0',
-        platform: 'kimi_code_cli',
+        platform: 'spiderbyte_acp',
       },
     },
     [...logSeed(logging), ...(opts.extraSeeds ?? [])],
@@ -140,8 +141,6 @@ export async function runAcpServerWithStream(
   server = new AcpServer(client, klient, acpConnection, {
     agentInfo: opts.agentInfo,
     disableAuth: opts.disableAuth,
-    terminalAuthEnv: opts.terminalAuthEnv,
-    terminalAuthLegacyCommand: opts.terminalAuthLegacyCommand,
     slashCommands: opts.slashCommands,
     // Prompt-image compression persists originals into the session's own
     // media-originals dir (same resolution as kap-server's prompt route):

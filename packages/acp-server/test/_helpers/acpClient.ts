@@ -38,7 +38,7 @@ export interface TestClient {
 
 /**
  * Build an in-memory ACP client/server pair for tests. The server boots a real
- * `agent-core-v2` rooted at `homeDir`; the client speaks raw ND-JSON JSON-RPC
+ * `SpiderByte Agent Core` rooted at `homeDir`; the client speaks raw ND-JSON JSON-RPC
  * over a `PassThrough` stream pair.
  */
 export async function createTestClient(opts: {

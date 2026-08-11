@@ -2,7 +2,7 @@
  * `/sessions` route handlers — server-v2 port.
  *
  * Implements the v1 `/api/v1/sessions` wire contract on top of
- * `agent-core-v2` services:
+ * `SpiderByte Agent Core` services:
  *   POST   /sessions                  create
  *   GET    /sessions                  list
  *   GET    /sessions/{session_id}     get
@@ -104,7 +104,7 @@ import {
   type IAgentScopeHandle,
   type Scope,
   type SessionSummary,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 import { ErrorCode } from '../protocol/error-codes';
 import { pageResponseSchema } from '../protocol/pagination';
 import { toProtocolMessage } from '../services/messages/messageProjection';

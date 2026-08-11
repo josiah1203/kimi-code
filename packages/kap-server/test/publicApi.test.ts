@@ -21,7 +21,7 @@ describe('server-v2 public API', () => {
   });
 
   it('exports rotateServerToken and serverTokenPath', async () => {
-    tmpDir = mkdtempSync(join(tmpdir(), 'kimi-server-v2-public-api-'));
+    tmpDir = mkdtempSync(join(tmpdir(), 'spiderbyte-server-public-api-'));
     const token = await rotateServerToken(tmpDir);
     expect(typeof token).toBe('string');
     expect(token.length).toBeGreaterThan(0);

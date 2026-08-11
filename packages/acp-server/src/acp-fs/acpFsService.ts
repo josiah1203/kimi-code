@@ -10,7 +10,7 @@
  * while App-scope consumers (persistence, skill loading, workspace registry)
  * keep using the real local disk.
  *
- * Lives in `acp-server` (not `agent-core-v2`) because it is ACP-specific: the
+ * Lives in `acp-server` (not `SpiderByte Agent Core`) because it is ACP-specific: the
  * engine stays agnostic of the ACP client, and only this host binds the client
  * connection.
  */
@@ -25,7 +25,7 @@ import {
   LifecycleScope,
   registerScopedService,
   ScopeActivation,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 
 import { IAcpConnection } from './acpConnection';
 

@@ -3,5 +3,5 @@
   "compilerOptions": {
     "experimentalDecorators": true
   },
-  "include": ["src", "test", "../agent-core-v2/src/env.d.ts"]
+  "include": ["src", "test", "../agent-core/src/env.d.ts"]
 }

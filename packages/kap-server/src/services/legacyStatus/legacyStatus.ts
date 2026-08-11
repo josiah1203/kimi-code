@@ -11,7 +11,7 @@
  * always forwards a real, consistent context-window value.
  *
  * Temporary bridge while the v2 wire contract still exposes the slices
- * separately — defined at the kap-server edge rather than in agent-core-v2 so
+ * separately — defined at the kap-server edge rather than in SpiderByte Agent Core so
  * the core engine stays free of v1 wire-compatibility concerns.
  */
 
@@ -24,9 +24,9 @@ import {
   SECONDARY_DERIVED_MODEL_ID,
   type IAgentScopeHandle,
   type UsageStatus,
-} from '@moonshot-ai/agent-core-v2';
-import type { AgentActivityState } from '@moonshot-ai/agent-core-v2';
-import type { TurnEndReason } from '@moonshot-ai/agent-core-v2/agent/loop/turnEvents';
+} from '@spiderbyte/agent-core';
+import type { AgentActivityState } from '@spiderbyte/agent-core';
+import type { TurnEndReason } from '@spiderbyte/agent-core/agent/loop/turnEvents';
 
 /**
  * The v1 `phase` field of the combined `agent.status.updated` payload — a

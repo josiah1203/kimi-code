@@ -12,7 +12,7 @@
  * `agents.main.homedir` written with the original value). Also proves the
  * snapshot route serves the layout end-to-end (cold resume from disk).
  * Wiring: real kap-server on a temp home.
- * Run: `pnpm --filter @moonshot-ai/kap-server exec vitest run test/workspaceLayout.test.ts`.
+ * Run: `pnpm --filter @spiderbyte/kap-server exec vitest run test/workspaceLayout.test.ts`.
  */
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -23,7 +23,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   IAgentLifecycleService,
   getLiveSessionById,
-} from '@moonshot-ai/agent-core-v2';
+} from '@spiderbyte/agent-core';
 
 import { type RunningServer, startServer } from '../src/start';
 import { authHeaders } from './helpers/auth';
@@ -44,8 +44,8 @@ describe('local/local on-disk layout (byte compatibility)', () => {
   const homes: string[] = [];
 
   beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'kimi-layout-home-'));
-    workDir = await mkdtemp(join(tmpdir(), 'kimi-layout-work-'));
+    home = await mkdtemp(join(tmpdir(), 'spiderbyte-layout-home-'));
+    workDir = await mkdtemp(join(tmpdir(), 'spiderbyte-layout-work-'));
     homes.push(home, workDir);
     server = await startServer({
       host: '127.0.0.1',

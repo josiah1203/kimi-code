@@ -23,7 +23,6 @@ export type BudgetReservationId = z.infer<typeof budgetReservationIdSchema>;
 export const businessRoleSchema = z.enum([
   'organization_owner',
   'organization_administrator',
-  'billing_administrator',
   'security_policy_administrator',
   'project_administrator',
   'operator',
@@ -34,7 +33,7 @@ export const businessRoleSchema = z.enum([
 
 export type BusinessRole = z.infer<typeof businessRoleSchema>;
 
-export const organizationModeSchema = z.enum(['local', 'hosted']);
+export const organizationModeSchema = z.literal('local');
 export type OrganizationMode = z.infer<typeof organizationModeSchema>;
 
 export const organizationSchema = z.strictObject({
@@ -112,7 +111,6 @@ export const projectBindingKindSchema = z.enum([
   'execution_target',
   'policy',
   'budget',
-  'entitlement',
   'artifact_retention',
   'automation',
 ]);
@@ -170,72 +168,6 @@ export const projectBindingRemoveInputSchema = z.strictObject({
 });
 
 export type ProjectBindingRemoveInput = z.infer<typeof projectBindingRemoveInputSchema>;
-
-export const platformIdentityModeSchema = z.enum(['local', 'hosted']);
-export type PlatformIdentityMode = z.infer<typeof platformIdentityModeSchema>;
-
-export const platformIdentityStatusSchema = z.strictObject({
-  mode: platformIdentityModeSchema,
-  authenticated: z.boolean(),
-  credential_class: z.literal('account'),
-  authority: z.string().url().optional(),
-  expires_at: z.number().int().positive().optional(),
-});
-
-export type PlatformIdentityStatus = z.infer<typeof platformIdentityStatusSchema>;
-
-export const platformIdentityPkceStartSchema = z.strictObject({
-  flow_id: platformIdentifierSchema,
-  authorization_url: z.string().url(),
-  state: z.string().min(1),
-  code_verifier: z.string().min(1),
-  redirect_uri: z.string().url(),
-  expires_at: isoDateTimeSchema,
-});
-
-export type PlatformIdentityPkceStart = z.infer<typeof platformIdentityPkceStartSchema>;
-
-export const platformIdentityPkceCompleteInputSchema = z.strictObject({
-  flow_id: platformIdentifierSchema,
-  state: z.string().min(1),
-  code: z.string().min(1),
-});
-
-export type PlatformIdentityPkceCompleteInput = z.infer<typeof platformIdentityPkceCompleteInputSchema>;
-
-export const platformIdentityDeviceStartSchema = z.strictObject({
-  flow_id: platformIdentifierSchema,
-  device_code: z.string().min(1),
-  user_code: z.string().min(1),
-  verification_uri: z.string().url(),
-  verification_uri_complete: z.string().url().optional(),
-  expires_in: z.number().int().positive(),
-  interval: z.number().int().positive(),
-});
-
-export type PlatformIdentityDeviceStart = z.infer<typeof platformIdentityDeviceStartSchema>;
-
-export const platformIdentityDevicePollInputSchema = z.strictObject({
-  flow_id: platformIdentifierSchema,
-});
-
-export type PlatformIdentityDevicePollInput = z.infer<typeof platformIdentityDevicePollInputSchema>;
-
-export const platformIdentityDevicePollResultSchema = z.discriminatedUnion('status', [
-  z.strictObject({ status: z.literal('authenticated'), identity: platformIdentityStatusSchema }),
-  z.strictObject({ status: z.literal('pending'), retry_after: z.number().int().positive() }),
-  z.strictObject({ status: z.literal('expired') }),
-  z.strictObject({ status: z.literal('denied'), reason: z.string() }),
-]);
-
-export type PlatformIdentityDevicePollResult = z.infer<typeof platformIdentityDevicePollResultSchema>;
-
-export const platformIdentityLogoutResultSchema = z.strictObject({
-  logged_out: z.boolean(),
-  identity: platformIdentityStatusSchema,
-});
-
-export type PlatformIdentityLogoutResult = z.infer<typeof platformIdentityLogoutResultSchema>;
 
 export const platformCapabilitySchema = z.enum([
   'project.read',
@@ -457,9 +389,8 @@ export const budgetScopeSchema = z.enum([
 export type BudgetScope = z.infer<typeof budgetScopeSchema>;
 
 export const budgetMeterSchema = z.enum([
-  'managed_llm',
-  'managed_compute',
-  'customer_cloud_execution',
+  'model',
+  'execution',
   'artifact_storage',
   'plugin_usage',
 ]);

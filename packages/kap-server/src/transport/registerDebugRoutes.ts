@@ -14,7 +14,7 @@
  * so the base path here is relative: `/debug`.
  */
 
-import type { Scope } from '@moonshot-ai/agent-core-v2';
+import type { Scope } from '@spiderbyte/agent-core';
 
 import { describeAllChannels, resolveAnyScopedServiceId } from './channelRegistry';
 import { type RouteHost, registerServiceDispatcherRoutes } from './serviceDispatcherRoutes';

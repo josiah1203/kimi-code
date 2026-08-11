@@ -4,10 +4,10 @@
  * Mirrors `packages/server/src/routes/terminals.ts` path-for-path and
  * schema-for-schema so existing v1 clients keep working against server-v2.
  * Backed by the v2 Session-scoped `ISessionTerminalService`
- * (`agent-core-v2/src/session/terminal`): the route resolves the session from
+ * (`SpiderByte Agent Core/src/session/terminal`): the route resolves the session from
  * the URL, then dispatches to the matching `ISessionTerminalService` method.
  * The wire schema comes from the engine's own terminal contract
- * (`agent-core-v2`).
+ * (`SpiderByte Agent Core`).
  *
  * The v2 service is Session-scoped (one instance owns only its own session's
  * terminals), so unlike v1 the methods do not take a `session_id` — the session
@@ -28,8 +28,8 @@ import {
   isError2,
   Error2,
   type Scope,
-} from '@moonshot-ai/agent-core-v2';
-import { createTerminalRequestSchema } from '@moonshot-ai/agent-core-v2/os/interface/terminal';
+} from '@spiderbyte/agent-core';
+import { createTerminalRequestSchema } from '@spiderbyte/agent-core/os/interface/terminal';
 import { z } from 'zod';
 
 import { errEnvelope, okEnvelope } from '../envelope';

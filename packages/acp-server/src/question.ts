@@ -1,5 +1,5 @@
 /**
- * ACP `session/request_permission` ↔ agent-core-v2 ask-user mappers.
+ * ACP `session/request_permission` ↔ SpiderByte Agent Core ask-user mappers.
  *
  * ACP has no dedicated `session/request_question` method, so the AskUserQuestion
  * tool's question request is bridged through the same `requestPermission`
@@ -16,7 +16,7 @@ import type {
   PermissionOption,
   RequestPermissionResponse,
 } from '@agentclientprotocol/sdk';
-import type { QuestionAnswers, QuestionItem } from '@moonshot-ai/agent-core-v2';
+import type { QuestionAnswers, QuestionItem } from '@spiderbyte/agent-core';
 
 /**
  * `optionId` namespace for the AskUserQuestion bridge.

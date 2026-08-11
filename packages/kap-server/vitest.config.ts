@@ -2,7 +2,7 @@ import { defineConfig } from 'vitest/config';
 
 import { rawTextPlugin } from '../../build/raw-text-plugin.mjs';
 
-// `rawTextPlugin` is required because server-v2 pulls in agent-core-v2's full
+// `rawTextPlugin` is required because server-v2 pulls in SpiderByte Agent Core's full
 // barrel, which imports `*.md?raw` prompt templates.
 export default defineConfig({
   plugins: [rawTextPlugin()],

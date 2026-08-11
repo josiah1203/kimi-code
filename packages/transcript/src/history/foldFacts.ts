@@ -51,7 +51,7 @@ export interface HistoryWireRecord {
 
 // ---------------------------------------------------------------------------
 // Record payload shapes (structural reads of the engine op payloads — see
-// `agent-core-v2` goal/plan/swarm/todo/task/interaction ops).
+// `SpiderByte Agent Core` goal/plan/swarm/todo/task/interaction ops).
 // ---------------------------------------------------------------------------
 
 /** `tools.update_store` payload. */

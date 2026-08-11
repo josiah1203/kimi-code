@@ -3,35 +3,43 @@
   "product": {
     "name": "SpiderByte",
     "primary_command": "spyderbyte",
-    "compatibility_commands": ["kimi"],
-    "implementation_identity": "Kimi-derived runtime"
+    "compatibility_commands": [],
+    "implementation_identity": "SpiderByte Agent Core"
+  },
+  "release_authority": {
+    "migration_plan": "docs/release/SPIDERBYTE_OPEN_CORE_MIGRATION_PLAN.md",
+    "package_rename_map": "docs/release/PACKAGE_RENAME_MAP.md",
+    "open_core_boundary": "docs/architecture/OPEN_CORE_BOUNDARY.md",
+    "machine_readable_authority": "config/spiderbyte-release-authority.json",
+    "baseline": "docs/release/SPIDERBYTE_OPEN_CORE_BASELINE.json",
+    "inventory_command": "pnpm run inventory:release",
+    "phase_0_verification_command": "pnpm run verify:phase-0"
   },
   "graduation_status": {
     "status": "not-ready",
-    "code_implementation": "substantial local Kimi-plus-Aug platform slice exists, including local organization/project governance and budget reservations",
-    "consumer_integration": "partial; provider, Run, ML, governance, budgets, REST/WebSocket, SDK, Klient, MCP, and ACP paths are exercised",
-    "user_reachability": "partial; CLI/TUI/desktop branding is migrating, but external web source and documentation remain legacy-branded",
-    "verification": "controlled local tests pass; boundary, branding, licensing, hosted identity, live provider, and integration gates remain blocked",
-    "production_readiness": "blocked by commercial package coupling, unavailable hosted identity authority, missing hosted provider adapters, missing external frontend source, unresolved ownership, and absent Slack/Teams integrations"
+    "code_implementation": "canonical local accountless runtime is present; release readiness is gated by the verification matrix",
+    "consumer_integration": "CLI/TUI, local REST/WebSocket, SDK, client facade, MCP, ACP, provider configuration, persistence, and local governance are in the Open Core graph",
+    "user_reachability": "local accountless and BYOK workflows are supported; the browser frontend is an external surface and is not packaged",
+    "verification": "not-ready until the final boundary, branding, packaging, dependency, security, licensing, SBOM, clean-checkout, and CI gates pass",
+    "production_readiness": "not claimed; hosted Business and Enterprise capabilities remain excluded from this checkout"
   },
   "open_core": {
     "packages": [
-      "apps/kimi-code",
-      "packages/agent-core-v2",
-      "packages/acp-adapter",
+      "apps/cli",
+      "packages/agent-core",
       "packages/acp-server",
       "packages/kaos",
       "packages/kap-server",
-      "packages/klient",
+      "packages/client",
       "packages/kosong",
-      "packages/migration-legacy",
       "packages/minidb",
-      "packages/node-sdk",
+      "packages/sdk",
       "packages/oauth",
       "packages/pi-tui",
       "packages/protocol",
       "packages/telemetry",
-      "packages/transcript"
+      "packages/transcript",
+      "packages/tree-sitter-bash"
     ],
     "required_interfaces": [
       "ProviderConnection",
@@ -53,32 +61,33 @@
     "external_frontend_source": {
       "repository": "code-app",
       "path": "apps/web",
-      "generated_bundle": "apps/kimi-code/dist-web",
-      "status": "not-present-in-this-repository"
+      "generated_bundle": null,
+      "required_for_open_core": false,
+      "distribution": "external",
+      "status": "external-source-not-present; no generated bundle is packaged"
     },
     "legacy_compatibility_paths": [
-      "apps/kimi-code/src/cli/v2",
-      "packages/acp-adapter/src",
-      "packages/acp-server/src",
-      "packages/migration-legacy/src",
-      "packages/node-sdk/src"
+      "compat/legacy-acp-adapter/src",
+      "compat/legacy-migration/src",
+      "compat/legacy-agent-core",
+      "compat/legacy-sdk",
+      "compat/legacy-cli"
     ]
   },
   "commercial": {
     "package_prefixes": [
-      "@spyderbyte/commercial",
-      "@spyderbyte/enterprise",
-      "@spyderbyte/hosted"
+      "@spiderbyte/commercial",
+      "@spiderbyte/enterprise",
+      "@spiderbyte/hosted"
     ],
     "implementation_paths": [
-      "packages/agent-core-v2/src/workspace/commercial"
     ],
-    "public_contract_paths": [
-      "packages/kap-server/src/routes/v2/platform.ts",
-      "packages/klient/src/contract/global/platform.ts",
-      "packages/klient/src/core/facade/global.ts",
-      "packages/klient/src/transports/memory/serviceRegistry.ts"
+    "excluded_implementation_paths": [
+      "compat/commercial-agent-core",
+      "compat/commercial-cli",
+      "compat/commercial-oauth"
     ],
+    "public_contract_paths": [],
     "capabilities": [
       "hosted account tenancy",
       "managed identity",
@@ -111,7 +120,7 @@
       "provider": "kimi",
       "status": "controlled-tested",
       "evidence": "providerRuntimeService.test.ts matrix case",
-      "legacy_bypass": "legacy Kimi compatibility path remains available when platform mode is disabled"
+      "legacy_bypass": "none; external-provider adapter is selected only by explicit local configuration"
     },
     {
       "provider": "openai",
@@ -123,7 +132,7 @@
       "provider": "openrouter",
       "status": "controlled-tested",
       "evidence": "providerRuntimeService.test.ts OpenRouter registry and endpoint case",
-      "legacy_bypass": "managed credentials and live provider calls remain outside the local conformance suite"
+      "legacy_bypass": "managed credentials and live provider calls are outside Open Core by design"
     },
     {
       "provider": "anthropic",
@@ -158,9 +167,9 @@
   ],
   "oauth_conformance": {
     "account": {
-      "status": "adapter-controlled-tested-authority-unavailable",
-      "current": "SpiderByte account OAuth adapter in packages/oauth; hosted issuer and tenancy authority are not available in this checkout",
-      "required": "deployed SpiderByte account authority with organization/project membership and entitlement APIs; accountless local mode remains supported"
+      "status": "excluded",
+      "current": "No hosted SpiderByte account authority is implemented or required by Open Core",
+      "required": "Commercial distribution must provide its own identity, tenancy, and entitlement release gates outside this checkout"
     },
     "provider_byok": {
       "status": "controlled-tested",
@@ -174,47 +183,47 @@
   "authority": [
     {
       "domain": "Provider connections",
-      "current_authority": "agent-core-v2 workspace/providerConnections",
-      "legacy_authority": "Kimi config provider records and ProviderManager paths",
+      "current_authority": "SpiderByte Agent Core workspace/providerConnections",
+      "legacy_authority": "legacy provider records and ProviderManager paths",
       "open_core_target": "ProviderConnection plus local SecretStore implementation",
       "commercial_extension": "managed connection and vault adapters",
       "required_migration": "route platform mode exclusively through ProviderConnection and ModelRef"
     },
     {
       "domain": "Models",
-      "current_authority": "agent-core-v2 platformModelBinding plus kosong provider registry",
-      "legacy_authority": "Kimi config model catalog",
+      "current_authority": "SpiderByte Agent Core platformModelBinding plus kosong provider registry",
+      "legacy_authority": "legacy config model catalog",
       "open_core_target": "persisted ModelRef selected by the workspace or session",
       "commercial_extension": "managed catalog and policy restrictions",
       "required_migration": "remove platform-mode ProviderManager bypasses"
     },
     {
       "domain": "Account identity",
-      "current_authority": "Kimi OAuth service",
-      "legacy_authority": "Kimi managed auth credentials",
-      "open_core_target": "accountless local mode with optional SpiderByte account adapter",
-      "commercial_extension": "SpiderByte tenancy, workspace membership, and entitlement service",
-      "required_migration": "separate account OAuth from provider authentication"
+      "current_authority": "local accountless auth summary and provider-neutral token storage",
+      "legacy_authority": "retired hosted account/device-code paths",
+      "open_core_target": "accountless local mode plus explicitly configured external-provider auth adapters",
+      "commercial_extension": "hosted SpiderByte tenancy, workspace membership, and entitlement service outside this checkout",
+      "required_migration": "keep hosted identity and account login out of the Open Core graph"
     },
     {
       "domain": "BYOK secrets",
       "current_authority": "app/secrets/platformSecretStore plus provider runtime boundary",
-      "legacy_authority": "provider config API keys and managed Kimi auth",
+      "legacy_authority": "legacy provider credentials and hosted identity",
       "open_core_target": "opaque SecretRefs resolved only by local SecretStore",
       "commercial_extension": "vault or customer-managed KMS resolver",
       "required_migration": "prove redaction across every public projection and log sink"
     },
     {
       "domain": "Sessions",
-      "current_authority": "agent-core-v2 workspace/session lifecycle and transcript",
-      "legacy_authority": "Kimi harness sessions",
+      "current_authority": "SpiderByte Agent Core workspace/session lifecycle and transcript",
+      "legacy_authority": "legacy harness sessions",
       "open_core_target": "local Workspace and AgentSession with restart/replay",
       "commercial_extension": "shared cloud sessions and collaboration",
       "required_migration": "keep the local transcript contract authoritative"
     },
     {
       "domain": "Runs",
-      "current_authority": "agent-core-v2 session/run plus platform child operations",
+      "current_authority": "SpiderByte Agent Core session/run plus platform child operations",
       "legacy_authority": "ad-hoc tool/session metadata",
       "open_core_target": "durable root Run with linked child operations",
       "commercial_extension": "cross-workspace run sharing and managed execution",
@@ -222,7 +231,7 @@
     },
     {
       "domain": "Artifacts",
-      "current_authority": "agent-core-v2 workspace/artifacts",
+      "current_authority": "SpiderByte Agent Core workspace/artifacts",
       "legacy_authority": "transient tool outputs and session files",
       "open_core_target": "local content-addressed artifacts with expiry and lineage",
       "commercial_extension": "hosted object storage and retention controls",
@@ -230,16 +239,16 @@
     },
     {
       "domain": "Policy/approvals",
-      "current_authority": "agent-core-v2 workspace/policy plus agent permission services",
-      "legacy_authority": "Kimi interactive approval paths",
+      "current_authority": "SpiderByte Agent Core workspace/policy plus agent permission services",
+      "legacy_authority": "legacy interactive approval paths",
       "open_core_target": "local policy evaluation and approval primitives",
       "commercial_extension": "organization policy inheritance and audit export",
       "required_migration": "preserve policy decisions in root Run projections"
     },
     {
       "domain": "Usage",
-      "current_authority": "agent-core-v2 local WorkspaceUsageService plus legacy commercial projection",
-      "legacy_authority": "managed Kimi quota paths",
+      "current_authority": "SpiderByte Agent Core local WorkspaceUsageService plus legacy commercial projection",
+      "legacy_authority": "managed quota paths",
       "open_core_target": "local usage events and opt-in telemetry sinks",
       "commercial_extension": "metering, quotas, and managed LLM usage",
       "required_migration": "retire the legacy commercial projection after hosted adapters exist"
@@ -247,22 +256,22 @@
     {
       "domain": "Billing",
       "current_authority": "none found in this checkout",
-      "legacy_authority": "managed Kimi account quota assumptions",
+      "legacy_authority": "managed account quota assumptions",
       "open_core_target": "no billing dependency",
       "commercial_extension": "subscriptions, invoices, and payment",
       "required_migration": "keep billing out of Open Core packages and local startup"
     },
     {
       "domain": "Workspaces",
-      "current_authority": "agent-core-v2 workspace context and durable services",
-      "legacy_authority": "local Kimi working-directory config",
+      "current_authority": "SpiderByte Agent Core workspace context and durable services",
+      "legacy_authority": "legacy working-directory config",
       "open_core_target": "local workspace identity and persistence scope",
       "commercial_extension": "shared workspaces, roles, SSO, and SCIM",
       "required_migration": "make accountless local workspace creation first-class"
     },
     {
       "domain": "Execution",
-      "current_authority": "agent-core-v2 execution targets, leases, and local worker",
+      "current_authority": "SpiderByte Agent Core execution targets, leases, and local worker",
       "legacy_authority": "governed shell/process execution",
       "open_core_target": "local execution-target interface and local worker",
       "commercial_extension": "managed workers, distributed scheduling, and dedicated targets",

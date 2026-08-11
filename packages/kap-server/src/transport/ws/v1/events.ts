@@ -10,10 +10,10 @@
  * broadcaster that emits them.
  */
 
-import type { DomainEvent } from '@moonshot-ai/agent-core-v2/app/event/eventBus';
+import type { DomainEvent } from '@spiderbyte/agent-core/app/event/eventBus';
 import type { MessageContent } from '../../../protocol/message';
-import type { PermissionMode } from '@moonshot-ai/agent-core-v2/agent/permissionPolicy/types';
-import type { UsageStatus } from '@moonshot-ai/agent-core-v2/agent/usage/usage';
+import type { PermissionMode } from '@spiderbyte/agent-core/agent/permissionPolicy/types';
+import type { UsageStatus } from '@spiderbyte/agent-core/agent/usage/usage';
 import type { AgentPhase } from '../../../services/legacyStatus/legacyStatus';
 import type { ConfigResponse } from '../../../protocol/rest-config';
 import type { Session, SessionPendingInteraction } from '../../../protocol/session';
@@ -115,7 +115,7 @@ export interface ConfigWarningEvent {
 
 /**
  * DI unit state transition of the engine's scope tree, produced by
- * agent-core-v2's `IDebugCascadeService` (the L5 debug surface feed). Global:
+ * SpiderByte Agent Core's `IDebugCascadeService` (the L5 debug surface feed). Global:
  * carries no owning session and fans out to every connection.
  */
 export interface DiUnitChangedEvent {
