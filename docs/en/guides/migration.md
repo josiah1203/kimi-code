@@ -24,7 +24,7 @@ If an older archive cannot be read, retain it as an external record and start a 
 
 ## Compatibility material
 
-Temporary compatibility code is quarantined below `compat/` and is excluded from the workspace build and published package graph. It is not a supported runtime dependency. The compatibility inventory and planned removal decisions are recorded in [`PACKAGE_RENAME_MAP.md`](../release/PACKAGE_RENAME_MAP.md).
+Temporary compatibility code is quarantined below `compat/` and is excluded from the workspace build and published package graph. It is not a supported runtime dependency. The compatibility inventory and planned removal decisions are recorded in [`PACKAGE_RENAME_MAP.md`](../../release/PACKAGE_RENAME_MAP.md).
 
 ## What is not part of this migration
 

@@ -332,7 +332,7 @@ describe('refreshProviderModels write behavior', () => {
     }
   });
 
-  it('refreshes a hand-configured API-key provider at the managed endpoint', async () => {
+  it('does not refresh an arbitrary direct provider endpoint in Open Core', async () => {
     const baseUrl = 'https://api.managed.example.test/coding/v1';
     vi.stubEnv('SPIDERBYTE_BASE_URL', baseUrl);
     const fetchMock = vi.fn(
@@ -356,7 +356,7 @@ describe('refreshProviderModels write behavior', () => {
 
     const { host, config, discovery, events, providers, models } = await createHost({
       providers: {
-        'my-kimi': { type: 'kimi', baseUrl, apiKey: 'sk-distributed-key' },
+        'my-kimi': { type: 'openai-compatible', modelSource: 'discover', baseUrl, apiKey: 'sk-distributed-key' },
       },
       models: {
         'my-kimi/kimi-k2': {
@@ -372,33 +372,25 @@ describe('refreshProviderModels write behavior', () => {
       const result = await discovery.refreshProviderModels({ scope: 'all' });
 
       expect(result.failed).toEqual([]);
-      expect(result.changed).toEqual([
-        { provider_id: 'my-kimi', provider_name: 'my-kimi', added: 1, removed: 0 },
-      ]);
-      expect(events.published).toEqual([
-        expect.objectContaining({ type: 'event.model_catalog.changed' }),
-      ]);
-      expect(fetchMock).toHaveBeenCalledWith(
-        `${baseUrl}/models`,
-        expect.objectContaining({
-          headers: expect.objectContaining({ Authorization: 'Bearer sk-distributed-key' }),
-        }),
-      );
+      expect(result.changed).toEqual([]);
+      expect(events.published).toEqual([]);
+      expect(fetchMock).not.toHaveBeenCalled();
       expect(providers.list()['my-kimi']).toEqual({
-        type: 'kimi',
+        type: 'openai-compatible',
+        modelSource: 'discover',
         baseUrl,
         apiKey: 'sk-distributed-key',
       });
       const modelRecords = models.list();
-      expect(modelRecords['my-kimi/kimi-k2']?.displayName).toBe('Fresh K2');
-      expect(modelRecords['my-kimi/kimi-k2.5']).toBeDefined();
+      expect(modelRecords['my-kimi/kimi-k2']?.displayName).toBe('Old K2');
+      expect(modelRecords['my-kimi/kimi-k2.5']).toBeUndefined();
       expect(config.get<string>('defaultModel')).toBe('my-kimi/kimi-k2');
     } finally {
       host.dispose();
     }
   });
 
-  it('clears a stale defaultModel whose alias upstream dropped', async () => {
+  it('preserves direct-provider models when no supported refresh source exists', async () => {
     const baseUrl = 'https://api.managed.example.test/coding/v1';
     vi.stubEnv('SPIDERBYTE_BASE_URL', baseUrl);
     const fetchMock = vi.fn(
@@ -414,7 +406,7 @@ describe('refreshProviderModels write behavior', () => {
 
     const { host, config, discovery, models } = await createHost({
       providers: {
-        'my-kimi': { type: 'kimi', baseUrl, apiKey: 'sk-distributed-key' },
+        'my-kimi': { type: 'openai-compatible', modelSource: 'discover', baseUrl, apiKey: 'sk-distributed-key' },
       },
       models: {
         'my-kimi/kimi-k2': {
@@ -431,14 +423,13 @@ describe('refreshProviderModels write behavior', () => {
       const result = await discovery.refreshProviderModels({ scope: 'all' });
 
       expect(result.failed).toEqual([]);
-      expect(result.changed).toEqual([
-        { provider_id: 'my-kimi', provider_name: 'my-kimi', added: 1, removed: 1 },
-      ]);
-      expect(config.get('defaultModel')).toBeUndefined();
-      expect(config.get('thinking')).toBeUndefined();
+      expect(result.changed).toEqual([]);
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(config.get('defaultModel')).toBe('my-kimi/kimi-k2');
+      expect(config.get('thinking')).toEqual({ enabled: true });
       const modelRecords = models.list();
-      expect(modelRecords['my-kimi/kimi-k3']).toBeDefined();
-      expect(modelRecords['my-kimi/kimi-k2']).toBeUndefined();
+      expect(modelRecords['my-kimi/kimi-k3']).toBeUndefined();
+      expect(modelRecords['my-kimi/kimi-k2']).toBeDefined();
     } finally {
       host.dispose();
     }

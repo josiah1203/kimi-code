@@ -2,9 +2,7 @@ import { OPEN_PLATFORMS } from '@spiderbyte/oauth';
 
 import { ChoicePickerComponent, type ChoiceOption } from './choice-picker';
 
-const PLATFORM_OPTIONS: readonly ChoiceOption[] = [
-  ...OPEN_PLATFORMS.map((platform) => ({ value: platform.id, label: platform.name })),
-];
+const PLATFORM_OPTIONS: readonly ChoiceOption[] = OPEN_PLATFORMS.map((platform) => ({ value: platform.id, label: platform.name }));
 
 export interface PlatformSelectorOptions {
   readonly onSelect: (platformId: string) => void;

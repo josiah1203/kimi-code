@@ -212,7 +212,7 @@ export class WorkspacePipelineService extends Disposable implements IWorkspacePi
             policy_decision_id: command.execution_target_policy_decision_id,
           });
           if (lease.state === 'awaiting_approval') {
-            return this.persistAwaitingRun(pipeline, command, pipelineRunId, now, lease.policy_decision_id, 'execution target approval is required');
+            return await this.persistAwaitingRun(pipeline, command, pipelineRunId, now, lease.policy_decision_id, 'execution target approval is required');
           }
           leaseId = lease.id;
         }
@@ -233,11 +233,11 @@ export class WorkspacePipelineService extends Disposable implements IWorkspacePi
         });
         await this.persistStarted(pipeline, currentRun, command.request_id);
         if (this.cancellationRequests.has(pipelineRunId)) {
-          return this.persistCancelled(pipeline, currentRun, command.request_id);
+          return await this.persistCancelled(pipeline, currentRun, command.request_id);
         }
         for (const step of topologicalSteps(pipeline.steps)) {
           if (this.cancellationRequests.has(pipelineRunId)) {
-            return this.persistCancelled(pipeline, currentRun, command.request_id);
+            return await this.persistCancelled(pipeline, currentRun, command.request_id);
           }
           const dependencyArtifactIds = [...new Set(
             step.depends_on.flatMap((dependency) =>
@@ -249,7 +249,7 @@ export class WorkspacePipelineService extends Disposable implements IWorkspacePi
           try {
             const artifactIds = await this.executeStep(step, command, currentRun, localTarget, leaseId, dependencyArtifactIds);
             if (this.cancellationRequests.has(pipelineRunId)) {
-              return this.persistCancelled(pipeline, currentRun, command.request_id, step.id);
+              return await this.persistCancelled(pipeline, currentRun, command.request_id, step.id);
             }
             currentRun = pipelineRunSchema.parse({
               ...currentRun,
@@ -259,7 +259,7 @@ export class WorkspacePipelineService extends Disposable implements IWorkspacePi
             await this.persistRunOnly(currentRun);
           } catch (error) {
             if (this.cancellationRequests.has(pipelineRunId)) {
-              return this.persistCancelled(pipeline, currentRun, command.request_id, step.id, error);
+              return await this.persistCancelled(pipeline, currentRun, command.request_id, step.id, error);
             }
             const failed = pipelineRunSchema.parse({
               ...currentRun,
@@ -274,7 +274,7 @@ export class WorkspacePipelineService extends Disposable implements IWorkspacePi
           }
         }
         if (this.cancellationRequests.has(pipelineRunId)) {
-          return this.persistCancelled(pipeline, currentRun, command.request_id);
+          return await this.persistCancelled(pipeline, currentRun, command.request_id);
         }
         currentRun = pipelineRunSchema.parse({ ...currentRun, status: 'succeeded', completed_at: nowIsoDateTime() });
         await this.persistRunOnly(currentRun);
@@ -283,7 +283,7 @@ export class WorkspacePipelineService extends Disposable implements IWorkspacePi
       } catch (error) {
         if (this.cancellationRequests.has(pipelineRunId)) {
           const current = this.runs.find((run) => run.id === pipelineRunId);
-          if (current !== undefined) return this.persistCancelled(pipeline, current, command.request_id, undefined, error);
+          if (current !== undefined) return await this.persistCancelled(pipeline, current, command.request_id, undefined, error);
         }
         const failed = pipelineRunSchema.parse({
           id: pipelineRunId,
@@ -509,7 +509,7 @@ export class WorkspacePipelineService extends Disposable implements IWorkspacePi
   }
 
   private async persistAwaitingRun(pipeline: Pipeline, command: PipelineRunInput, id: string, now: string, policyDecisionId: string | undefined, reason: string): Promise<PipelineRun> {
-    const run = pipelineRunSchema.parse({ id, workspace_id: this.context.workspaceId, pipeline_id: pipeline.id, run_id: command.run_id, status: 'awaiting_approval', step_runs: pipeline.steps.map((step) => ({ step_id: step.id, state: 'queued', output_artifact_ids: [] })), execution_target_id: command.execution_target_id, execution_target_policy_decision_id: command.execution_target_policy_decision_id, output_artifact_ids: [], created_at: now, error: reason, metadata: { ...(command.metadata ?? {}), policy_decision_id: policyDecisionId } });
+    const run = pipelineRunSchema.parse({ id, workspace_id: this.context.workspaceId, pipeline_id: pipeline.id, run_id: command.run_id, status: 'awaiting_approval', step_runs: pipeline.steps.map((step) => ({ step_id: step.id, state: 'queued', output_artifact_ids: [] })), execution_target_id: command.execution_target_id, execution_target_policy_decision_id: command.execution_target_policy_decision_id, output_artifact_ids: [], created_at: now, error: reason, metadata: { ...command.metadata, policy_decision_id: policyDecisionId } });
     await this.persistStarted(pipeline, run, command.request_id, 'ready');
     await this.events.append({
       event_type: 'pipeline_run.state_changed',

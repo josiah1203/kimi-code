@@ -544,7 +544,7 @@ describe('registerProviderCommand', () => {
     const { harness, current } = makeHarness({ providers: {} } as unknown as SpiderByteConfig);
     const { deps, exitCodes, stdout } = makeDeps(harness);
 
-    const program = new Command('kimi');
+    const program = new Command('spyderbyte');
     registerProviderCommand(program, deps);
 
     const providerCmd = program.commands.find((c) => c.name() === 'provider');
@@ -552,7 +552,7 @@ describe('registerProviderCommand', () => {
 
     await tryRun(() =>
       program.parseAsync(
-        ['node', 'kimi', 'provider', 'add', REGISTRY_URL, '--api-key', 'sk-cli'],
+        ['node', 'spyderbyte', 'provider', 'add', REGISTRY_URL, '--api-key', 'sk-cli'],
         { from: 'node' },
       ),
     );
@@ -580,11 +580,11 @@ describe('registerProviderCommand', () => {
     };
     const { deps, stderr, exitCodes } = makeDeps(harness);
 
-    const program = new Command('kimi');
+    const program = new Command('spyderbyte');
     registerProviderCommand(program, deps);
 
     await tryRun(() =>
-      program.parseAsync(['node', 'kimi', 'provider', 'remove', 'kimi'], { from: 'node' }),
+      program.parseAsync(['node', 'spyderbyte', 'provider', 'remove', 'kimi'], { from: 'node' }),
     );
 
     expect(exitCodes).toEqual([1]);

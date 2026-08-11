@@ -21,55 +21,57 @@
 // owning model offloads inline media to blob storage), cross-reducers
 // (foreign models that also reduce this record on dispatch and replay).
 
-// Index (48 record types)
-//   config.update                      profile               persisted  src/agent/profile/profileOps.ts
-//   context.append_loop_event          contextMemory         persisted  src/agent/contextMemory/contextOps.ts
-//   context.append_message             contextMemory         persisted  src/agent/contextMemory/contextOps.ts
-//   context.apply_compaction           contextMemory         persisted  src/agent/contextMemory/contextOps.ts
-//   context.clear                      contextMemory         persisted  src/agent/contextMemory/contextOps.ts
-//   context.undo                       contextMemory         persisted  src/agent/contextMemory/contextOps.ts
-//   cron.add                           cron                  transient  src/session/cron/cronOps.ts
-//   cron.cursor                        cron                  transient  src/session/cron/cronOps.ts
-//   cron.delete                        cron                  transient  src/session/cron/cronOps.ts
-//   forked                             goal                  persisted  src/agent/goal/goalOps.ts
-//   full_compaction.begin              fullCompaction        persisted  src/agent/fullCompaction/compactionOps.ts
-//   full_compaction.cancel             fullCompaction        persisted  src/agent/fullCompaction/compactionOps.ts
-//   full_compaction.complete           fullCompaction        persisted  src/agent/fullCompaction/compactionOps.ts
-//   goal.clear                         goal                  persisted  src/agent/goal/goalOps.ts
-//   goal.create                        goal                  persisted  src/agent/goal/goalOps.ts
-//   goal.update                        goal                  persisted  src/agent/goal/goalOps.ts
-//   interaction.request                interaction           persisted  src/session/interaction/interactionOps.ts
-//   interaction.resolved               interaction           persisted  src/session/interaction/interactionOps.ts
-//   interruptionReminder.recorded      interruptionReminder  persisted  src/agent/interruptionReminder/interruptionReminderOps.ts
-//   llm.request                        llm.requestTrace      persisted  src/agent/llmRequester/llmRequestOps.ts
-//   llm.tools_snapshot                 llm.requestTrace      persisted  src/agent/llmRequester/llmRequestOps.ts
-//   mcp.tools_discovered               mcp.discovery         persisted  src/agent/mcp/mcpDiscoveryOps.ts
-//   permission.record_approval_result  permissionRules       persisted  src/agent/permissionRules/permissionRulesOps.ts
-//   permission.rules.add               permissionRules       transient  src/agent/permissionRules/permissionRulesOps.ts
-//   permission.set_mode                permissionMode        persisted  src/agent/permissionMode/permissionModeOps.ts
-//   plan_mode.cancel                   plan                  persisted  src/features/plan/planOps.ts
-//   plan_mode.enter                    plan                  persisted  src/features/plan/planOps.ts
-//   plan_mode.exit                     plan                  persisted  src/features/plan/planOps.ts
-//   plan.revision                      plan                  persisted  src/features/plan/planOps.ts
-//   profile.bind                       profile               persisted  src/agent/profile/profileOps.ts
-//   skill.activate                     skill                 transient  src/agent/skill/skillOps.ts
-//   swarm_mode.enter                   swarm                 persisted  src/agent/swarm/swarmOps.ts
-//   swarm_mode.exit                    swarm                 persisted  src/agent/swarm/swarmOps.ts
-//   task.started                       task                  persisted  src/agent/task/taskOps.ts
-//   task.terminated                    task                  persisted  src/agent/task/taskOps.ts
-//   token_counting.measured            tokenCounting         transient  src/agent/tokenCounting/tokenCountingOps.ts
-//   token_counting.rebased             tokenCounting         transient  src/agent/tokenCounting/tokenCountingOps.ts
-//   token_counting.truncated           tokenCounting         transient  src/agent/tokenCounting/tokenCountingOps.ts
-//   tools.register_user_tool           userTool              persisted  src/agent/userTool/userToolOps.ts
-//   tools.reset_active_tools           profile.activeTools   persisted  src/agent/profile/profileOps.ts
-//   tools.set_active_tools             profile.activeTools   persisted  src/agent/profile/profileOps.ts
-//   tools.unregister_user_tool         userTool              persisted  src/agent/userTool/userToolOps.ts
-//   tools.update_store                 todo                  persisted  src/session/todo/todoOps.ts
-//   turn.cancel                        turn                  persisted  src/agent/loop/turnOps.ts
-//   turn.ended                         turn                  persisted  src/agent/loop/turnOps.ts
-//   turn.prompt                        turn                  persisted  src/agent/loop/turnOps.ts
-//   turn.steer                         turn                  persisted  src/agent/loop/turnOps.ts
-//   usage.record                       usage                 persisted  src/agent/usage/usageOps.ts
+// Index (50 record types)
+//   config.update                      profile                persisted  src/agent/profile/profileOps.ts
+//   context.append_loop_event          contextMemory          persisted  src/agent/contextMemory/contextOps.ts
+//   context.append_message             contextMemory          persisted  src/agent/contextMemory/contextOps.ts
+//   context.apply_compaction           contextMemory          persisted  src/agent/contextMemory/contextOps.ts
+//   context.clear                      contextMemory          persisted  src/agent/contextMemory/contextOps.ts
+//   context.undo                       contextMemory          persisted  src/agent/contextMemory/contextOps.ts
+//   cron.add                           cron                   transient  src/session/cron/cronOps.ts
+//   cron.cursor                        cron                   transient  src/session/cron/cronOps.ts
+//   cron.delete                        cron                   transient  src/session/cron/cronOps.ts
+//   forked                             goal                   persisted  src/agent/goal/goalOps.ts
+//   full_compaction.begin              fullCompaction         persisted  src/agent/fullCompaction/compactionOps.ts
+//   full_compaction.cancel             fullCompaction         persisted  src/agent/fullCompaction/compactionOps.ts
+//   full_compaction.complete           fullCompaction         persisted  src/agent/fullCompaction/compactionOps.ts
+//   goal.clear                         goal                   persisted  src/agent/goal/goalOps.ts
+//   goal.create                        goal                   persisted  src/agent/goal/goalOps.ts
+//   goal.update                        goal                   persisted  src/agent/goal/goalOps.ts
+//   interaction.request                interaction            persisted  src/session/interaction/interactionOps.ts
+//   interaction.resolved               interaction            persisted  src/session/interaction/interactionOps.ts
+//   interruptionReminder.recorded      interruptionReminder   persisted  src/agent/interruptionReminder/interruptionReminderOps.ts
+//   llm.request                        llm.requestTrace       persisted  src/agent/llmRequester/llmRequestOps.ts
+//   llm.tools_snapshot                 llm.requestTrace       persisted  src/agent/llmRequester/llmRequestOps.ts
+//   mcp.tools_discovered               mcp.discovery          persisted  src/agent/mcp/mcpDiscoveryOps.ts
+//   permission.record_approval_result  permissionRules        persisted  src/agent/permissionRules/permissionRulesOps.ts
+//   permission.rules.add               permissionRules        transient  src/agent/permissionRules/permissionRulesOps.ts
+//   permission.set_mode                permissionMode         persisted  src/agent/permissionMode/permissionModeOps.ts
+//   plan_mode.cancel                   plan                   persisted  src/features/plan/planOps.ts
+//   plan_mode.enter                    plan                   persisted  src/features/plan/planOps.ts
+//   plan_mode.exit                     plan                   persisted  src/features/plan/planOps.ts
+//   plan.revision                      plan                   persisted  src/features/plan/planOps.ts
+//   platform.model.cleared             platform.modelBinding  persisted  src/agent/platformModelBinding/platformModelBindingOps.ts
+//   platform.model.selected            platform.modelBinding  persisted  src/agent/platformModelBinding/platformModelBindingOps.ts
+//   profile.bind                       profile                persisted  src/agent/profile/profileOps.ts
+//   skill.activate                     skill                  transient  src/agent/skill/skillOps.ts
+//   swarm_mode.enter                   swarm                  persisted  src/agent/swarm/swarmOps.ts
+//   swarm_mode.exit                    swarm                  persisted  src/agent/swarm/swarmOps.ts
+//   task.started                       task                   persisted  src/agent/task/taskOps.ts
+//   task.terminated                    task                   persisted  src/agent/task/taskOps.ts
+//   token_counting.measured            tokenCounting          transient  src/agent/tokenCounting/tokenCountingOps.ts
+//   token_counting.rebased             tokenCounting          transient  src/agent/tokenCounting/tokenCountingOps.ts
+//   token_counting.truncated           tokenCounting          transient  src/agent/tokenCounting/tokenCountingOps.ts
+//   tools.register_user_tool           userTool               persisted  src/agent/userTool/userToolOps.ts
+//   tools.reset_active_tools           profile.activeTools    persisted  src/agent/profile/profileOps.ts
+//   tools.set_active_tools             profile.activeTools    persisted  src/agent/profile/profileOps.ts
+//   tools.unregister_user_tool         userTool               persisted  src/agent/userTool/userToolOps.ts
+//   tools.update_store                 todo                   persisted  src/session/todo/todoOps.ts
+//   turn.cancel                        turn                   persisted  src/agent/loop/turnOps.ts
+//   turn.ended                         turn                   persisted  src/agent/loop/turnOps.ts
+//   turn.prompt                        turn                   persisted  src/agent/loop/turnOps.ts
+//   turn.steer                         turn                   persisted  src/agent/loop/turnOps.ts
+//   usage.record                       usage                  persisted  src/agent/usage/usageOps.ts
 
 /**
  * model: profile · persisted
@@ -449,6 +451,28 @@ interface PlanRevisionPayload {
 }
 
 /**
+ * model: platform.modelBinding · persisted
+ * owner: src/agent/platformModelBinding/platformModelBindingOps.ts
+ */
+interface PlatformModelClearedPayload {
+  _name: 'platform.model.cleared';
+}
+
+/**
+ * model: platform.modelBinding · persisted
+ * owner: src/agent/platformModelBinding/platformModelBindingOps.ts
+ */
+interface PlatformModelSelectedPayload {
+  _name: 'platform.model.selected';
+  model_ref: {
+    provider_connection_id: string;
+    model: string;
+  };
+  fallback_connection_ids: string[];
+  policy_decision_id?: string;
+}
+
+/**
  * model: profile · persisted · cross-reducers: profile.activeTools
  * owner: src/agent/profile/profileOps.ts
  */
@@ -746,6 +770,8 @@ interface WirePayloadMap {
   "plan_mode.enter": PlanModeEnterPayload;
   "plan_mode.exit": PlanModeExitPayload;
   "plan.revision": PlanRevisionPayload;
+  "platform.model.cleared": PlatformModelClearedPayload;
+  "platform.model.selected": PlatformModelSelectedPayload;
   "profile.bind": ProfileBindPayload;
   "skill.activate": SkillActivatePayload;
   "swarm_mode.enter": SwarmModeEnterPayload;

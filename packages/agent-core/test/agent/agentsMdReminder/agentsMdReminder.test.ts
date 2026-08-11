@@ -304,7 +304,7 @@ describe('agentsMdReminder path-carrying tools', () => {
     const result = await fire(h, didCtx('Read', { path: join(subDir, 'index.ts') }));
 
     const text = outputText(result);
-    expect(text).toContain(dotKimi);
+    expect(text).toContain(dotSpiderByte);
     expect(text).toContain(plain);
   });
 

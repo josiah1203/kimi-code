@@ -1,0 +1,8 @@
+# Default ownership for the Open Core repository.
+* @josiah1203
+
+# Release policy and supply-chain evidence require release-owner review.
+/.github/ @josiah1203
+/config/ @josiah1203
+/docs/release/ @josiah1203
+/scripts/ @josiah1203

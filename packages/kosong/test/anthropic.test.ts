@@ -2149,7 +2149,7 @@ describe('AnthropicChatProvider', () => {
         apiKey: 'test-key',
         defaultMaxTokens: 1024,
         stream: false,
-        kimiThinking: true,
+        providerThinking: true,
       }).withThinking('max');
       const body = await captureRequestBody(provider, '', [], thinkHistory);
 
@@ -2163,7 +2163,7 @@ describe('AnthropicChatProvider', () => {
         apiKey: 'test-key',
         defaultMaxTokens: 1024,
         stream: false,
-        kimiThinking: true,
+        providerThinking: true,
       });
       for (const requested of ['xhigh', 'medium', 'on'] as const) {
         const body = await captureRequestBody(provider.withThinking(requested), '', [], thinkHistory);
@@ -2180,7 +2180,7 @@ describe('AnthropicChatProvider', () => {
         apiKey: 'test-key',
         defaultMaxTokens: 1024,
         stream: false,
-        kimiThinking: true,
+        providerThinking: true,
       }).withThinking('off');
       const body = await captureRequestBody(provider, '', [], thinkHistory);
 
@@ -2194,7 +2194,7 @@ describe('AnthropicChatProvider', () => {
         apiKey: 'test-key',
         defaultMaxTokens: 1024,
         stream: false,
-        kimiThinking: true,
+        providerThinking: true,
       });
       expect(provider.withThinking('max').thinkingEffort).toBe('max');
       expect(provider.withThinking('xhigh').thinkingEffort).toBe('xhigh');

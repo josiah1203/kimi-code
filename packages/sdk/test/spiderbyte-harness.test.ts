@@ -8,9 +8,9 @@ import {
   createSpiderByteHarness,
   ImageLimits,
   SpiderByteHarness,
-  SDKRpcClientBase,
   type SpiderBytePlatformClient,
 } from '#/index';
+import { SDKRpcClientBase } from '#/rpc';
 import type { SessionRunsFacade } from '@spiderbyte/client';
 import type { PlatformLifecycleEvent } from '@spiderbyte/protocol';
 

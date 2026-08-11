@@ -695,7 +695,7 @@ describe('APIProviderQuotaExhaustedError', () => {
 
 describe('normalizeAPIStatusError: 429 stays vendor-neutral', () => {
   // The shared normalization never decides what a vendor's 429 means: quota
-  // classification lives with the vendor (`classifyKimiQuotaError`, the
+  // classification lives with the external-provider adapter, which the
   // OpenAI base's own insufficient_quota check), so even billing wordings
   // normalize to a retryable rate limit here.
   it.each([

@@ -91,7 +91,7 @@ function packageManifestPaths(root = ROOT) {
     }
   };
   visit(root);
-  return result.sort();
+  return result.sort((a, b) => a.localeCompare(b));
 }
 
 function parseRenameMap() {

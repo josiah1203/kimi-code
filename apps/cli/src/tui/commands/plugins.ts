@@ -2,13 +2,11 @@ import { homedir as osHomedir } from 'node:os';
 import { isAbsolute, join, resolve } from 'node:path';
 
 import {
-  log,
   type PluginInfo,
   type PluginSummary,
   type Session,
 } from '@spiderbyte/sdk';
 
-import { NO_ACTIVE_SESSION_MESSAGE } from '../constant/spiderbyte-tui';
 import {
   PluginInstallTrustConfirmComponent,
   PluginMcpSelectorComponent,
@@ -31,7 +29,7 @@ import {
   isOfficialPluginSource,
 } from '../utils/plugin-source-label';
 import { SPIDERBYTE_PLUGIN_MARKETPLACE_URL_ENV } from '#/constant/app';
-import { loadPluginMarketplace, type PluginMarketplaceEntry } from '#/utils/plugin-marketplace';
+import { loadPluginMarketplace } from '#/utils/plugin-marketplace';
 import type { SlashCommandHost } from './dispatch';
 
 interface ShowPluginsPickerOptions {

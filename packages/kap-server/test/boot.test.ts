@@ -86,13 +86,21 @@ describe('server-v2 boot', () => {
     expect(typeof authBody.data.ready).toBe('boolean');
     expect(authBody.data.providers_count).toBeGreaterThanOrEqual(0);
 
-    // Poll with no flow in flight → null payload; exercises the v2 IOAuthService
-    // wiring without starting a real (networked) device-code flow.
-    const oauthPoll = await authedFetch(server, base, '/api/v1/oauth/login');
-    expect(oauthPoll.status).toBe(200);
-    const oauthBody = await oauthPoll.json() as { code: number; data: null };
-    expect(oauthBody.code).toBe(0);
-    expect(oauthBody.data).toBeNull();
+    const authStatus = await authedFetch(server, base, '/api/v2/auth/status');
+    expect(authStatus.status).toBe(200);
+    const authStatusBody = await authStatus.json() as {
+      code: number;
+      data: { mode: string; authenticated: boolean; credential_class: string };
+    };
+    expect(authStatusBody.code).toBe(0);
+    expect(authStatusBody.data).toEqual({
+      mode: 'local',
+      authenticated: false,
+      credential_class: 'account',
+    });
+
+    const removedOauthRoute = await authedFetch(server, base, '/api/v1/oauth/login');
+    expect(removedOauthRoute.status).toBe(404);
   });
 
   it('reports opts.serverVersion as server_version instead of the package version', async () => {

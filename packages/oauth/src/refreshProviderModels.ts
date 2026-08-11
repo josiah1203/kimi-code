@@ -6,7 +6,6 @@ import {
 } from './custom-registry';
 import type {
   ProviderConfigShape,
-  ProviderModelAlias,
   ProviderOAuthRef,
   SpiderByteConfigShape,
 } from './config';
@@ -97,8 +96,9 @@ function computeChanges(oldIds: Set<string>, newIds: Set<string>): { added: numb
 }
 
 function restoreDefault(config: SpiderByteConfigShape, previousDefault: string | undefined): void {
-  if (previousDefault === undefined || config.models?.[previousDefault] === undefined) {
-    if (config.defaultModel === previousDefault) return;
+  if (previousDefault === undefined) return;
+  if (config.models?.[previousDefault] === undefined) {
+    if (config.defaultModel === previousDefault) config.defaultModel = undefined;
     return;
   }
   config.defaultModel = previousDefault;
@@ -160,6 +160,7 @@ async function refreshCustomProvider(
   } else {
     applyCustomRegistryProvider(next, entry, source);
   }
+  restoreDefault(next, config.defaultModel);
   const nextAliases = aliasesFor(next, providerId);
   const changed =
     snapshot(config, previousAliases) !== snapshot(next, nextAliases) ||

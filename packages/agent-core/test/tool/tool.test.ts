@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { Readable, type Writable } from 'node:stream';
 import { LifecycleScope } from '#/app/scopes';
 import { type IAgentScopeHandle } from '#/_base/di/scope';
-import { Event, type Event as KimiEvent } from '#/_base/event';
+import { Event, type Event as EventAlias } from '#/_base/event';
 import { ILogService } from '#/_base/log/log';
 import { IFlagService } from '#/app/flag/flag';
 import { MASTER_ENV } from '#/app/flag/flagService';
@@ -28,6 +28,7 @@ import { IAgentTokenCountingService } from '#/agent/tokenCounting/tokenCounting'
 import { makeHookRunner } from '../agent/externalHooks/runner-stub';
 import { IAgentProfileService } from '#/agent/profile/profile';
 import { IAgentPermissionModeService } from '#/agent/permissionMode/permissionMode';
+import { ISessionContext } from '#/session/sessionContext/sessionContext';
 import { ToolAccesses, type ExecutableTool } from '#/tool/toolContract';
 import { IAgentToolRegistryService } from '#/agent/toolRegistry/toolRegistry';
 import { IAgentLoopService } from '#/agent/loop/loop';
@@ -331,9 +332,9 @@ function createAgentLifecycleStub(options: AgentLifecycleStubOptions = {}): Agen
     hooks: {
       onWillStartAgentTask: hookSlot(),
     },
-    onDidStopAgentTask: Event.None as KimiEvent<AgentTaskStopHookContext>,
-    onDidCreate: Event.None as KimiEvent<IAgentScopeHandle>,
-    onDidDispose: Event.None as KimiEvent<string>,
+    onDidStopAgentTask: Event.None as EventAlias<AgentTaskStopHookContext>,
+    onDidCreate: Event.None as EventAlias<IAgentScopeHandle>,
+    onDidDispose: Event.None as EventAlias<string>,
     create: vi.fn(async (input = {}) => {
       if (options.createError !== undefined) throw options.createError;
       const agentId =
@@ -3389,7 +3390,10 @@ describe('Agent tools', () => {
 
       const outputPath = renderedOutputPath(toolMessage);
       expect(outputPath).toContain(
-        join(homeDir, 'sessions/test-workspace/test-session/agents/main/tool-results/Lookup-call_lookup-'),
+        join(
+          homeDir,
+          `sessions/${ctx.get(ISessionContext).workspaceId}/test-session/agents/main/tool-results/Lookup-call_lookup-`,
+        ),
       );
       expect(readFileSync(outputPath, 'utf8')).toBe(fullOutput);
     });

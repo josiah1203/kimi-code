@@ -59,11 +59,11 @@ Optional fields:
 | `enabledTools` | `string[]` | All | Tool allowlist |
 | `disabledTools` | `string[]` | All | Tool blocklist |
 
-You do not have to set the connection timeout or the single tool-call timeout per server: `[mcp] startup_timeout_ms` / `[mcp] tool_timeout_ms` in `config.toml` or the `SPIDERBYTE_MCP_STARTUP_TIMEOUT_MS` / `SPIDERBYTE_MCP_TOOL_TIMEOUT_MS` environment variables change the global defaults. Precedence is: per-server field > environment variable > `config.toml` > built-in default. See [Configuration files](../configuration/config-files.md#mcp).
+You do not have to set the connection timeout or the single tool-call timeout per server: `[mcp] startup_timeout_ms` / `[mcp] tool_timeout_ms` in `config.toml` or the `SPIDERBYTE_MCP_STARTUP_TIMEOUT_MS` / `SPIDERBYTE_MCP_TOOL_TIMEOUT_MS` environment variables change the global defaults. Precedence is: per-server field > environment variable > `config.toml` > built-in default. See [Configuration files](../configuration/config-files.md#top-level-fields).
 
 HTTP and SSE servers support providing static credentials via `headers` or `bearerTokenEnvVar`. When OAuth is needed, run `/mcp-config login <server-name>` to complete browser-based authorization.
 
-Plugins can also declare MCP servers in their manifest. Servers declared by a plugin are enabled by default and can be disabled or re-enabled in `/plugins`: disabling or removing stops the tools in open sessions — calls fail with a removal notice — while adding or enabling a server takes effect in new sessions or after `/reload`. See [Plugins](./plugins.md#mcp-servers-in-plugins) for details.
+Plugins can also declare MCP servers in their manifest. Servers declared by a plugin are enabled by default and can be disabled or re-enabled in `/plugins`: disabling or removing stops the tools in open sessions — calls fail with a removal notice — while adding or enabling a server takes effect in new sessions or after `/reload`. See [Plugins](./plugins.md#mcp-servers-and-hooks) for details.
 
 ::: warning Note
 stdio entries in a project-level `.spiderbyte/mcp.json` execute local commands when a session starts. Only enable these in repositories you trust.
@@ -87,7 +87,7 @@ decision = "deny"
 pattern = "mcp__filesystem__write_file"
 ```
 
-For the full permission rule syntax, see [Configuration files](../configuration/config-files.md#permission).
+For the full permission rule syntax, see [Configuration files](../configuration/config-files.md#top-level-fields).
 
 ## Security
 
@@ -104,4 +104,4 @@ In YOLO mode, MCP tool calls are automatically approved. Only use this mode when
 ## Next steps
 
 - [Plugins](./plugins.md) — Declare MCP servers in a plugin manifest to package and distribute them together
-- [Configuration files](../configuration/config-files.md#permission) — Full field reference for permission rules
+- [Configuration files](../configuration/config-files.md#top-level-fields) — Full field reference for permission rules

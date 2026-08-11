@@ -937,6 +937,10 @@ describe('server-v2 /api/v1/sessions', () => {
   });
 
   it('lists the union of legacy split buckets for one workspace, in recency order', async () => {
+    // Seed the legacy files while stopped. Replacing the live atomic catalog
+    // would race its watcher/read path and does not model startup migration.
+    await server?.close();
+    server = undefined;
     // Legacy pre-fold data: one physical directory registered under two
     // spelling variants, with sessions bucketed per minted id.
     const typedRoot = 'C:\\Users\\Foo\\Proj';
@@ -975,6 +979,16 @@ describe('server-v2 /api/v1/sessions', () => {
     };
     await seedBucket(typedId, 's-typed', 50);
     await seedBucket(lowerId, 's-lower', 60);
+
+    server = await startServer({
+      hostIdentity: TEST_HOST_IDENTITY,
+      host: '127.0.0.1',
+      port: 0,
+      homeDir: home as string,
+      logLevel: 'silent',
+      debugEndpoints: true,
+    });
+    base = `http://127.0.0.1:${server.port}`;
 
     // The registry merges the two entries; whichever id survives is the
     // representative the client lists by.

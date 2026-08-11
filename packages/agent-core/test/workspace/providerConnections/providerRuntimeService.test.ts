@@ -230,8 +230,9 @@ describe('WorkspaceProviderRuntimeService', () => {
     expect(response.usage).toMatchObject({ output: 1 });
     expect(usage.recordUsage).toHaveBeenCalledWith(expect.objectContaining({
       run_id: 'run_provider_validate',
-      meter: 'intelligence',
-      unit: 'intelligence_percent',
+      meter: 'model',
+      unit: 'units',
+      source: 'byok',
     }));
     expect(events.append).toHaveBeenCalledWith(expect.objectContaining({
       entity_id: 'connection_openai',

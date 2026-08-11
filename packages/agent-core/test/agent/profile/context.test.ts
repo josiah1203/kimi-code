@@ -279,7 +279,7 @@ describe('loadAgentsMdDetailed discovered paths', () => {
     await mkdir(join(homeDir, '.spiderbyte'), { recursive: true });
     await writeFile(join(homeDir, '.spiderbyte', 'AGENTS.md'), 'user branded', 'utf-8');
     await mkdir(join(workDir, '.spiderbyte'), { recursive: true });
-    await writeFile(join(workDir, '.spiderbyte', 'AGENTS.md'), 'dot kimi', 'utf-8');
+    await writeFile(join(workDir, '.spiderbyte', 'AGENTS.md'), 'dot spiderbyte', 'utf-8');
     await writeFile(join(workDir, 'AGENTS.md'), 'project instructions', 'utf-8');
 
     const result = await loadAgentsMdDetailed({ fs, homeDir }, workDir);

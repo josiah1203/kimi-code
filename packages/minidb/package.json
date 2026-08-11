@@ -31,16 +31,19 @@
   },
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
     },
     "./cluster": {
-      "types": "./src/cluster/index.ts",
-      "default": "./src/cluster/index.ts"
+      "types": "./dist/cluster/index.d.mts",
+      "import": "./dist/cluster/index.mjs",
+      "default": "./dist/cluster/index.mjs"
     },
     "./worker-runtime": {
-      "types": "./src/worker-runtime.ts",
-      "default": "./src/worker-runtime.ts"
+      "types": "./dist/worker-runtime.d.mts",
+      "import": "./dist/worker-runtime.mjs",
+      "default": "./dist/worker-runtime.mjs"
     }
   },
   "scripts": {
@@ -52,8 +55,8 @@
     "bench:open": "node --import tsx bench/open-lifecycle.ts",
     "clean": "rm -rf dist"
   },
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
   "publishConfig": {
     "access": "public",
     "provenance": true,
@@ -74,6 +77,5 @@
         "default": "./dist/worker-runtime.mjs"
       }
     }
-  },
-  "dependencies": {}
+  }
 }

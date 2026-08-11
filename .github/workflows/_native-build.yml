@@ -32,6 +32,8 @@ on:
 
 permissions:
   contents: read
+  id-token: write
+  attestations: write
 
 jobs:
   native-bundle:
@@ -111,6 +113,22 @@ jobs:
 
       - name: Package native artifact
         run: pnpm --filter @spiderbyte/cli run package:native
+
+      - name: Verify native artifact checksum
+        run: node apps/cli/scripts/native/verify-artifact.mjs "apps/cli/dist-native/artifacts/spyderbyte-${{ matrix.target }}.zip" "apps/cli/dist-native/artifacts/spyderbyte-${{ matrix.target }}.zip.sha256"
+
+      - name: Verify macOS signature and notarization
+        if: runner.os == 'macOS' && inputs.sign-macos
+        run: |
+          codesign --verify --strict --verbose=2 "apps/cli/dist-native/bin/${{ matrix.target }}/spyderbyte"
+          spctl -a -vvv -t install "apps/cli/dist-native/bin/${{ matrix.target }}/spyderbyte"
+
+      - name: Attest native artifact provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            apps/cli/dist-native/artifacts/spyderbyte-${{ matrix.target }}.zip
+            apps/cli/dist-native/artifacts/spyderbyte-${{ matrix.target }}.zip.sha256
 
       - name: Upload native artifact
         uses: actions/upload-artifact@v7

@@ -2551,14 +2551,14 @@ describe('FullCompaction', () => {
     await ctx.untilTurnEnd();
 
     expect(callCount).toBe(3);
-    expect(thinkingEfforts).toEqual(['on', 'on', 'on']);
+    expect(thinkingEfforts).toEqual(['high', 'high', 'high']);
     expect(records).toContainEqual({
       event: 'compaction_finished',
       properties: expect.objectContaining({
         agent_id: 'main',
         turn_id: expect.any(Number),
         source: 'auto',
-        thinking_effort: 'on',
+        thinking_effort: 'high',
       }),
     });
   });

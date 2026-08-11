@@ -31,12 +31,14 @@
   },
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
     },
     "./ssh": {
-      "types": "./src/ssh.ts",
-      "default": "./src/ssh.ts"
+      "types": "./dist/ssh.d.mts",
+      "import": "./dist/ssh.mjs",
+      "default": "./dist/ssh.mjs"
     }
   },
   "scripts": {
@@ -51,8 +53,8 @@
   "devDependencies": {
     "@types/ssh2": "^1.15.5"
   },
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
   "publishConfig": {
     "access": "public",
     "provenance": true,

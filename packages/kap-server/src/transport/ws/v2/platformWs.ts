@@ -43,11 +43,17 @@ const controlSchema = z.discriminatedUnion('type', [
 
 type PlatformEventFilter = Pick<z.infer<typeof controlSchema>, 'event_types' | 'entity_types'>;
 
+function rawDataToText(raw: WebSocket.RawData): string {
+  if (Array.isArray(raw)) return Buffer.concat(raw).toString();
+  if (raw instanceof ArrayBuffer) return Buffer.from(raw).toString();
+  return raw.toString();
+}
+
 export function registerPlatformWs(core: Scope): WebSocketServer {
   const wss = new WebSocketServer({ noServer: true });
   wss.on('connection', (socket) => {
     const connection = new PlatformWsConnection(core, socket);
-    socket.on('message', (raw) => void connection.handle(raw.toString()));
+    socket.on('message', (raw) => void connection.handle(rawDataToText(raw)));
     socket.on('close', () => connection.dispose());
     socket.on('error', () => connection.dispose());
   });
@@ -201,13 +207,13 @@ async function replayFiltered(
   let cursor = Math.max(0, Math.trunc(afterSequence));
   let sourceHasMore = false;
   const matched: PlatformLifecycleEvent[] = [];
-  do {
+  for (;;) {
     const page = await events.replay(cursor, 500);
     sourceHasMore = page.has_more;
     matched.push(...page.events.filter((event) => matchesFilter(event, filter)));
     cursor = page.next_sequence;
     if (!page.has_more || page.events.length === 0 || matched.length >= boundedLimit) break;
-  } while (true);
+  }
 
   const returned = matched.slice(0, boundedLimit);
   const nextSequence = returned.at(-1)?.sequence ?? cursor;

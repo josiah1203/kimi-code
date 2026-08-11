@@ -22,8 +22,11 @@ import {
   drainSessionMetadataWrites,
   getLiveSessionById,
   IAppendLogStore,
+  IAtomicDocumentStore,
   ISessionContext,
   ISessionIndexMirror,
+  ISessionLifecycleService,
+  IWorkspaceLifecycleService,
   logSeed,
   resolveConfigPath,
   resolveSpiderByteHome,
@@ -172,8 +175,13 @@ export async function runAcpServerWithStream(
       // Same shutdown order as kap-server: settle queued session-metadata
       // writes, then drain the session-index mirror while the query store is
       // still open, so a queued summary lands in the read model.
+      for (const handler of core.accessor.get(IWorkspaceLifecycleService).handlers.list()) {
+        const sessions = handler.accessor.get(ISessionLifecycleService);
+        await Promise.all(sessions.list().map((session) => sessions.close(session.id)));
+      }
       await drainSessionMetadataWrites();
       await core.accessor.get(ISessionIndexMirror).drain();
+      await core.accessor.get(IAtomicDocumentStore).drain?.();
       core.dispose();
       // `core.dispose()` runs the mirror's and the query store's synchronous
       // `dispose()`, whose drains/closes are asynchronous — await them so an

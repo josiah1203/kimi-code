@@ -29,7 +29,6 @@ import {
   IBootstrapService,
   IConfigService,
   IEventBus,
-  IOAuthToolkit,
   ISessionCronService,
   ISessionIndex,
   ISessionLifecycleService,
@@ -150,8 +149,6 @@ export async function runPrint(
     },
     [...logSeed(logging)],
   );
-  const auth = app.accessor.get(IOAuthToolkit);
-
   const configService = app.accessor.get(IConfigService);
   await configService.ready;
   try {

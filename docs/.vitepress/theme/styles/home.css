@@ -3,21 +3,21 @@
  * shared utilities and layout container live here.
  */
 
-.KimiHome {
+.SpiderByteHome {
   --section-px: clamp(20px, 5vw, 64px);
   --section-py: clamp(28px, 4vw, 56px);
   position: relative;
   padding: 0 var(--section-px);
 }
 
-.KimiHome__section {
+.SpiderByteHome__section {
   max-width: 1152px;
   margin: 0 auto;
   padding: var(--section-py) 0;
   position: relative;
 }
 
-.KimiHome__sectionTitle {
+.SpiderByteHome__sectionTitle {
   font-size: clamp(28px, 4vw, 40px);
   font-weight: 700;
   letter-spacing: -0.03em;
@@ -25,7 +25,7 @@
   color: var(--vp-c-text-1);
 }
 
-.KimiHome__sectionLede {
+.SpiderByteHome__sectionLede {
   font-size: 17px;
   color: var(--vp-c-text-2);
   margin: 0 0 40px;
@@ -33,7 +33,7 @@
   line-height: 1.6;
 }
 
-.KimiBtn {
+.SpiderByteBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -51,35 +51,35 @@
   cursor: pointer;
   border: 1px solid transparent;
 }
-.KimiBtn--primary {
+.SpiderByteBtn--primary {
   color: #ffffff;
   background: var(--spiderbyte-brand-gradient);
   box-shadow: var(--vp-shadow-3);
   border: 0;
 }
-.KimiBtn--primary:hover {
+.SpiderByteBtn--primary:hover {
   transform: translateY(-2px);
   box-shadow: var(--vp-shadow-4);
   color: #ffffff;
 }
-.KimiBtn--ghost {
+.SpiderByteBtn--ghost {
   color: var(--vp-c-text-1);
   background: transparent;
   border-color: var(--vp-c-divider);
 }
-.KimiBtn--ghost:hover {
+.SpiderByteBtn--ghost:hover {
   border-color: var(--vp-c-brand-1);
   transform: translateY(-2px);
   color: var(--vp-c-text-1);
 }
-.KimiBtn--link {
+.SpiderByteBtn--link {
   color: var(--vp-c-brand-1);
   height: auto;
   padding: 0;
   background: transparent;
   border: none;
 }
-.KimiBtn--link:hover {
+.SpiderByteBtn--link:hover {
   color: var(--vp-c-brand-2);
   transform: translateX(2px);
 }

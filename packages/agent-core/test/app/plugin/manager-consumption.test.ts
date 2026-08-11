@@ -29,7 +29,7 @@ async function zipTempLeftovers(dir: string): Promise<readonly string[]> {
   return (await readdir(dir)).filter((entry) => entry.startsWith('example-plugin-zip-'));
 }
 
-async function makeKimiHome(): Promise<string> {
+async function makeSpiderByteHome(): Promise<string> {
   return mkdtemp(path.join(tmpdir(), 'spiderbyte-home-'));
 }
 
@@ -167,7 +167,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('pluginSkillRoots() returns only enabled plugins skills paths', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const a = await makePlugin('a', { skills: true });
     const b = await makePlugin('b', { skills: true });
     const manager = new PluginManager({ spiderByteHomeDir: home });
@@ -190,7 +190,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('pluginAgentRoots() returns only enabled plugins agents paths', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const a = await makePlugin('a', { agents: true });
     const b = await makePlugin('b', { agents: true });
     const manager = new PluginManager({ spiderByteHomeDir: home });
@@ -211,7 +211,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('pluginSkillRoots() excludes plugins in error state', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const root = await makePlugin('demo');
     const manager = new PluginManager({ spiderByteHomeDir: home });
     await manager.load();
@@ -227,7 +227,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('summaries count discovered skills inside plugin skill roots', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const root = await makePlugin('superpowers', {
       skillNames: ['brainstorming', 'systematic-debugging', 'writing-plans'],
     });
@@ -241,7 +241,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('reports the provided discovery result when skill counting is overridden', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const root = await makePlugin('custom-discovery', {
       skillNames: ['first', 'second'],
     });
@@ -260,7 +260,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('counts a SKILL.md at the plugin root fallback', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const root = await makePlugin('root-skill-plugin');
     await writeFile(
       path.join(root, 'SKILL.md'),
@@ -274,7 +274,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('counts nested sub-skills discovered through has-sub-skill bundles', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const root = await makePlugin('nested', { skillNames: ['parent'] });
     await writeFile(
       path.join(root, 'skills', 'parent', 'SKILL.md'),
@@ -294,7 +294,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('does not count skills whose SKILL.md has invalid frontmatter', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const root = await makePlugin('invalid-fm', { skillNames: ['good'] });
     await mkdir(path.join(root, 'skills', 'bad'), { recursive: true });
     await writeFile(path.join(root, 'skills', 'bad', 'SKILL.md'), 'no frontmatter at all', 'utf8');
@@ -305,7 +305,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('dedupes same-named skills across multiple plugin skill roots', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const root = await mkdtemp(path.join(tmpdir(), 'plugin-multiroot-'));
     await writeFile(
       path.join(root, 'spiderbyte.plugin.json'),
@@ -334,7 +334,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('removes the zip temp dir when extraction of a corrupt zip fails', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const isolated = await isolatedTmpdir();
     const url = await serveOnce(Buffer.from('this is not a zip archive'));
     const manager = new PluginManager({ spiderByteHomeDir: home });
@@ -345,7 +345,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('removes the zip temp dir and reports the original source when a zip plugin has no manifest', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const sourceRoot = await mkdtemp(path.join(tmpdir(), 'plugin-no-manifest-'));
     await writeFile(path.join(sourceRoot, 'README.md'), 'no manifest here', 'utf8');
     const isolated = await isolatedTmpdir();
@@ -366,7 +366,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('reports the GitHub URL when a GitHub plugin tarball has no manifest', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const sourceRoot = await mkdtemp(path.join(tmpdir(), 'plugin-gh-no-manifest-'));
     await writeFile(path.join(sourceRoot, 'README.md'), 'no manifest here', 'utf8');
     const isolated = await isolatedTmpdir();
@@ -388,7 +388,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('removes the zip temp dir when a GitHub plugin tarball has no manifest', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const sourceRoot = await mkdtemp(path.join(tmpdir(), 'plugin-gh-no-manifest-'));
     await writeFile(path.join(sourceRoot, 'README.md'), 'no manifest here', 'utf8');
     const isolated = await isolatedTmpdir();
@@ -406,7 +406,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('reports the real local path when a local-path plugin has no manifest', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const sourceRoot = await mkdtemp(path.join(tmpdir(), 'plugin-no-manifest-'));
     const manager = new PluginManager({ spiderByteHomeDir: home });
     await manager.load();
@@ -421,7 +421,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('removes the zip temp dir after a successful zip install', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const root = await makePlugin('zip-demo');
     const isolated = await isolatedTmpdir();
     const url = await serveOnce(await zipDir(root));
@@ -434,7 +434,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('enabledSessionStarts() returns only enabled plugin sessionStart declarations', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const root = await makePlugin('demo', { skills: true, sessionStartSkill: 'demo-skill' });
     const manager = new PluginManager({ spiderByteHomeDir: home });
     await manager.load();
@@ -445,7 +445,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('enabledSystemPrompts() returns only enabled plugin systemPrompt declarations', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const withPrompt = await makePlugin('prompted', { systemPrompt: 'Always cite sources.' });
     const withoutPrompt = await makePlugin('plain', { skills: true });
     const manager = new PluginManager({ spiderByteHomeDir: home });
@@ -460,7 +460,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('setMcpServerEnabled() persists explicit MCP server state with cwd + env + runtime name', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const root = await makePlugin('demo', {
       mcpServers: {
         finance: { command: 'finance-mcp' },
@@ -522,7 +522,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('merges manifest MCP enabled defaults with explicit user state', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const root = await makePlugin('demo', {
       mcpServers: { finance: { command: 'finance-mcp', enabled: false } },
     });
@@ -553,7 +553,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('uses unambiguous runtime names for plugin MCP servers', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const first = await makePlugin('a-b', { mcpServers: { c: { command: 'first-mcp' } } });
     const second = await makePlugin('a', { mcpServers: { 'b-c': { command: 'second-mcp' } } });
     const manager = new PluginManager({ spiderByteHomeDir: home });
@@ -577,7 +577,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('enabledMcpServers() excludes disabled plugins', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const root = await makePlugin('demo', { mcpServers: { finance: { command: 'finance-mcp' } } });
     const manager = new PluginManager({ spiderByteHomeDir: home });
     await manager.load();
@@ -588,7 +588,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('setMcpServerEnabled() rejects unknown MCP servers', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const root = await makePlugin('demo');
     const manager = new PluginManager({ spiderByteHomeDir: home });
     await manager.load();
@@ -599,7 +599,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('reload() picks up edits to the managed plugin copy', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const root = await makePlugin('demo');
     const manager = new PluginManager({ spiderByteHomeDir: home });
     await manager.load();
@@ -616,7 +616,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('remove() clears the entry but does not delete the source directory', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const root = await makePlugin('demo', { skills: true });
     const manager = new PluginManager({ spiderByteHomeDir: home });
     await manager.load();
@@ -627,7 +627,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('enabledHooks() returns hooks from enabled plugins with cwd and env injected', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const root = await makePlugin('demo', {
       hooks: [{ event: 'PreToolUse', command: './hooks/guard.sh', timeout: 10 }],
     });
@@ -647,7 +647,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('enabledHooks() excludes disabled plugins', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const root = await makePlugin('demo', { hooks: [{ event: 'PreToolUse', command: './x.sh' }] });
     const manager = new PluginManager({ spiderByteHomeDir: home });
     await manager.load();
@@ -657,7 +657,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('install() from /tree/<tag-shaped-ref> pins the resolved commit', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const sourceRoot = await mkdtemp(path.join(tmpdir(), 'plugin-gh-tag-'));
     await writeFile(
       path.join(sourceRoot, 'spiderbyte.plugin.json'),
@@ -696,7 +696,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('install() from /releases/tag/<tag> pins the tag commit', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const sourceRoot = await mkdtemp(path.join(tmpdir(), 'plugin-gh-release-'));
     await writeFile(
       path.join(sourceRoot, 'spiderbyte.plugin.json'),
@@ -735,7 +735,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('install() from github /tree/<branch> bypasses the GitHub API', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const sourceRoot = await mkdtemp(path.join(tmpdir(), 'plugin-gh-branch-'));
     await writeFile(
       path.join(sourceRoot, 'spiderbyte.plugin.json'),
@@ -757,7 +757,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('install() ignores forged marketplace context from legacy callers', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const root = await makePlugin('rando', { version: '1.0.0' });
     const manager = new PluginManager({ spiderByteHomeDir: home });
     await manager.load();
@@ -769,7 +769,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('install() from github URL overwrites an existing zip-url install (CDN migration)', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
 
     const cdnSource = await mkdtemp(path.join(tmpdir(), 'plugin-cdn-'));
     await writeFile(
@@ -807,7 +807,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('enabledMcpServers() runs stdio node plugins via the bundled Electron Node under an Electron host', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const root = await makePlugin('demo', {
       mcpServers: { data: { command: 'node', args: ['./bin/data.mjs'] } },
     });
@@ -840,7 +840,7 @@ describe('PluginManager consumption plane', () => {
   });
 
   it('enabledMcpServers() leaves stdio node plugins on system node outside Electron / CLI binary', async () => {
-    const home = await makeKimiHome();
+    const home = await makeSpiderByteHome();
     const root = await makePlugin('demo', {
       mcpServers: { data: { command: 'node', args: ['./bin/data.mjs'] } },
     });

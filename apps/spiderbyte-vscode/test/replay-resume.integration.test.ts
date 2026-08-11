@@ -60,6 +60,7 @@ async function createReplayRig(): Promise<ReplayRig> {
       [MODEL_ALIAS]: {
         provider: "local",
         model: "mock-model",
+        protocol: "openai",
         maxContextSize: 128_000,
       },
     },

@@ -154,7 +154,7 @@ describe("Webview model metadata", () => {
       models: group.models.map((model) => model.id),
     }))).toEqual([
       { provider: "company-proxy", label: "company-proxy", models: ["proxy/shared"] },
-      { provider: "managed:spiderbyte", label: "SpiderByte", models: ["spiderbyte/shared"] },
+      { provider: "managed:spiderbyte", label: "managed:spiderbyte", models: ["spiderbyte/shared"] },
     ]);
   });
 

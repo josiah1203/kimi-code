@@ -160,7 +160,7 @@ describe('apiKey env suppression (probe 1)', () => {
     });
     await expect(provider.generate('sys', [], [])).rejects.toThrow(/apiKey is required/);
 
-    process.env['OPENAI_API_KEY'] = 'sk-openai-must-not-leak';
+    process.env['OPENAI_API_KEY'] = 'TEST_OPENAI_CREDENTIAL_DO_NOT_USE';
     const withStrayEnv = registry.createChatProvider({
       protocol: 'openai',
       providerType: 'kimi',

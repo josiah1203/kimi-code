@@ -17,7 +17,10 @@ import {
   IProviderDiscoveryService,
   ISessionIndex,
   ISessionIndexMirror,
+  IAtomicDocumentStore,
   IWorkspaceService,
+  IWorkspaceLifecycleService,
+  ISessionLifecycleService,
   logSeed,
   resolveConfigPath,
   resolveSpiderByteHome,
@@ -402,11 +405,19 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
       // Settle session metadata writes first: requests have stopped, and a
       // queued write must land before the mirror flushes its summary and the
       // scope disposal marks the service disposed.
+      for (const handler of core.accessor.get(IWorkspaceLifecycleService).handlers.list()) {
+        const sessions = handler.accessor.get(ISessionLifecycleService);
+        await Promise.all(sessions.list().map((session) => sessions.close(session.id)));
+      }
       await drainSessionMetadataWrites();
       // Drain the session-index mirror while the query store is still open:
       // requests have stopped, so no new summaries arrive and the queue just
       // needs its final flush to land in the read model.
       await core.accessor.get(ISessionIndexMirror).drain();
+      // Workspace platform services initialize lazily. Their ready chains can
+      // read a missing document and then seed it, so drain the whole atomic
+      // operation chain before disposing scopes or releasing homeDir.
+      await core.accessor.get(IAtomicDocumentStore).drain?.();
       core.dispose();
       // `core.dispose()` runs the mirror's, the search service's and the query
       // store's synchronous `dispose()`, whose drains/closes are asynchronous —

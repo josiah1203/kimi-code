@@ -198,6 +198,11 @@ describe('server-v2 /api/v1/workspaces', () => {
   });
 
   it('sums session_count across legacy split buckets of one root', async () => {
+    // Seed the legacy files while the server is stopped. Overwriting its live
+    // atomic workspace document would race lazy reads and does not model a
+    // real startup migration.
+    await server?.close();
+    server = undefined;
     // Legacy pre-fold data: one physical directory registered under two
     // spelling variants, with sessions bucketed per minted id.
     const typedRoot = 'C:\\Users\\Foo\\Proj';
@@ -241,6 +246,15 @@ describe('server-v2 /api/v1/workspaces', () => {
     await seedBucket(typedId, 's-typed', {});
     // Archived sessions count too (the wire counts every persisted session).
     await seedBucket(lowerId, 's-lower', { archived: true, updatedAt: 2 });
+
+    server = await startServer({
+      hostIdentity: TEST_HOST_IDENTITY,
+      host: '127.0.0.1',
+      port: 0,
+      homeDir: home as string,
+      logLevel: 'silent',
+    });
+    base = `http://127.0.0.1:${server.port}`;
 
     // The catalog dedupes to one workspace whose count covers both buckets.
     const { body } = await getJson<ListWire>('/api/v1/workspaces');

@@ -25,6 +25,8 @@ export interface IAtomicDocumentStore {
   set<T>(scope: string, key: string, value: T): Promise<void>;
   delete(scope: string, key: string): Promise<void>;
   list(scope: string, prefix?: string): Promise<readonly string[]>;
+  /** Wait for every operation already in flight, including work it schedules. */
+  drain?(): Promise<void>;
   watch(scope: string, key: string): Event<void>;
   acquire(scope: string, key: string): IDisposable;
 }

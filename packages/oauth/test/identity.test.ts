@@ -96,10 +96,10 @@ describe('SpiderByte identity factories', () => {
     const headers = createSpiderByteDeviceHeaders({
       homeDir: tempHome(),
       version: '1.2.3-test',
-      platform: 'kimi_code_desktop',
+      platform: 'spiderbyte_code_desktop',
     });
 
-    expect(headers['X-Msh-Platform']).toBe('kimi_code_desktop');
+    expect(headers['X-Msh-Platform']).toBe('spiderbyte_code_desktop');
   });
 
   it('rejects an empty, whitespace, or all-non-ASCII platform instead of emitting a bad header', () => {
@@ -115,9 +115,9 @@ describe('SpiderByte identity factories', () => {
     const headers = createSpiderByteDeviceHeaders({
       homeDir: tempHome(),
       version: '1.2.3',
-      platform: 'kimi_code_桌面\n',
+      platform: 'spiderbyte_code_桌面\n',
     });
-    expect(headers['X-Msh-Platform']).toBe('kimi_code_');
+    expect(headers['X-Msh-Platform']).toBe('spiderbyte_code_');
   });
 
   it('merges User-Agent and device headers into default headers', () => {
@@ -125,11 +125,11 @@ describe('SpiderByte identity factories', () => {
       homeDir: tempHome(),
       productName: 'spiderbyte-cli',
       version: '1.2.3',
-      platform: 'kimi_code_cli',
+      platform: 'spiderbyte_code_cli',
     });
 
     expect(headers['User-Agent']).toBe('spiderbyte-cli/1.2.3');
-    expect(headers['X-Msh-Platform']).toBe('kimi_code_cli');
+    expect(headers['X-Msh-Platform']).toBe('spiderbyte_code_cli');
     expect(headers['X-Msh-Version']).toBe('1.2.3');
     expect(headers['X-Msh-Device-Id']).toMatch(/^[0-9a-f-]+$/);
   });
@@ -139,11 +139,11 @@ describe('SpiderByte identity factories', () => {
       homeDir: tempHome(),
       productName: 'spiderbyte-desktop',
       version: '0.0.13',
-      platform: 'kimi_code_desktop',
+      platform: 'spiderbyte_code_desktop',
     });
 
     expect(headers['User-Agent']).toBe('spiderbyte-desktop/0.0.13');
-    expect(headers['X-Msh-Platform']).toBe('kimi_code_desktop');
+    expect(headers['X-Msh-Platform']).toBe('spiderbyte_code_desktop');
   });
 });
 

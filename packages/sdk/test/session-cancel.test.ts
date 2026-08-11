@@ -1,41 +1,23 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import type * as KosongModule from '@spiderbyte/kosong';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createSpiderByteHarness, type SpiderByteError, type Event } from '#/index';
 
 import { makeTempDir, removeTempDirs, waitForSDKEvent } from './session-runtime-helpers';
 import { TEST_IDENTITY } from './test-identity';
-
-vi.mock('@spiderbyte/kosong', async (importOriginal) => {
-  const actual = await importOriginal<typeof KosongModule>();
-  return {
-    ...actual,
-    createProvider: () => ({
-      name: 'fake',
-      modelName: 'fake-model',
-      thinkingEffort: null,
-      async generate(
-        _systemPrompt: string,
-        _tools: unknown,
-        _history: unknown,
-        options?: { readonly signal?: AbortSignal },
-      ) {
-        await waitForAbort(options?.signal);
-        throwAbortError();
-      },
-      withThinking() {
-        return this;
-      },
-    }),
-  };
-});
+import { startOpenAITestServer, type OpenAITestServer } from './openai-test-server';
 
 const tempDirs: string[] = [];
+let provider: OpenAITestServer;
+
+beforeEach(async () => {
+  provider = await startOpenAITestServer({ hang: true });
+});
 
 afterEach(async () => {
+  await provider.close();
   await removeTempDirs(tempDirs);
 });
 
@@ -43,7 +25,7 @@ describe('Session.cancel', () => {
   it('cancels an active streaming turn and emits turn_ended(cancelled)', async () => {
     const homeDir = await makeTempDir(tempDirs, 'spiderbyte-sdk-cancel-home-');
     const workDir = await makeTempDir(tempDirs, 'spiderbyte-sdk-cancel-work-');
-    await writeFakeModelConfig(homeDir);
+    await writeFakeModelConfig(homeDir, provider.baseUrl);
     const harness = createSpiderByteHarness({ homeDir, identity: TEST_IDENTITY });
 
     try {
@@ -81,7 +63,7 @@ describe('Session.cancel', () => {
   it('rejects manual compaction on an empty session with compaction.unable', async () => {
     const homeDir = await makeTempDir(tempDirs, 'spiderbyte-sdk-cancel-compact-home-');
     const workDir = await makeTempDir(tempDirs, 'spiderbyte-sdk-cancel-compact-work-');
-    await writeFakeModelConfig(homeDir);
+    await writeFakeModelConfig(homeDir, provider.baseUrl);
     const harness = createSpiderByteHarness({ homeDir, identity: TEST_IDENTITY });
 
     try {
@@ -123,7 +105,7 @@ describe('SpiderByteHarness.forkSession', () => {
   it('rejects while the source session has an active turn', async () => {
     const homeDir = await makeTempDir(tempDirs, 'spiderbyte-sdk-fork-active-home-');
     const workDir = await makeTempDir(tempDirs, 'spiderbyte-sdk-fork-active-work-');
-    await writeFakeModelConfig(homeDir);
+    await writeFakeModelConfig(homeDir, provider.baseUrl);
     const harness = createSpiderByteHarness({ homeDir, identity: TEST_IDENTITY });
 
     try {
@@ -153,7 +135,7 @@ describe('SpiderByteHarness.forkSession', () => {
   });
 });
 
-async function writeFakeModelConfig(homeDir: string): Promise<void> {
+async function writeFakeModelConfig(homeDir: string, baseUrl: string): Promise<void> {
   await writeFile(
     join(homeDir, 'config.toml'),
     `
@@ -161,7 +143,7 @@ default_model = "fake-model"
 
 [providers.local]
 type = "openai"
-base_url = "https://example.test/v1"
+base_url = "${baseUrl}"
 api_key = "sk-test"
 
 [models.fake-model]
@@ -171,23 +153,4 @@ max_context_size = 1000
 `,
     'utf-8',
   );
-}
-
-function waitForAbort(signal: AbortSignal | undefined): Promise<void> {
-  if (signal?.aborted === true) {
-    return Promise.resolve();
-  }
-  return new Promise((resolve) => {
-    signal?.addEventListener(
-      'abort',
-      () => {
-        resolve();
-      },
-      { once: true },
-    );
-  });
-}
-
-function throwAbortError(): never {
-  throw new DOMException('The operation was aborted.', 'AbortError');
 }

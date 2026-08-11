@@ -40,7 +40,7 @@ Some commands are only available in the idle state. Executing these commands whi
 | `/export-debug-zip` | — | Export the current session as a debug ZIP archive (same behavior as [`spyderbyte export`](./spyderbyte-command.md#spyderbyte-export)) | No |
 | `/copy` | — | Copy the last assistant message to the clipboard | No |
 | `/add-dir [<path>]` | — | Add an extra workspace directory to the current session. Run without a path (or with `list`) to list configured directories. When adding, choose whether to remember the directory for the project in `.spiderbyte/local.toml` | No |
-| `/web` | — | Open the current session in the web UI: pick a running server to connect to, or start a new foreground server after the TUI exits. See [`spyderbyte web`](./spyderbyte-command.md#spiderbyte-web) | Yes |
+| `/web` | — | Open the current session in the web UI: pick a running server to connect to, or start a new foreground server after the TUI exits. See [`spyderbyte web`](./spyderbyte-command.md#spyderbyte-web) | Yes |
 
 ## Modes & Run Control
 

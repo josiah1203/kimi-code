@@ -17,7 +17,7 @@ import type { TokenInfo } from '../src/types';
 function makeTmpDir(): string {
   const dir = join(
     tmpdir(),
-    `kimi-storage-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    `spiderbyte-storage-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   );
   mkdirSync(dir, { recursive: true });
   return dir;
@@ -123,7 +123,7 @@ describe('FileTokenStorage', () => {
     await storage.save('spiderbyte', sampleToken());
     await storage.save('other-provider', sampleToken());
     const names = await storage.list();
-    expect(names.toSorted()).toEqual(['spiderbyte', 'other-provider']);
+    expect(names.toSorted()).toEqual(['other-provider', 'spiderbyte']);
   });
 
   it('list() ignores non-JSON files in the credentials dir', async () => {

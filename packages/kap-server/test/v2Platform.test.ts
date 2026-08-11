@@ -22,12 +22,18 @@ interface WorkspaceWire {
   root: string;
 }
 
+function rawDataToText(raw: WebSocket.RawData): string {
+  if (Array.isArray(raw)) return Buffer.concat(raw).toString();
+  if (raw instanceof ArrayBuffer) return Buffer.from(raw).toString();
+  return raw.toString();
+}
+
 function createMessageReader(socket: WebSocket): () => Promise<unknown> {
   const pending: unknown[] = [];
   const waiters: Array<{ resolve: (value: unknown) => void; reject: (error: Error) => void }> = [];
   socket.on('message', (raw: WebSocket.RawData) => {
     try {
-      const message = JSON.parse(raw.toString()) as unknown;
+      const message = JSON.parse(rawDataToText(raw)) as unknown;
       const waiter = waiters.shift();
       if (waiter === undefined) pending.push(message);
       else waiter.resolve(message);

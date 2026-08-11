@@ -13,31 +13,47 @@
  */
 import { chmodSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
-function nodePtyRoot() {
+function nodePtyRoots() {
+  const roots = [];
   const require = createRequire(import.meta.url);
-  // Resolve from packages/services (where node-pty is declared) so we find the
-  // workspace's hoisted copy regardless of where this script runs.
-  const entry = require.resolve('node-pty', {
-    paths: [join(process.cwd(), 'packages/services'), process.cwd()],
-  });
-  // .../node-pty/lib/index.js -> .../node-pty
-  return dirname(dirname(entry));
+  try {
+    // Resolve from the repository root when a workspace hoist is available.
+    const entry = require.resolve('node-pty', { paths: [process.cwd()] });
+    roots.push(dirname(dirname(entry)));
+  } catch {
+    // pnpm may not expose a root-level symlink during lifecycle ordering.
+  }
+
+  // During pnpm's root postinstall, dependency lifecycle scripts have not yet
+  // created the workspace links. Locate the package in pnpm's virtual store so
+  // the executable-bit fix still runs on a clean install.
+  const virtualStore = resolve(import.meta.dirname, '..', 'node_modules/.pnpm');
+  if (existsSync(virtualStore)) {
+    for (const entry of readdirSync(virtualStore)) {
+      if (!entry.startsWith('node-pty@')) continue;
+      const root = join(virtualStore, entry, 'node_modules/node-pty');
+      if (existsSync(root)) roots.push(root);
+    }
+  }
+
+  return [...new Set(roots)];
 }
 
 try {
-  const root = nodePtyRoot();
-  const prebuilds = join(root, 'prebuilds');
-  if (!existsSync(prebuilds)) process.exit(0);
   let fixed = 0;
-  for (const arch of readdirSync(prebuilds)) {
-    const helper = join(prebuilds, arch, 'spawn-helper');
-    if (!existsSync(helper)) continue;
-    const mode = statSync(helper).mode;
-    if ((mode & 0o111) === 0o111) continue; // already executable
-    chmodSync(helper, 0o755);
-    fixed++;
+  for (const root of nodePtyRoots()) {
+    const prebuilds = join(root, 'prebuilds');
+    if (!existsSync(prebuilds)) continue;
+    for (const arch of readdirSync(prebuilds)) {
+      const helper = join(prebuilds, arch, 'spawn-helper');
+      if (!existsSync(helper)) continue;
+      const mode = statSync(helper).mode;
+      if ((mode & 0o111) === 0o111) continue; // already executable
+      chmodSync(helper, 0o755);
+      fixed++;
+    }
   }
   if (fixed > 0) console.log(`[fix-node-pty-perms] made ${fixed} spawn-helper binary(ies) executable`);
 } catch (err) {

@@ -316,7 +316,7 @@ describe('WorkspaceMlService', () => {
     const reloaded = await ix.get(IWorkspaceMlService).listExperiments();
     expect(reloaded.map((experiment) => experiment.name)).toEqual(['churn baseline', 'churn baseline two']);
     expect(await ix.get(IWorkspaceMlService).listAnalyses()).toHaveLength(1);
-    await disposables.dispose();
+    disposables.dispose();
   });
 
   it('rejects secret-bearing metadata before persisting ML records', async () => {

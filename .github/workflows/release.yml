@@ -86,6 +86,10 @@ jobs:
     needs: release
     if: needs.release.outputs.spiderbyte_native_release == 'true'
     uses: ./.github/workflows/_native-build.yml
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     with:
       upload-artifact-prefix: spyderbyte-native
       retention-days: 7
@@ -106,6 +110,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      attestations: read
 
     steps:
       - name: Checkout
@@ -117,6 +122,16 @@ jobs:
           pattern: spyderbyte-native-*
           path: dist-native-release
           merge-multiple: true
+
+      - name: Verify native artifact checksums and attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for checksum in dist-native-release/*.zip.sha256; do
+            archive="${checksum%.sha256}"
+            node apps/cli/scripts/native/verify-artifact.mjs "$archive" "$checksum"
+            gh attestation verify "$archive" --repo "${{ github.repository }}"
+          done
 
       - name: Produce manifest.json
         env:

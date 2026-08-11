@@ -63,7 +63,7 @@ The SpiderByte-specific user agent directory moves with `SPIDERBYTE_HOME`, while
 extra_agent_dirs = ["~/team-agents", ".agents/team-agents"]
 ```
 
-**Plugin level**: directories declared in an enabled plugin's manifest `agents` field (when omitted, the `agents/` directory under the plugin root is picked up automatically); see [Plugin Agents](./plugins.md#plugin-agents). Plugin agents outrank only the built-in agents.
+**Plugin level**: directories declared in an enabled plugin's manifest `agents` field (when omitted, the `agents/` directory under the plugin root is picked up automatically); see [Plugins](./plugins.md). Plugin agents outrank only the built-in agents.
 
 **Built-in agents** are distributed with the CLI and have the lowest priority. A directory-discovered file does not override a same-name built-in Agent unless its frontmatter declares `override: true`. A file loaded through `--agent-file` is treated as explicit launch intent, may override a same-name built-in Agent, outranks every directory scope, and applies to the current launch only. Separately, `$SPIDERBYTE_HOME/SYSTEM.md` permanently overrides the default main agent's system prompt (it is not part of agent-file discovery); its precedence interactions are covered in the SYSTEM.md section below.
 

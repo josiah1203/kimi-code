@@ -34,19 +34,27 @@ const reply = {
 class RespParser {
   private buf: Buffer = Buffer.alloc(0);
   private readonly maxBuf: number;
+  private discard:
+    | { bytesRemaining: number; argsRemaining: number }
+    | undefined;
 
   constructor({ maxBuf = 64 * 1024 * 1024 }: { maxBuf?: number } = {}) {
     this.maxBuf = maxBuf;
   }
 
-  *feed(chunk: Buffer): Generator<Buffer[]> {
+  *feed(chunk: Buffer): Generator<Buffer[] | Error> {
     this.buf = this.buf.length ? Buffer.concat([this.buf, chunk]) : chunk;
+    if (this.discard !== undefined) {
+      this.advanceDiscard();
+      if (this.discard !== undefined) return;
+    }
     if (this.buf.length > this.maxBuf) {
       // Drop the buffered oversized request before reporting: without the
       // reset every later chunk would fail with the same error and the giant
       // buffer would be retained for the life of the connection.
       this.buf = Buffer.alloc(0);
-      throw new Error(`RESP request too large (>${this.maxBuf} bytes)`);
+      yield new Error(`RESP request too large (>${this.maxBuf} bytes)`);
+      return;
     }
     while (this.buf.length) {
       const parsed = this.tryParse();
@@ -55,7 +63,7 @@ class RespParser {
     }
   }
 
-  private tryParse(): Buffer[] | null {
+  private tryParse(): Buffer[] | Error | null {
     if (this.buf[0] !== 0x2a /* '*' */) {
       const idx = this.buf.indexOf(CRLF);
       if (idx === -1) return null;
@@ -78,12 +86,49 @@ class RespParser {
       if (end === -1) return null;
       const len = Number(this.buf.subarray(pos, end).toString());
       pos = end + 2;
+      if (len > this.maxBuf) {
+        this.buf = this.buf.subarray(pos);
+        this.discard = {
+          bytesRemaining: len + 2,
+          argsRemaining: argc - i - 1,
+        };
+        this.advanceDiscard();
+        return new Error(`RESP request too large (>${this.maxBuf} bytes)`);
+      }
       if (this.buf.length - pos < len + 2) return null;
       args.push(this.buf.subarray(pos, pos + len));
       pos += len + 2;
     }
     this.buf = this.buf.subarray(pos);
     return args;
+  }
+
+  private advanceDiscard(): void {
+    while (this.discard !== undefined) {
+      if (this.discard.bytesRemaining > 0) {
+        const consumed = Math.min(this.discard.bytesRemaining, this.buf.length);
+        this.buf = this.buf.subarray(consumed);
+        this.discard.bytesRemaining -= consumed;
+        if (this.discard.bytesRemaining > 0) return;
+      }
+      if (this.discard.argsRemaining === 0) {
+        this.discard = undefined;
+        return;
+      }
+      const end = this.buf.indexOf(CRLF);
+      if (end === -1) return;
+      if (this.buf[0] !== 0x24 /* '$' */) {
+        this.buf = Buffer.alloc(0);
+        this.discard = undefined;
+        return;
+      }
+      const len = Number(this.buf.subarray(1, end).toString());
+      this.buf = this.buf.subarray(end + 2);
+      this.discard = {
+        bytesRemaining: Math.max(0, len) + 2,
+        argsRemaining: this.discard.argsRemaining - 1,
+      };
+    }
   }
 }
 
@@ -166,7 +211,10 @@ export interface ServerHandle {
 
 export async function startServer({ dir, port = 6379, host = '127.0.0.1', fsyncPolicy = 'everysec' }: ServerOptions): Promise<ServerHandle> {
   const db = (await MiniDb.open({ dir, valueCodec: 'string', fsyncPolicy })) as MiniDb<string>;
+  const sockets = new Set<Socket>();
   const server = net.createServer((socket: Socket) => {
+    sockets.add(socket);
+    socket.once('close', () => sockets.delete(socket));
     const parser = new RespParser();
     // Serialize per-connection processing: a new chunk's commands are queued
     // behind the previous chunk's in-flight work, so replies always leave in
@@ -190,6 +238,10 @@ export async function startServer({ dir, port = 6379, host = '127.0.0.1', fsyncP
         try {
           for (const args of parser.feed(chunk)) {
             if (socket.destroyed) return;
+            if (args instanceof Error) {
+              send(reply.err(args.message));
+              continue;
+            }
             let res: string | Buffer | null;
             try {
               res = await handle(db, args);
@@ -217,12 +269,19 @@ export async function startServer({ dir, port = 6379, host = '127.0.0.1', fsyncP
   const actualPort = (server.address() as net.AddressInfo).port;
 
   const close = async (): Promise<void> => {
-    server.close();
+    process.off('SIGINT', onSigint);
+    for (const socket of sockets) socket.destroy();
+    if (server.listening) {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => error === undefined ? resolve() : reject(error));
+      });
+    }
     await db.close();
   };
-  process.on('SIGINT', () => {
+  const onSigint = (): void => {
     void close().then(() => process.exit(0));
-  });
+  };
+  process.on('SIGINT', onSigint);
   return { server, db, close, port: actualPort, host };
 }
 

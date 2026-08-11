@@ -136,9 +136,9 @@ describe('effectiveModelConfig', () => {
     expect(inferred.defaultEffort).toBe('high');
     expect(inferred.capabilities).toContain('thinking');
 
-    const kimiRouted = effectiveModelConfig({ model: 'kimi-k2', protocol: 'anthropic' }, 'kimi');
-    expect(kimiRouted.supportEfforts).toBeUndefined();
-    expect(kimiRouted.capabilities).toBeUndefined();
+    const externalProviderRouted = effectiveModelConfig({ model: 'kimi-k2', protocol: 'anthropic' }, 'kimi');
+    expect(externalProviderRouted.supportEfforts).toBeUndefined();
+    expect(externalProviderRouted.capabilities).toBeUndefined();
   });
 });
 

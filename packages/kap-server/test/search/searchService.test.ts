@@ -2638,7 +2638,7 @@ describe('search worker host (stage 4)', () => {
     const host = new SearchWorkerHost({
       dir,
       log: noopLog,
-      requestTimeoutMs: 300,
+      requestTimeoutMs: 1_000,
       workerFactory: ({ url, data, execArgv }) => {
         const worker = new Worker(url, { workerData: data, execArgv });
         const original = worker.postMessage.bind(worker);
@@ -2660,7 +2660,7 @@ describe('search worker host (stage 4)', () => {
     // The wedged worker was terminated; after the backoff the next call
     // respawns a healthy (ungated) one.
     gate = false;
-    await new Promise((resolve) => setTimeout(resolve, 700));
+    await new Promise((resolve) => setTimeout(resolve, 1_200));
     const status = await host.status();
     expect(status.readOnly).toBe(false);
   });

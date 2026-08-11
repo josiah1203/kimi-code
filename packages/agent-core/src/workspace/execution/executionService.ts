@@ -209,7 +209,7 @@ export class WorkspaceExecutionService extends Disposable implements IWorkspaceE
     const budgetReservation = await this.reserveBudget(target, input);
     let response: WorkerResponse;
     try {
-      response = await this.callWorker(endpoint, credential, input, signal);
+      response = await this.callWorker(endpoint, target.metadata, credential, input, signal);
       // The remote call has completed, so charge the Run even if validating
       // or importing the worker's response fails below.
       await this.recordUsage(target.type, input, startedAt).catch(() => undefined);
@@ -408,6 +408,7 @@ export class WorkspaceExecutionService extends Disposable implements IWorkspaceE
 
   private async callWorker(
     endpoint: string,
+    targetMetadata: Readonly<Record<string, unknown>> | undefined,
     credential: string | undefined,
     input: WorkspaceExecutionRequest,
     signal: AbortSignal,
@@ -415,7 +416,7 @@ export class WorkspaceExecutionService extends Disposable implements IWorkspaceE
     let lastError: unknown;
     for (let attempt = 0; attempt <= WORKER_RETRY_COUNT; attempt += 1) {
       try {
-        return await this.callWorkerAttempt(endpoint, credential, input, signal);
+        return await this.callWorkerAttempt(endpoint, targetMetadata, credential, input, signal);
       } catch (error) {
         lastError = error;
         if (signal.aborted || !isRetryableWorkerError(error) || attempt === WORKER_RETRY_COUNT) throw error;
@@ -431,6 +432,7 @@ export class WorkspaceExecutionService extends Disposable implements IWorkspaceE
 
   private async callWorkerAttempt(
     endpoint: string,
+    targetMetadata: Readonly<Record<string, unknown>> | undefined,
     credential: string | undefined,
     input: WorkspaceExecutionRequest,
     signal: AbortSignal,
@@ -441,7 +443,7 @@ export class WorkspaceExecutionService extends Disposable implements IWorkspaceE
     if (signal.aborted) controller.abort();
     signal.addEventListener('abort', abort, { once: true });
     try {
-      const headers = workerHeaders(credential);
+      const headers = workerHeaders(targetMetadata, credential);
       const materializedPayload = await this.materializeInputArtifacts(input.payload);
       let response: Response;
       try {
@@ -673,14 +675,62 @@ function workerEndpoint(metadata: Readonly<Record<string, unknown>> | undefined)
       'execution target worker endpoint must use http or https',
     );
   }
+  if (isPrivateWorkerHost(url.hostname)) {
+    throw new ExecutionServiceError(
+      ExecutionErrors.codes.EXECUTION_TARGET_UNAVAILABLE,
+      'execution target worker endpoint must not use a private address',
+    );
+  }
   return url.toString();
 }
 
-function workerHeaders(credential: string | undefined): Record<string, string> {
+function workerHeaders(
+  metadata: Readonly<Record<string, unknown>> | undefined,
+  credential: string | undefined,
+): Record<string, string> {
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   if (credential === undefined) return headers;
+  if (metadata?.['provider'] === 'modal') {
+    let value: unknown;
+    try {
+      value = JSON.parse(credential);
+    } catch {
+      value = undefined;
+    }
+    const modalCredential = typeof value === 'object' && value !== null
+      ? value as Record<string, unknown>
+      : undefined;
+    const key = modalCredential?.['key'];
+    const secret = modalCredential?.['secret'];
+    if (typeof key !== 'string' || typeof secret !== 'string') {
+      throw new ExecutionServiceError(
+        ExecutionErrors.codes.EXECUTION_SECRET_MATERIAL,
+        'Modal execution credentials must contain a key and secret',
+      );
+    }
+    headers['Modal-Key'] = key;
+    headers['Modal-Secret'] = secret;
+    return headers;
+  }
   headers['authorization'] = 'Bearer ' + credential;
   return headers;
+}
+
+function isPrivateWorkerHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (host === 'localhost' || host.endsWith('.localhost') || host === '::1') return true;
+  const octets = host.split('.').map(Number);
+  if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
+    return host.startsWith('fc') || host.startsWith('fd') || /^fe[89ab]/.test(host);
+  }
+  const [first, second] = octets as [number, number, number, number];
+  return first === 0
+    || first === 10
+    || first === 127
+    || (first === 169 && second === 254)
+    || (first === 172 && second >= 16 && second <= 31)
+    || (first === 192 && second === 168)
+    || (first === 100 && second >= 64 && second <= 127);
 }
 
 function hasCapability(capabilities: readonly string[], operation: string): boolean {

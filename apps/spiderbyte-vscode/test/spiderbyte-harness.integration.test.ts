@@ -46,7 +46,7 @@ import { SpiderByteRuntime } from "../src/runtime/spiderbyte-runtime";
 import type { SessionRuntime } from "../src/runtime/session-runtime";
 
 const MODEL_ALIAS = "vscode-test";
-const PROVIDER_TOKEN = "sk-vscode-boundary-secret";
+const PROVIDER_TOKEN = "TEST_PROVIDER_CREDENTIAL";
 
 interface BroadcastRecord {
   readonly event: string;
@@ -199,6 +199,7 @@ async function writeProviderConfig(
 [models."${alias}"]
 provider = "local"
 model = "mock-model"
+protocol = "openai"
 max_context_size = 128000
 capabilities = ["thinking"]
 support_efforts = ["low", "high"]
@@ -217,10 +218,11 @@ api_key = "${PROVIDER_TOKEN}"
 [models."${MODEL_ALIAS}"]
 provider = "local"
 model = "mock-model"
+protocol = "openai"
 max_context_size = 128000
 ${extra}
 [loop_control]
-max_retries_per_step = 1
+max_attempts_per_step = 1
 `,
     "utf8",
   );
@@ -1359,5 +1361,5 @@ describe("VS Code SpiderByte harness integration (shares one in-process SDK home
         phase: "runtime",
       }),
     );
-  });
+  }, 15_000);
 });

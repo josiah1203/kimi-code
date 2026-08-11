@@ -41,7 +41,7 @@ When the agent calls a tool that has side effects — modifying files, running c
 
 Use the arrow keys to select an option and press `Enter` to confirm, or press `1` / `2` / `3` to select by number directly. `Esc`, `Ctrl-C`, and `Ctrl-D` are all equivalent to rejecting.
 
-The panel typically includes an **Approve for this session** option; selecting it auto-approves the same kind of call for the rest of the session. For permanent rules, add allow / deny entries in [Configuration files](../configuration/config-files.md#permission).
+The panel typically includes an **Approve for this session** option; selecting it auto-approves the same kind of call for the rest of the session. For permanent rules, add allow / deny entries in [Configuration files](../configuration/config-files.md#top-level-fields).
 
 ## Mode switching
 

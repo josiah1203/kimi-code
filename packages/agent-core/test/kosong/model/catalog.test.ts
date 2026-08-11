@@ -115,7 +115,7 @@ function createHost(
   };
 }
 
-const kimiSections: Record<string, unknown> = {
+const providerSections: Record<string, unknown> = {
   providers: {
     kimi: { type: 'kimi', apiKey: 'sk-test', baseUrl: 'https://api.moonshot.ai/v1' },
   },
@@ -142,7 +142,7 @@ afterEach(() => {
 
 describe('Model assembly (pure data)', () => {
   it('assembles a kimi model: protocol resolves to the vendor base, never a vendor', () => {
-    const { host, catalog } = createHost(kimiSections);
+    const { host, catalog } = createHost(providerSections);
     try {
       const model = catalog.get('k1');
       expect(model.id).toBe('k1');
@@ -163,7 +163,7 @@ describe('Model assembly (pure data)', () => {
   });
 
   it('the Model carries no morphs and no request driver — pure data only', () => {
-    const { host, catalog } = createHost(kimiSections);
+    const { host, catalog } = createHost(providerSections);
     try {
       const model: Record<string, unknown> = { ...catalog.get('k1') };
       for (const [key, value] of Object.entries(model)) {
@@ -438,7 +438,7 @@ describe('Model assembly (pure data)', () => {
 
   it('falls back to defaultProvider when a model names no provider', () => {
     const { host, catalog } = createHost({
-      ...kimiSections,
+      ...providerSections,
       defaultProvider: 'kimi',
       models: { inherited: { model: 'kimi-k2', maxContextSize: 1000 } },
     });
@@ -479,21 +479,21 @@ describe('Model assembly (pure data)', () => {
         host.dispose();
       }
     };
-    expectInvalid(kimiSections, 'nope');
+    expectInvalid(providerSections, 'nope');
     expectInvalid({ models: { ghost: { provider: 'missing', model: 'm', maxContextSize: 1 } } }, 'ghost');
     expectInvalid(
       { models: { noname: { protocol: 'openai', baseUrl: 'https://x.test', maxContextSize: 1 } } },
       'noname',
     );
     expectInvalid(
-      { ...kimiSections, models: { noctx: { provider: 'kimi', model: 'm' } } },
+      { ...providerSections, models: { noctx: { provider: 'kimi', model: 'm' } } },
       'noctx',
     );
   });
 
   it('findByName matches name, model, and aliases', () => {
     const { host, catalog } = createHost({
-      ...kimiSections,
+      ...providerSections,
       models: {
         k1: { provider: 'kimi', model: 'kimi-k2', aliases: ['k2-latest'], maxContextSize: 1 },
         k2: { provider: 'kimi', name: 'shared-name', maxContextSize: 1 },
@@ -533,7 +533,7 @@ describe('Model assembly (pure data)', () => {
 
 describe('ModelCatalog caching and config-event invalidation', () => {
   it('caches per id; getRequester returns the cached pair', () => {
-    const { host, catalog } = createHost(kimiSections);
+    const { host, catalog } = createHost(providerSections);
     try {
       const model = catalog.get('k1');
       expect(catalog.get('k1')).toBe(model);
@@ -546,7 +546,7 @@ describe('ModelCatalog caching and config-event invalidation', () => {
   });
 
   it('drops the cache when a watched config section changes', async () => {
-    const { host, catalog, models, providers } = createHost(kimiSections);
+    const { host, catalog, models, providers } = createHost(providerSections);
     try {
       const before = catalog.get('k1');
       await models.set('k1', { provider: 'kimi', model: 'kimi-k2', maxContextSize: 262144, displayName: 'K2' });
@@ -562,7 +562,7 @@ describe('ModelCatalog caching and config-event invalidation', () => {
   });
 
   it('keeps serving the stale Model on a silent registry write until notifyConfigChanged()', async () => {
-    const { host, catalog, models } = createHost(kimiSections);
+    const { host, catalog, models } = createHost(providerSections);
     try {
       const before = catalog.get('k1');
 
@@ -609,7 +609,7 @@ describe('headers merge order', () => {
 
 describe('ModelCatalog inspect', () => {
   it('builds the god object with per-field provenance (kimi structured model)', () => {
-    const { host, catalog } = createHost(kimiSections);
+    const { host, catalog } = createHost(providerSections);
     try {
       const view = catalog.inspect('k1');
       expect(view.id).toBe('k1');
@@ -638,7 +638,7 @@ describe('ModelCatalog inspect', () => {
   });
 
   it('serves the same resolution as get (chain consistency, same cache generation)', () => {
-    const { host, catalog, models } = createHost(kimiSections);
+    const { host, catalog, models } = createHost(providerSections);
     try {
       const model = catalog.get('k1');
       const view = catalog.inspect('k1');
@@ -846,7 +846,7 @@ describe('ModelCatalog inspect', () => {
   });
 
   it('throws config.invalid for unknown models, same as get', () => {
-    const { host, catalog } = createHost(kimiSections);
+    const { host, catalog } = createHost(providerSections);
     try {
       expect(() => catalog.inspect('nope')).toThrowError(
         expect.objectContaining({ code: ConfigErrors.codes.CONFIG_INVALID }),
@@ -859,7 +859,7 @@ describe('ModelCatalog inspect', () => {
 
 describe('ModelCatalog ping', () => {
   it('returns the streamed text and usage on a live success', async () => {
-    const { host, models, providers } = createHost(kimiSections, stubModelOAuthTokens());
+    const { host, models, providers } = createHost(providerSections, stubModelOAuthTokens());
     try {
       const fakeProvider: ChatProvider = {
         name: 'fake-base',
@@ -932,7 +932,7 @@ describe('ModelCatalog ping', () => {
   });
 
   it('rejects with config.invalid for unknown models', async () => {
-    const { host, catalog } = createHost(kimiSections);
+    const { host, catalog } = createHost(providerSections);
     try {
       await expect(catalog.ping('nope')).rejects.toThrowError(
         expect.objectContaining({ code: ConfigErrors.codes.CONFIG_INVALID }),

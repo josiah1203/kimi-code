@@ -752,6 +752,17 @@ describe('AgentLifecycleService', () => {
     });
   });
 
+  it('does not register an ephemeral fork in session metadata', async () => {
+    const svc = ix.get(IAgentLifecycleService);
+    await svc.create({ agentId: 'main' });
+    registerAgent.mockClear();
+
+    const child = await svc.fork('main', { agentId: 'ephemeral', persist: false });
+
+    expect(child.id).toBe('ephemeral');
+    expect(registerAgent).not.toHaveBeenCalled();
+  });
+
   it('run throws when the agent does not exist', () => {
     ix.set(ISessionSubagentService, new SyncDescriptor(SessionSubagentService));
     const svc = ix.get(ISessionSubagentService);

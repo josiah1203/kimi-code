@@ -37,8 +37,8 @@ const alwaysThinkingAnthropicEffortModel = {
   protocol: 'anthropic',
   providerType: 'kimi',
 };
-const kimiEffortModel = { ...effortModel, protocol: 'openai', providerType: 'kimi' };
-const kimiBooleanModel = { ...booleanModel, protocol: 'openai', providerType: 'kimi' };
+const externalProviderEffortModel = { ...effortModel, protocol: 'openai', providerType: 'kimi' };
+const externalProviderBooleanModel = { ...booleanModel, protocol: 'openai', providerType: 'kimi' };
 const openaiEffortModel = { ...effortModel, providerType: 'openai' };
 
 describe('defaultThinkingEffortForModel', () => {
@@ -182,17 +182,17 @@ describe('resolveThinkingEffortForModel', () => {
   });
 
   it('falls back to the model default for an unsupported Kimi effort', () => {
-    expect(resolveThinkingEffortForModel('ultra', undefined, kimiEffortModel, true)).toBe(
+    expect(resolveThinkingEffortForModel('ultra', undefined, externalProviderEffortModel, true)).toBe(
       'medium',
     );
   });
 
   it('projects a concrete effort to on for a boolean-only Kimi model', () => {
-    expect(resolveThinkingEffortForModel('ultra', undefined, kimiBooleanModel, true)).toBe('on');
+    expect(resolveThinkingEffortForModel('ultra', undefined, externalProviderBooleanModel, true)).toBe('on');
   });
 
   it('reports unsupported concrete efforts only for Kimi effort models', () => {
-    expect(modelSupportsThinkingEffort('ultra', kimiEffortModel, true)).toBe(false);
+    expect(modelSupportsThinkingEffort('ultra', externalProviderEffortModel, true)).toBe(false);
     expect(modelSupportsThinkingEffort('ultra', openaiEffortModel, false)).toBe(true);
   });
 });

@@ -125,11 +125,19 @@
       }
     },
     {
+      "files": ["scripts/**/*.mjs"],
+      "rules": {
+        "typescript/restrict-template-expressions": "off"
+      }
+    },
+    {
       "files": [
         "**/*.test.ts",
         "**/*.test.tsx",
+        "**/*.test.mjs",
         "**/*.spec.ts",
         "**/*.spec.tsx",
+        "**/*.spec.mjs",
         "**/test/**/*.ts",
         "**/test/**/*.tsx"
       ],
@@ -156,6 +164,9 @@
         "unicorn/no-useless-spread": "off",
         "import/no-cycle": "off",
         "typescript/no-meaningless-void-operator": "off",
+        "typescript/no-base-to-string": "off",
+        "typescript/no-floating-promises": "off",
+        "typescript/return-await": "off",
         "typescript/require-array-sort-compare": "off",
         "vitest/expect-expect": "error",
         "vitest/no-conditional-tests": "error",
@@ -172,9 +183,12 @@
     "dist/",
     "dist-web/",
     "coverage/",
+    "compat/",
     "node_modules/",
+    "**/*.d.ts",
     "apps/*/scripts/",
     "docs/smoke-archive/",
+    "packages/minidb/bench/",
     "packages/pi-tui/",
     "*.generated.ts"
   ]

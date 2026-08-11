@@ -24,9 +24,9 @@
  *     concrete efforts stay lenient on compatible transports
  *     (warn-and-send, `anthropic-thinking-effort-not-listed`) because the
  *     backend may accept values the local catalog does not list. The
- *     strict flag is declared by `kimiOpenAITrait` — SpiderByte's native API
- *     rejects unlisted efforts — and deliberately NOT by
- *     `kimiAnthropicTrait`.
+ *     strict flag is declared by the external-provider adapter — its native
+ *     API rejects unlisted efforts — and deliberately NOT by the corresponding
+ *     Anthropic transport trait.
  */
 
 import type { ThinkingEffort } from '#/kosong/contract/provider';

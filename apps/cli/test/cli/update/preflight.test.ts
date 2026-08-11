@@ -486,7 +486,7 @@ describe('runUpdatePreflight', () => {
     await expect(runUpdatePreflight('0.4.0', options)).resolves.toBe('continue');
     expect(stdout.join('')).toContain('brew upgrade spiderbyte');
     expect(stdout.join('')).toContain('Third-party sources may lag behind the official release.');
-    expect(stdout.join('')).toContain('https://www.spyderbyte.com/code');
+    expect(stdout.join('')).toContain('https://www.npmjs.com/package/@spiderbyte/cli');
     expect(promptForInstallChoice).not.toHaveBeenCalled();
     expect(mocks.spawn).not.toHaveBeenCalled();
   });
@@ -511,8 +511,7 @@ describe('runUpdatePreflight', () => {
       // pipefail must come before the pipeline so a failed `curl` is not masked
       // by the trailing `bash` exiting 0 (see "surfaces a failed curl" below).
       expect(script).toContain('set -o pipefail');
-      expect(script).toContain('curl -fsSL https://code.spyderbyte.com/spiderbyte/install.sh');
-      expect(script).toContain('| bash');
+      expect(script).toContain('npm install --global @spiderbyte/cli@latest');
     } finally {
       Object.defineProperty(process, 'platform', { value: originalPlatform });
     }
@@ -527,7 +526,7 @@ describe('runUpdatePreflight', () => {
     try {
       const { stdout, options } = captureOutput();
       await expect(runUpdatePreflight('0.4.0', options)).resolves.toBe('continue');
-      expect(stdout.join('')).toContain('irm https://code.spyderbyte.com/spiderbyte/install.ps1 | iex');
+      expect(stdout.join('')).toContain('npm install --global @spiderbyte/cli@latest');
       expect(promptForInstallChoice).not.toHaveBeenCalled();
       expect(mocks.spawn).not.toHaveBeenCalled();
     } finally {

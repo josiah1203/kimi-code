@@ -30,8 +30,9 @@
   },
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
     }
   },
   "scripts": {
@@ -40,8 +41,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "clean": "rm -rf dist"
   },
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
   "publishConfig": {
     "access": "public",
     "provenance": true,
@@ -52,6 +53,5 @@
         "default": "./dist/index.mjs"
       }
     }
-  },
-  "dependencies": {}
+  }
 }

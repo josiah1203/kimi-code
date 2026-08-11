@@ -34,11 +34,6 @@ export class WebSearchProviderService implements IWebSearchProviderService {
   }
 }
 
-function nonEmptyString(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed === undefined || trimmed.length === 0 ? undefined : trimmed;
-}
-
 registerScopedService(
   LifecycleScope.App,
   IWebSearchProviderService,

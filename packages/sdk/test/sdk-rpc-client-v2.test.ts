@@ -25,7 +25,7 @@ import {
   drainSessionIndexMirror,
 } from '@spiderbyte/agent-core';
 
-import { McpOAuthService } from '@spiderbyte/agent-core/mcpCore/oauth/service';
+import { mcpOAuthStoreKey } from '@spiderbyte/agent-core/mcpCore/oauth/store';
 
 import { TEST_IDENTITY } from './test-identity';
 import { startMcpAuthStatusServer } from './mcp-auth-status-server';
@@ -56,13 +56,8 @@ describe('SpiderByte SDK client', () => {
     const statusServer = await startMcpAuthStatusServer();
     const authorizedUrl = 'https://authorized.example.test/mcp';
     const requiredUrl = 'https://required.example.test/mcp';
-    const externalOAuth = new McpOAuthService({ kimiHomeDir: homeDir });
-    externalOAuth
-      .getProvider('oauth-authorized', authorizedUrl)
-      .saveTokens({ access_token: 'test-access-token', token_type: 'Bearer' });
-    externalOAuth
-      .getProvider('sse', statusServer.oauthUrl)
-      .saveTokens({ access_token: 'stale-sse-token', token_type: 'Bearer' });
+    await seedMcpOAuthTokens(homeDir, 'oauth-authorized', authorizedUrl, 'test-access-token');
+    await seedMcpOAuthTokens(homeDir, 'sse', statusServer.oauthUrl, 'stale-sse-token');
     await writeFile(
       join(homeDir, 'mcp.json'),
       JSON.stringify({
@@ -105,10 +100,8 @@ describe('SpiderByte SDK client', () => {
         { name: 'oauth-authorized', authStatus: 'oauth-authorized' },
       ]);
 
-      externalOAuth
-        .getProvider('oauth-required', requiredUrl)
-        .saveTokens({ access_token: 'new-test-access-token', token_type: 'Bearer' });
-      externalOAuth.invalidate('oauth-authorized', authorizedUrl, 'tokens');
+      await seedMcpOAuthTokens(homeDir, 'oauth-required', requiredUrl, 'new-test-access-token');
+      await rm(mcpOAuthTokensPath(homeDir, 'oauth-authorized', authorizedUrl), { force: true });
 
       await expect(harness.listMcpServerAuthStatuses()).resolves.toEqual([
         { name: 'stdio', authStatus: 'not-applicable' },
@@ -284,6 +277,30 @@ describe('SpiderByte SDK client', () => {
   });
 });
 
+function mcpOAuthTokensPath(homeDir: string, serverName: string, serverUrl: string): string {
+  return join(
+    homeDir,
+    'credentials',
+    'mcp',
+    `${mcpOAuthStoreKey(serverName, serverUrl)}-tokens.json`,
+  );
+}
+
+async function seedMcpOAuthTokens(
+  homeDir: string,
+  serverName: string,
+  serverUrl: string,
+  accessToken: string,
+): Promise<void> {
+  const path = mcpOAuthTokensPath(homeDir, serverName, serverUrl);
+  await mkdir(join(homeDir, 'credentials', 'mcp'), { recursive: true });
+  await writeFile(
+    path,
+    JSON.stringify({ access_token: accessToken, token_type: 'Bearer' }),
+    'utf-8',
+  );
+}
+
 describe('SpiderByteSdkClient workspace trust', () => {
   it('reports an untrusted workspace with the project MCP servers it gates', async () => {
     const { harness } = await makeHarness();
@@ -367,8 +384,20 @@ describe('foldAgentWireReplay', () => {
         value: [{ title: 'new', status: 'pending' }],
         time: 1004,
       },
+      {
+        type: 'context.append_loop_event',
+        event: {
+          type: 'tool.call',
+          stepUuid: 'step-1',
+          toolCallId: 'write-1',
+          name: 'WriteFile',
+          args: { path: 'created.txt' },
+          display: { kind: 'file_io', operation: 'write', path: 'created.txt', content: 'hello' },
+        },
+        time: 1005,
+      },
       // A v2-only op the v1 restore switch does not know: ignored.
-      { type: 'profile.bind', profileName: 'agent', systemPrompt: 'x', thinkingEffort: 'off', disallowedTools: [], time: 1005 },
+      { type: 'profile.bind', profileName: 'agent', systemPrompt: 'x', thinkingEffort: 'off', disallowedTools: [], time: 1006 },
     ];
     await writeFile(wirePath, records.map((record) => JSON.stringify(record)).join('\n') + '\n', 'utf-8');
     const folded = await foldAgentWireReplay(wirePath);
@@ -382,12 +411,15 @@ describe('foldAgentWireReplay', () => {
     ]);
     // Last write wins per store key.
     expect(folded.toolStore).toEqual({ todo: [{ title: 'new', status: 'pending' }] });
+    expect(folded.toolDisplays).toEqual({
+      'write-1': { kind: 'file_io', operation: 'write', path: 'created.txt', content: 'hello' },
+    });
   });
 
   it('degrades to an empty fold on a missing or corrupt journal', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'spiderbyte-sdk-v2-fold-'));
     tempDirs.push(dir);
-    const empty = { replay: [], toolStore: {} };
+    const empty = { replay: [], toolStore: {}, toolDisplays: {} };
     await expect(foldAgentWireReplay(join(dir, 'missing.jsonl'))).resolves.toEqual(empty);
     const emptyFile = join(dir, 'empty.jsonl');
     await writeFile(emptyFile, '', 'utf-8');

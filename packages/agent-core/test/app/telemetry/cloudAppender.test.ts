@@ -53,6 +53,7 @@ function baseOptions(
     bootstrap: { ...stubBootstrap(), clientIdentity: { ...stubClientIdentity, version: '1.0.0' } },
     deviceId: 'dev',
     appName: 'test-app',
+    endpoint: 'https://telemetry.example.test/v1/event',
     sleep: async () => {},
     ...rest,
   };

@@ -23,12 +23,25 @@
     "test:coverage": "vitest run --coverage",
     "clean": "pnpm -r run clean",
     "check:open-core": "node scripts/check-open-core-boundary.mjs",
-    "check:branding": "node scripts/check-branding.mjs",
+    "check:branding": "node --test scripts/check-branding.test.mjs && node scripts/check-branding.mjs",
+    "check:legacy-runtime": "node --test scripts/check-legacy-runtime.test.mjs && node scripts/check-legacy-runtime.mjs",
     "inventory:release": "node scripts/inventory-spiderbyte-release.mjs",
     "check:package-dispositions": "node scripts/inventory-spiderbyte-release.mjs --check",
+    "check:package-names": "node scripts/check-package-names.mjs",
     "verify:phase-0": "node scripts/verify-spiderbyte-phase-0.mjs",
-    "generate:sbom": "node scripts/generate-sbom.mjs",
+    "generate:sbom": "node --test scripts/generate-sbom.test.mjs && node scripts/generate-sbom.mjs",
+    "check:sbom": "node scripts/validate-sbom.mjs",
+    "check:licenses": "node --test scripts/check-license-policy.test.mjs && node scripts/check-license-policy.mjs",
+    "generate:notices": "node scripts/generate-third-party-notices.mjs",
+    "check:generated-evidence": "node scripts/check-generated-evidence.mjs",
+    "check:secrets": "node --test scripts/check-secrets.test.mjs && node scripts/check-secrets.mjs",
+    "check:docs-links": "node scripts/check-doc-links.mjs",
+    "verify:package-artifacts": "node scripts/verify-package-artifacts.mjs",
+    "check:release-policy": "node scripts/check-release-policy.mjs",
+    "check:lint-policy": "node scripts/check-lint-policy.mjs",
     "verify:open-core-local": "bash scripts/verify-open-core-local.sh",
+    "verify:accountless-local": "bash scripts/verify-accountless-local.sh",
+    "verify:open-core-release": "bash scripts/verify-open-core-release.sh",
     "changeset": "changeset",
     "version": "changeset version",
     "version:release": "changeset version",
@@ -64,6 +77,21 @@
   },
   "engines": {
     "node": ">=24.15.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@vscode/vsce-sign",
+      "core-js",
+      "core-js-pure",
+      "esbuild",
+      "keytar",
+      "msw",
+      "node-pty",
+      "protobufjs",
+      "simple-git-hooks",
+      "ssh2",
+      "tree-sitter-bash"
+    ]
   },
   "packageManager": "pnpm@10.33.0"
 }

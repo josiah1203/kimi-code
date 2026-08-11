@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DOUBLE_ESC_WINDOW_MS, NO_ACTIVE_SESSION_MESSAGE } from '#/tui/constant/spiderbyte-tui';
+import { DOUBLE_ESC_WINDOW_MS } from '#/tui/constant/spiderbyte-tui';
 import {
   EditorKeyboardController,
   type EditorKeyboardHost,
@@ -323,17 +323,6 @@ describe('EditorKeyboardController Shift-Tab plan toggle', () => {
 
     expect(ensureSession).not.toHaveBeenCalled();
     expect(handlePlanToggle).toHaveBeenCalledWith(true);
-  });
-
-  it('reports no active session on v1 when session-less', () => {
-    const { onShiftTab, showError, handlePlanToggle } = createShiftTabHarness({
-      sessionless: true,
-    });
-
-    onShiftTab();
-
-    expect(showError).toHaveBeenCalledWith(NO_ACTIVE_SESSION_MESSAGE);
-    expect(handlePlanToggle).not.toHaveBeenCalled();
   });
 
   it('lazy-creates the session before toggling on v2 when session-less', async () => {

@@ -575,11 +575,18 @@ describe('CLI options parsing', () => {
         .map((command) => command.name());
       expect(commandNames).toEqual([
         'export',
+        'configure',
+        'auth',
+        'run',
         'provider',
+        'connections',
+        'usage',
+        'plugins',
+        'organization',
+        'project',
+        'workspace',
         'acp',
         'web',
-        'server',
-        'login',
         'doctor',
         'upgrade',
       ]);

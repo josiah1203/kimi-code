@@ -57,7 +57,7 @@ describe('SessionBtwService', () => {
     const id = await svc.start();
 
     expect(id).toBe('agent-btw-1');
-    expect(fork).toHaveBeenCalledWith('main');
+    expect(fork).toHaveBeenCalledWith('main', { persist: false });
     expect(appendSystemReminder).toHaveBeenCalledWith(SIDE_QUESTION_SYSTEM_REMINDER, {
       kind: 'system_trigger',
       name: 'btw',

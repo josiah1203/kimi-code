@@ -405,9 +405,9 @@ describe('normalizeAPIStatusError thinking effort guidance', () => {
   it('adds configuration guidance when a provider rejects reasoning_effort', () => {
     const error = normalizeAPIStatusError(400, 'Invalid reasoning_effort: xhigh');
 
-    expect(error.message).toContain('Non-Kimi providers receive effort strings');
+    expect(error.message).toContain('Providers receive effort strings');
     expect(error.message).toContain(
-      'https://moonshotai.github.io/spiderbyte/en/configuration/config-files.html#thinking',
+      'https://github.com/SpiderByte/spiderbyte/tree/main/docs/en/configuration/config-files.md#thinking',
     );
   });
 });

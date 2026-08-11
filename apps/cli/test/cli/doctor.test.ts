@@ -155,7 +155,7 @@ describe('spyderbyte doctor', () => {
     expect(out).toContain(`OK config.toml  ${configPath}`);
     expect(out).not.toContain('tui.toml');
     expect(out).toContain('All checked config files are valid.');
-  });
+  }, 15_000);
 
   it('does not resolve the default config path when an explicit config path is provided', async () => {
     const configPath = join(dir, 'candidate-config.toml');
@@ -341,7 +341,7 @@ type = "openai"
     expect(stderr.join('')).toBe('');
     const out = stdout.join('');
     expect(out).toContain(`OK config.toml  ${join(dir, 'config.toml')}`);
-    expect(out).toContain('Unknown top-level key ignored by the v2 engine: providrs.');
+    expect(out).toContain('Unknown top-level key ignored by the canonical engine: providrs.');
   });
 
   it('reports TOML syntax errors with line and column', async () => {

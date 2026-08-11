@@ -97,6 +97,14 @@ export function isSpiderByteError(error: unknown): error is SpiderByteError {
   return error instanceof SpiderByteError || isError2(error);
 }
 
+export function normalizeSpiderByteError(error: unknown): unknown {
+  if (error instanceof SpiderByteError || !isError2(error)) return error;
+  return new SpiderByteError(error.code, error.message, {
+    details: error.details === undefined ? undefined : { ...error.details },
+    cause: error,
+  });
+}
+
 export function makeSpiderByteErrorPayload(
   code: SpiderByteErrorCode,
   message: string,

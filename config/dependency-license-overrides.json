@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "owner": "Open Core release maintainers",
+  "review_by": "2027-08-10",
+  "overrides": [
+    { "pattern": "@andrewbranch/untar.js", "license": "MIT", "evidence": "Installed package LICENSE", "rationale": "The package manifest omits its bundled MIT license." },
+    { "pattern": "@emnapi/*", "license": "MIT", "evidence": "Upstream emnapi package family license", "rationale": "Optional WASM support packages are absent on some install platforms." },
+    { "pattern": "@esbuild/*", "license": "MIT", "evidence": "The esbuild package family license", "rationale": "Platform binaries inherit the source package license." },
+    { "pattern": "@mariozechner/clipboard-*", "license": "MIT", "evidence": "The @mariozechner/clipboard source package license", "rationale": "Platform binaries inherit the source package license." },
+    { "pattern": "@napi-rs/wasm-runtime", "license": "MIT", "evidence": "Upstream napi-rs package family license", "rationale": "Optional WASM runtime metadata is unavailable on native installs." },
+    { "pattern": "@node-rs/crc32-*", "license": "MIT", "evidence": "The @node-rs/crc32 source package license", "rationale": "Platform binaries inherit the source package license." },
+    { "pattern": "@oxlint-tsgolint/*", "license": "MIT", "evidence": "The oxlint-tsgolint source package license", "rationale": "Platform binaries inherit the source package license." },
+    { "pattern": "@oxlint/binding-*", "license": "MIT", "evidence": "The oxlint source package license", "rationale": "Platform binaries inherit the source package license." },
+    { "pattern": "@rolldown/binding-*", "license": "MIT", "evidence": "The rolldown source package LICENSE", "rationale": "Platform binaries inherit the source package license." },
+    { "pattern": "@rollup/rollup-*", "license": "MIT", "evidence": "The rollup source package license", "rationale": "Platform binaries inherit the source package license." },
+    { "pattern": "@tailwindcss/oxide-*", "license": "MIT", "evidence": "The @tailwindcss/oxide source package license", "rationale": "Platform binaries inherit the source package license." },
+    { "pattern": "@tybys/wasm-util", "license": "MIT", "evidence": "Upstream wasm-util package license", "rationale": "Optional WASM support package metadata is unavailable on native installs." },
+    { "pattern": "@vscode/vsce-sign", "license": "LicenseRef-Microsoft-VSCE-Sign", "evidence": "Installed package LICENSE.txt", "rationale": "The package uses a non-SPDX Microsoft license and is build tooling, not a distributed runtime dependency." },
+    { "pattern": "@vscode/vsce-sign-*", "license": "LicenseRef-Microsoft-VSCE-Sign", "evidence": "Installed package LICENSE.txt", "rationale": "Platform signing tools inherit the VSCE-Sign license and are build tooling, not distributed runtime dependencies." },
+    { "pattern": "exif-parser", "license": "MIT", "evidence": "Installed package LICENSE.md", "rationale": "The package manifest omits its bundled MIT license." },
+    { "pattern": "khroma", "license": "MIT", "evidence": "Installed package license file", "rationale": "The package manifest omits its bundled MIT license." },
+    { "pattern": "lightningcss-*", "license": "MPL-2.0", "evidence": "The lightningcss source package LICENSE", "rationale": "Platform binaries inherit the source package license." },
+    { "pattern": "sherif-*", "license": "MIT", "evidence": "The sherif source package license", "rationale": "Platform binaries inherit the source package license." },
+    { "pattern": "spawndamnit", "license": "MIT", "evidence": "Installed package LICENSE", "rationale": "The package manifest points to its bundled MIT license instead of declaring an SPDX expression." }
+  ]
+}

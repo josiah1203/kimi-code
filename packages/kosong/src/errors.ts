@@ -390,7 +390,7 @@ const REQUEST_TOO_LARGE_MESSAGE_PATTERNS = [
 ] as const;
 
 const THINKING_EFFORT_CONFIG_DOCS_URL =
-  'https://moonshotai.github.io/spiderbyte/en/configuration/config-files.html#thinking';
+  'https://github.com/SpiderByte/spiderbyte/tree/main/docs/en/configuration/config-files.md#thinking';
 
 const THINKING_EFFORT_STATUS_MESSAGE_PATTERNS = [
   /reasoning[_ .-]?effort/,
@@ -409,7 +409,7 @@ function appendThinkingEffortConfigHint(statusCode: number, message: string): st
   if (message.includes(THINKING_EFFORT_CONFIG_DOCS_URL)) return message;
   return `${message}
 
-The provider rejected the configured thinking effort. Non-external provider providers receive effort strings without client-side mapping; choose an effort supported by the selected model. For external provider models, check support_efforts and default_effort. See ${THINKING_EFFORT_CONFIG_DOCS_URL}`;
+The provider rejected the configured thinking effort. Providers receive effort strings without client-side mapping; choose an effort supported by the selected model and check support_efforts and default_effort. See ${THINKING_EFFORT_CONFIG_DOCS_URL}`;
 }
 
 export function isContextOverflowErrorCode(code: string | null | undefined): boolean {

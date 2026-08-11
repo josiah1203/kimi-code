@@ -9,7 +9,10 @@ export COREPACK_HOME
 gate_failed=0
 if ! node scripts/check-open-core-boundary.mjs; then gate_failed=1; fi
 if ! node scripts/check-branding.mjs; then gate_failed=1; fi
+if ! node scripts/check-package-names.mjs; then gate_failed=1; fi
+if ! node scripts/check-legacy-runtime.mjs; then gate_failed=1; fi
 if ! bash scripts/verify-platform-slices.sh; then gate_failed=1; fi
+if ! bash scripts/verify-accountless-local.sh; then gate_failed=1; fi
 
 if ! pnpm --config.engine-strict=false --filter @spiderbyte/agent-core exec vitest run \
   test/app/auth/auth.test.ts \

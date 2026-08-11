@@ -21,7 +21,6 @@ import type {
   SpiderByteConfigPatch,
   SpiderByteHostIdentity,
   ListSessionsOptions,
-  McpServerConfig,
   McpServerInfo,
   McpTestResult,
   PluginCommandDef,

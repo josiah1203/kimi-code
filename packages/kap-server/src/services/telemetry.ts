@@ -24,6 +24,7 @@ import { createSpiderByteDeviceId } from '@spiderbyte/oauth';
 const SERVER_TELEMETRY_APP_NAME = 'spiderbyte-cli';
 const SERVER_TELEMETRY_UI_MODE = 'web';
 const TELEMETRY_DISABLE_ENV = 'SPIDERBYTE_DISABLE_TELEMETRY';
+const TELEMETRY_ENDPOINT_ENV = 'SPIDERBYTE_TELEMETRY_ENDPOINT';
 const TELEMETRY_DISABLE_ENV_VALUES = new Set(['1', 'true', 't', 'yes', 'y']);
 
 /**
@@ -58,6 +59,7 @@ export async function initializeServerTelemetry(
     appName: SERVER_TELEMETRY_APP_NAME,
     uiMode: SERVER_TELEMETRY_UI_MODE,
     model: config.get<string>('defaultModel') ?? undefined,
+    endpoint: core.accessor.get(IBootstrapService).getEnv(TELEMETRY_ENDPOINT_ENV),
     getAccessToken: async () => null,
   });
   const registration = service.addAppender(appender);

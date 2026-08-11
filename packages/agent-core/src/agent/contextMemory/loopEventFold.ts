@@ -41,6 +41,7 @@
 import type { FinishReason } from '#/kosong/contract/provider';
 import { createToolMessage, type ContentPart, type ToolCall } from '#/kosong/contract/message';
 import type { TokenUsage } from '#/kosong/contract/usage';
+import type { ToolInputDisplay } from '#/tool/toolInputDisplay';
 
 import type { ContextMessage } from './types';
 import { isVacuousContentPart } from './vacuousContent';
@@ -87,6 +88,7 @@ export type LoopRecordedEvent =
       readonly name: string;
       readonly args?: unknown;
       readonly extras?: Record<string, unknown>;
+      readonly display?: ToolInputDisplay;
       readonly uuid?: string;
       readonly turnId?: string;
       readonly step?: number;

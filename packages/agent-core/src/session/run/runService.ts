@@ -89,6 +89,11 @@ export class SessionRunService extends Disposable implements ISessionRunService 
     return [...this.runs];
   }
 
+  async drain(): Promise<void> {
+    await this.ready;
+    await this.mutationQueue;
+  }
+
   async get(id: string): Promise<Run | undefined> {
     await this.ready;
     return this.runs.find((run) => run.id === id);
@@ -193,7 +198,7 @@ export class SessionRunService extends Disposable implements ISessionRunService 
       if (command.policy_decision_ids !== undefined) patch.policy_decision_ids = command.policy_decision_ids;
       if (command.execution_target_id !== undefined) patch.execution_target_id = command.execution_target_id;
       if (command.metadata !== undefined) {
-        patch.metadata = { ...(current.metadata ?? {}), ...command.metadata };
+        patch.metadata = { ...current.metadata, ...command.metadata };
       }
       const { status_reason: _currentReason, ...withoutReason } = current;
       const next = runSchema.parse({

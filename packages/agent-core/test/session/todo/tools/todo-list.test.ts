@@ -171,4 +171,16 @@ describe('TodoListTool', () => {
     expect(clearExecution.description).toBe('Clearing todo list');
     expect(updateExecution.description).toBe('Updating todo list');
   });
+
+  it('resolveExecution exposes todo items as structured display metadata', () => {
+    const execution = makeTool().tool.resolveExecution({
+      todos: [{ title: 'x', status: 'pending' }],
+    });
+    if (execution.isError === true) throw new TypeError('expected runnable execution');
+
+    expect(execution.display).toEqual({
+      kind: 'todo_list',
+      items: [{ title: 'x', status: 'pending' }],
+    });
+  });
 });

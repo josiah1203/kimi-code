@@ -14,8 +14,8 @@ import { escapeXmlAttr } from '#/_base/utils/xml-escape';
 import type { AgentTaskInfo } from '#/agent/task/task';
 import { IAgentBlobService } from '#/agent/blob/agentBlobService';
 import { AgentBlobServiceImpl } from '#/agent/blob/agentBlobServiceImpl';
-import { WorkspaceStateService } from '#/workspace/state/workspaceStateService';
 import { IHostEnvironment } from '#/os/interface/hostEnvironment';
+import { WorkspaceStateService } from '#/workspace/state/workspaceStateService';
 import { IAgentContextInjectorService } from '#/agent/contextInjector/contextInjector';
 import { CHECKPOINTED_MODELS, type Checkpointed } from '#/agent/contextMemory/conversationTime';
 import type { ContextMessage } from '#/agent/contextMemory/types';
@@ -188,10 +188,13 @@ import {
   type InteractionResolution,
 } from '#/session/interaction/interaction';
 import type { IProcess } from '#/session/process/processRunner';
+import { IHostFsWatchService, type HostFsChange } from '#/os/interface/hostFsWatch';
 import { ISessionQuestionService, type QuestionResult } from '#/session/question/question';
 import { ISessionSkillCatalog } from '#/session/sessionSkillCatalog/skillCatalog';
 import { ISessionSwarmService } from '#/session/swarm/sessionSwarm';
 import type { PathAccessOperation } from '#/session/workspaceContext/workspaceContext';
+import { IWorkspacePlatformEventService } from '#/workspace/platformEvents/platformEvents';
+import { PLATFORM_SERVICES_EMERGENCY_DISABLE_ENV } from '#/workspace/platformServices/flag';
 
 import { stubAgentIdentity } from '../app/agentIdentity/stubs';
 import { stubClientIdentity } from '../app/bootstrap/stubs';
@@ -1036,7 +1039,7 @@ export class AgentTestContext {
             homeDir: '/tmp/spiderbyte-agent-app-v2-test',
             cwd: this.cwd,
             osHomeDir: TEST_HOME_DIR,
-            env: process.env,
+            env: { ...process.env, [PLATFORM_SERVICES_EMERGENCY_DISABLE_ENV]: '1' },
             clientIdentity: stubClientIdentity,
           })) {
             reg.defineInstance(id, value);
@@ -1107,6 +1110,14 @@ export class AgentTestContext {
             );
           }
           reg.defineInstance(IHostTerminalService, createHostTerminalService());
+          reg.defineInstance(IHostFsWatchService, {
+            _serviceBrand: undefined,
+            watch: () => ({
+              ready: Promise.resolve(),
+              onDidChange: Event.None as Event<HostFsChange>,
+              dispose: () => undefined,
+            }),
+          });
           reg.defineInstance(
             IHostEnvironment,
             {
@@ -1153,6 +1164,7 @@ export class AgentTestContext {
       extra: collectScopeSeed(
         [
           (reg) => {
+            const platformEvents: Awaited<ReturnType<IWorkspacePlatformEventService['append']>>[] = [];
             reg.defineInstance(ISessionContext, {
               _serviceBrand: undefined,
               sessionId,
@@ -1200,6 +1212,33 @@ export class AgentTestContext {
               IWorkspaceStateService,
               new WorkspaceStateService(this.root.accessor.get(IAppStateService)),
             );
+            reg.defineInstance(IWorkspacePlatformEventService, {
+              _serviceBrand: undefined,
+              ready: Promise.resolve(),
+              onDidChange: Event.None as IWorkspacePlatformEventService['onDidChange'],
+              append: async (input) => {
+                const event = {
+                  event_id: `event_test_${String(platformEvents.length + 1)}`,
+                  workspace_id: workspaceId,
+                  sequence: platformEvents.length + 1,
+                  occurred_at: new Date(0).toISOString(),
+                  ...input,
+                };
+                platformEvents.push(event);
+                return event;
+              },
+              replay: async (afterSequence = 0, limit = 100) => {
+                const events = platformEvents
+                  .filter((event) => event.sequence > afterSequence)
+                  .slice(0, limit);
+                const nextSequence = events.at(-1)?.sequence ?? afterSequence;
+                return {
+                  events,
+                  next_sequence: nextSequence,
+                  has_more: platformEvents.some((event) => event.sequence > nextSequence),
+                };
+              },
+            });
             reg.defineInstance(IAgentLifecycleService, {
               _serviceBrand: undefined,
               onDidCreate: Event.None as Event<IAgentScopeHandle>,

@@ -20,7 +20,7 @@ export type TaskServiceTestManager = IAgentTaskService & {
   reconcile(): Promise<readonly AgentTaskInfo[]>;
 };
 
-export const TASK_TEST_SESSION_SCOPE = 'sessions/test-workspace/test-session';
+export const TASK_TEST_SESSION_SCOPE = 'sessions/wd_test_0123456789ab/test-session';
 
 export const TASK_TEST_AGENT_SCOPE = `${TASK_TEST_SESSION_SCOPE}/agents/main`;
 

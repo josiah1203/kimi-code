@@ -31,7 +31,7 @@ export class SessionBtwService implements ISessionBtwService {
   ) {}
 
   async start(): Promise<string> {
-    const child = await this.lifecycle.fork('main');
+    const child = await this.lifecycle.fork('main', { persist: false });
     child.accessor
       .get(IAgentSystemReminderService)
       ?.appendSystemReminder(SIDE_QUESTION_SYSTEM_REMINDER, {

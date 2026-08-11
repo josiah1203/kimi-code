@@ -85,6 +85,7 @@ import { IBootstrapService } from '#/app/bootstrap/bootstrap';
 import { CRON_SESSION_TAG, type CronTask } from '#/app/cron/cronTask';
 import { ICronTaskPersistence } from '#/app/cron/cronTaskPersistence';
 import { IConfigService } from '#/app/config/config';
+import { IFlagService } from '#/app/flag/flag';
 import { IEventService } from '#/app/event/event';
 import {
   CHILD_SESSION_KIND,
@@ -101,6 +102,7 @@ import { IHostFileSystem, type HostDirEntry } from '#/os/interface/hostFileSyste
 import { IAppendLogStore } from '#/persistence/interface/appendLogStore';
 import { IAtomicDocumentStore } from '#/persistence/interface/atomicDocumentStore';
 import { IAgentLifecycleService, MAIN_AGENT_ID } from '#/session/agentLifecycle/agentLifecycle';
+import { IAgentActivityView } from '#/agent/activityView/activityView';
 import { ensureMainAgent } from '#/session/agentLifecycle/mainAgent';
 import { labelsFromAgentMeta } from '#/session/agentLifecycle/subagentMetadata';
 import { ISessionContext, sessionContextSeed } from '#/session/sessionContext/sessionContext';
@@ -114,6 +116,7 @@ import {
 import { ISessionMetadata, type SessionMeta } from '#/session/sessionMetadata/sessionMetadata';
 import { drainSessionMetadataWrites } from '#/session/sessionMetadata/sessionMetadataService';
 import { ISessionProcessRunner } from '#/session/process/processRunner';
+import { ISessionRunService } from '#/session/run/run';
 import { ISessionToolPolicy } from '#/session/sessionToolPolicy/sessionToolPolicy';
 import { IWireService } from '#/wire/wire';
 import {
@@ -420,6 +423,7 @@ export class SessionLifecycleService extends Disposable implements ISessionLifec
     await this.announceWillClose({ sessionId, handle, reason: 'exit' });
     this.sessions.delete(sessionId);
     await this.drainAgents(handle);
+    await this.drainRunService(handle);
     await drainSessionMetadataWrites();
     await this.indexMirror.drain();
     handle.dispose();
@@ -432,6 +436,7 @@ export class SessionLifecycleService extends Disposable implements ISessionLifec
     const meta = handle.accessor.get(ISessionMetadata);
     await meta.setArchived(true);
     await this.drainAgents(handle);
+    await this.drainRunService(handle);
     this.event.publish({
       type: 'event.session.archived',
       payload: { sessionId },
@@ -487,6 +492,15 @@ export class SessionLifecycleService extends Disposable implements ISessionLifec
     }
   }
 
+  private async drainRunService(handle: ISessionScopeHandle): Promise<void> {
+    try {
+      if (!handle.accessor.get(IFlagService).enabled('platform_services')) return;
+    } catch {
+      return;
+    }
+    await handle.accessor.get(ISessionRunService).drain();
+  }
+
   async fork(opts: ForkSessionOptions): Promise<ISessionScopeHandle> {
     const sourceId = opts.sourceSessionId;
 
@@ -509,6 +523,20 @@ export class SessionLifecycleService extends Disposable implements ISessionLifec
       // settle pending metadata writes before reading the source for
       // inheritance, or the fork could copy a stale (or absent) outcome.
       await drainSessionMetadataWrites();
+      if (sourceHandle !== undefined) {
+        const active = sourceHandle
+          .accessor.get(IAgentLifecycleService)
+          .list()
+          .some((agent) => agent.accessor.get(IAgentActivityView).state().turn !== undefined);
+        if (active) {
+          throw new Error2(
+            ErrorCodes.SESSION_FORK_ACTIVE_TURN,
+            `Session "${sourceId}" cannot be forked while a turn is running`,
+            { details: { sessionId: sourceId } },
+          );
+        }
+        await this.drainRunService(sourceHandle);
+      }
       const sourceMeta =
         sourceHandle !== undefined
           ? await sourceHandle.accessor.get(ISessionMetadata).read()
@@ -537,9 +565,7 @@ export class SessionLifecycleService extends Disposable implements ISessionLifec
 
       const sourceAgents = sourceMeta?.agents ?? {};
       const agentIds = Object.keys(sourceAgents);
-      const orderedAgentIds = [
-        ...([MAIN_AGENT_ID, ...agentIds].filter((id, index, all) => all.indexOf(id) === index)),
-      ];
+      const orderedAgentIds = [MAIN_AGENT_ID, ...agentIds].filter((id, index, all) => all.indexOf(id) === index);
       const retainedAgentIds = new Set<string>();
       let mainFork: CopiedAgentWire = { retained: false };
       for (const agentId of orderedAgentIds) {

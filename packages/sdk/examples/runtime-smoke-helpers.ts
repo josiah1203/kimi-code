@@ -191,7 +191,7 @@ function createDeferred<T>(): Deferred<T> {
   };
 }
 
-function hasTurnId(event: Event): event is Event & { readonly turnId: number } {
+function hasTurnId(event: Event): event is { readonly turnId: number } {
   return 'turnId' in event;
 }
 

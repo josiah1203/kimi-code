@@ -76,6 +76,8 @@ A minimal stdio entry needs `command` (+ optional `args`, `env`, `cwd`).
 For project-root `.mcp.json`, stdio entries run from the project root by
 default; relative `cwd` values are resolved against the directory that
 contains `.mcp.json`.
+Stdio servers run through the local process executor; the unsupported `kaos`
+executor is rejected during configuration validation.
 A minimal http entry needs `url`; add `bearerTokenEnvVar: "ENV_NAME"` for
 servers that authenticate with a static bearer token from the
 environment. Servers that use OAuth take no token field — the login flow

@@ -200,7 +200,7 @@ describe('AgentProfileService.bind', () => {
       type: 'profile.bind',
       profileName: DEFAULT_AGENT_PROFILE_NAME,
       modelAlias: MOCK_MODEL,
-      thinkingEffort: 'on',
+      thinkingEffort: 'low',
       systemPrompt: expect.stringContaining('SpiderByte CLI'),
       activeToolNames: expect.arrayContaining(['Read', 'Write', 'Bash']),
       disallowedTools: [],

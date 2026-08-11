@@ -13,10 +13,7 @@ import type {
 import type { AgentContextData } from '@spiderbyte/agent-core/agent/contextMemory/types';
 import type { ExperimentalFeatureState } from '@spiderbyte/agent-core/app/flag/flag';
 import type { SwarmModeTrigger } from '@spiderbyte/agent-core/agent/swarm/swarm';
-import type {
-  BeginGlobalMcpServerAuthResult,
-  SDKAPI,
-} from '#/rpc-contract';
+import type { BeginGlobalMcpServerAuthResult } from '#/rpc-contract';
 import type { PlatformModelSelection } from '@spiderbyte/protocol';
 
 import type { ApprovalHandler, QuestionHandler } from '#/events';
@@ -35,7 +32,6 @@ import type {
   GlobalMcpServerAuthStatus,
   GlobalMcpServerConfig,
   GetCronTasksResult,
-  McpServerConfig,
   GoalSnapshot,
   GoalToolResult,
   JsonObject,

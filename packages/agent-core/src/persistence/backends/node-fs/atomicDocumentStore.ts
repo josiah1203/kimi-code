@@ -49,38 +49,48 @@ export const tomlDocumentCodec: DocumentCodec = {
 class AtomicDocumentStoreBase implements IAtomicDocumentStore {
   declare readonly _serviceBrand: undefined;
 
+  private readonly pending = new Set<Promise<unknown>>();
+
   constructor(
     private readonly storage: IFileSystemStorageService,
     private readonly codec: DocumentCodec,
   ) {}
 
-  async get<T>(scope: string, key: string): Promise<T | undefined> {
-    const bytes = await this.storage.read(scope, key);
-    if (bytes === undefined) return undefined;
-    try {
-      return this.codec.decode(bytes) as T;
-    } catch (error) {
-      throw new StorageError(
-        StorageErrors.codes.STORAGE_DECODE_FAILED,
-        `failed to decode ${scope}/${key} as ${this.codec.format}`,
-        {
-          details: { scope, key, format: this.codec.format },
-          cause: error,
-        },
-      );
+  get<T>(scope: string, key: string): Promise<T | undefined> {
+    return this.track((async () => {
+      const bytes = await this.storage.read(scope, key);
+      if (bytes === undefined) return undefined;
+      try {
+        return this.codec.decode(bytes) as T;
+      } catch (error) {
+        throw new StorageError(
+          StorageErrors.codes.STORAGE_DECODE_FAILED,
+          `failed to decode ${scope}/${key} as ${this.codec.format}`,
+          {
+            details: { scope, key, format: this.codec.format },
+            cause: error,
+          },
+        );
+      }
+    })());
+  }
+
+  set<T>(scope: string, key: string, value: T): Promise<void> {
+    return this.track(this.storage.write(scope, key, this.codec.encode(value), { atomic: true }));
+  }
+
+  delete(scope: string, key: string): Promise<void> {
+    return this.track(this.storage.delete(scope, key));
+  }
+
+  list(scope: string, prefix?: string): Promise<readonly string[]> {
+    return this.track(this.storage.list(scope, prefix));
+  }
+
+  async drain(): Promise<void> {
+    while (this.pending.size > 0) {
+      await Promise.allSettled(this.pending);
     }
-  }
-
-  async set<T>(scope: string, key: string, value: T): Promise<void> {
-    await this.storage.write(scope, key, this.codec.encode(value), { atomic: true });
-  }
-
-  async delete(scope: string, key: string): Promise<void> {
-    await this.storage.delete(scope, key);
-  }
-
-  async list(scope: string, prefix?: string): Promise<readonly string[]> {
-    return this.storage.list(scope, prefix);
   }
 
   watch(scope: string, key: string): Event<void> {
@@ -89,6 +99,12 @@ class AtomicDocumentStoreBase implements IAtomicDocumentStore {
 
   acquire(_scope: string, _key: string): IDisposable {
     return toDisposable(() => {});
+  }
+
+  private track<T>(operation: Promise<T>): Promise<T> {
+    this.pending.add(operation);
+    void operation.finally(() => this.pending.delete(operation)).catch(() => {});
+    return operation;
   }
 }
 

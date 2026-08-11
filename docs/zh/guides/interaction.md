@@ -41,7 +41,7 @@ Agent 调用会产生副作用的工具（修改文件、执行命令等）时�
 
 用方向键选择选项，`Enter` 确认；也可以按 `1`/`2`/`3` 数字键直接选择。`Esc`、`Ctrl-C`、`Ctrl-D` 等同于拒绝。
 
-面板中通常有「Approve for this session」选项，选择后本次会话内的同类调用将自动放行。如需永久规则，在[配置文件](../configuration/config-files.md#permission)里预置 allow / deny 规则即可。
+面板中通常有「Approve for this session」选项，选择后本次会话内的同类调用将自动放行。如需永久规则，在[配置文件](../configuration/config-files.md#顶层字段)里预置 allow / deny 规则即可。
 
 ## 模式切换
 

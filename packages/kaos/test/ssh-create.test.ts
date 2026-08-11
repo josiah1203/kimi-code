@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 
-import type { AnyAuthMethod, ConnectConfig, SFTPWrapper, Stats as SFTPStats } from 'ssh2';
+import type { AnyAuthMethod, ClientChannel, ConnectConfig, SFTPWrapper, Stats as SFTPStats } from 'ssh2';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { SSHKaos as SSHKaosType } from '#/ssh';
@@ -94,6 +94,21 @@ async function loadSSHModule(options: CreateHarnessOptions = {}): Promise<{
       }
       callback(undefined, options.sftp ?? createSuccessfulSftp());
     }
+
+    exec(_command: string, callback: (err: Error | undefined, channel: ClientChannel) => void): void {
+      const channel = new EventEmitter() as EventEmitter & { stderr: EventEmitter };
+      channel.stderr = new EventEmitter();
+      callback(undefined, channel as unknown as ClientChannel);
+      setImmediate(() => {
+        channel.emit(
+          'data',
+          Buffer.from(
+            'SPIDERBYTE_KAOS_OS=Linux\nSPIDERBYTE_KAOS_ARCH=x86_64\nSPIDERBYTE_KAOS_VERSION=6.8.0\nSPIDERBYTE_KAOS_SHELL=/bin/bash\n',
+          ),
+        );
+        channel.emit('close', 0);
+      });
+    }
   }
 
   vi.doMock('ssh2', () => ({
@@ -134,6 +149,23 @@ afterEach(() => {
 });
 
 describe('SSHKaos.create()', () => {
+  it('exposes the probed remote environment after connection creation', async () => {
+    const { SSHKaos } = await loadSSHModule();
+
+    const ssh = await SSHKaos.create({
+      host: 'example.com',
+      username: 'tester',
+    });
+
+    expect(ssh.osEnv).toEqual({
+      osKind: 'Linux',
+      osArch: 'x86_64',
+      osVersion: '6.8.0',
+      shellName: 'bash',
+      shellPath: '/bin/bash',
+    });
+  });
+
   it('initializes cwd equal to gethome() when no cwd option is passed', async () => {
     // Pins the Python test_ssh_kaos.py::test_pathclass_home_and_cwd invariant:
     // on a fresh SSH connection without an explicit cwd, `getcwd()` must equal

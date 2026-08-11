@@ -10,6 +10,7 @@
 import { createDecorator } from '#/_base/di/instantiation';
 import type { IDisposable } from '#/_base/di/lifecycle';
 import type { Event } from '#/_base/event';
+import type { ToolInputDisplay } from '#/tool/toolInputDisplay';
 import type { ToolResult } from '#/tool/toolContract';
 import type {
   BeforeToolExecuteEvent,
@@ -25,6 +26,8 @@ export interface ToolCallStartedPayload {
   readonly toolCallId: string;
   readonly name: string;
   readonly args: unknown;
+  readonly description?: string;
+  readonly display?: ToolInputDisplay;
 }
 
 export interface ToolExecutorExecuteOptions {

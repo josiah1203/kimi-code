@@ -1014,7 +1014,7 @@ describe('SessionLifecycleService', () => {
     });
   });
 
-  it('forks successfully even while the source has a busy agent (crash-equivalent copy)', async () => {
+  it('rejects a fork while the source has an active turn', async () => {
     const busyAgent = {
       id: MAIN_AGENT_ID,
       kind: LifecycleScope.Agent,
@@ -1043,8 +1043,12 @@ describe('SessionLifecycleService', () => {
 
     await svc.create({ sessionId: 'src', workDir: '/tmp/proj' });
 
-    const target = await svc.fork({ sourceSessionId: 'src', newSessionId: 'dst' });
-    expect(target.id).toBe('dst');
+    await expect(
+      svc.fork({ sourceSessionId: 'src', newSessionId: 'dst' }),
+    ).rejects.toMatchObject({
+      code: ErrorCodes.SESSION_FORK_ACTIVE_TURN,
+      details: { sessionId: 'src' },
+    });
   });
 
   it('fires onDidCreateSession with the new handle', async () => {

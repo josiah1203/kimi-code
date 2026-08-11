@@ -10,67 +10,27 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
-import { SPIDERBYTE_PLATFORM } from '@spiderbyte/oauth';
-import type * as KosongModule from '@spiderbyte/kosong';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createSpiderByteHarness, type Event, type SpiderByteHarness } from '#/index';
 
 import { TEST_IDENTITY } from './test-identity';
+import { startOpenAITestServer, type OpenAITestServer } from './openai-test-server';
 
-const fakeProviderState = vi.hoisted(() => ({
-  calls: [] as Array<{
-    readonly systemPrompt: string;
-    readonly history: unknown;
-  }>,
-  providerConfigs: [] as unknown[],
+const fakeProviderState = {
   responseText: 'hello from fake provider',
-}));
-
-vi.mock('@spiderbyte/kosong', async (importOriginal) => {
-  const actual = await importOriginal<typeof KosongModule>();
-  return {
-    ...actual,
-    createProvider: (config: unknown) => {
-      fakeProviderState.providerConfigs.push(config);
-      return {
-        name: 'fake',
-        modelName: 'fake-model',
-        thinkingEffort: null,
-        async generate(systemPrompt: string, _tools: unknown, history: unknown) {
-          fakeProviderState.calls.push({ systemPrompt, history });
-          return {
-            id: 'fake-response',
-            usage: {
-              inputOther: 0,
-              output: 1,
-              inputCacheRead: 0,
-              inputCacheCreation: 0,
-            },
-            finishReason: 'completed',
-            rawFinishReason: 'stop',
-            async *[Symbol.asyncIterator]() {
-              yield { type: 'text', text: fakeProviderState.responseText };
-            },
-          };
-        },
-        withThinking() {
-          return this;
-        },
-      };
-    },
-  };
-});
+};
 
 const tempDirs: string[] = [];
+let provider: OpenAITestServer;
 
-beforeEach(() => {
-  fakeProviderState.calls.length = 0;
-  fakeProviderState.providerConfigs.length = 0;
+beforeEach(async () => {
   fakeProviderState.responseText = 'hello from fake provider';
+  provider = await startOpenAITestServer({ responseText: () => fakeProviderState.responseText });
 });
 
 afterEach(async () => {
+  await provider.close();
   for (const dir of tempDirs.splice(0)) {
     await removeTempDir(dir);
   }
@@ -246,15 +206,10 @@ describe('Session.prompt events', () => {
           reason: 'completed',
         }),
       );
-      expect(fakeProviderState.calls[0]?.systemPrompt).toContain('You are SpiderByte CLI');
-      expect(fakeProviderState.calls[0]?.systemPrompt).toContain('Available skills');
-      expect(fakeProviderState.providerConfigs[0]).toMatchObject({
-        type: 'openai',
-        defaultHeaders: expect.objectContaining({
-          'X-Msh-Platform': SPIDERBYTE_PLATFORM,
-          'User-Agent': 'spiderbyte-cli/0.0.0-test',
-        }),
-      });
+      expect(requestSystemPrompt(0)).toContain('You are SpiderByte CLI');
+      expect(requestSystemPrompt(0)).toContain('Available skills');
+      expect(provider.requests[0]?.headers['x-msh-platform']).toBeUndefined();
+      expect(provider.requests[0]?.headers['user-agent']).toContain('spiderbyte-cli/0.0.0-test');
       expect(existsSync(join(homeDir, 'device_id'))).toBe(true);
     } finally {
       await harness.close();
@@ -328,15 +283,8 @@ describe('Session.prompt events', () => {
           type: 'session.meta.updated',
         }),
       );
-      expect(fakeProviderState.calls[0]?.history).toMatchObject([
-        {
-          role: 'user',
-          content: [
-            expect.objectContaining({
-              text: expect.stringContaining('Task requirements:'),
-            }),
-          ],
-        },
+      expect(requestHistory(0)).toMatchObject([
+        { role: 'user', content: expect.stringContaining('Task requirements:') },
       ]);
 
       const statePath = join(session.summary!.sessionDir, 'state.json');
@@ -440,10 +388,8 @@ describe('Session.prompt events', () => {
           type: 'session.meta.updated',
         }),
       );
-      expect(fakeProviderState.calls[1]?.systemPrompt).toBe(
-        fakeProviderState.calls[0]?.systemPrompt,
-      );
-      const btwHistoryText = JSON.stringify(fakeProviderState.calls[1]?.history);
+      expect(requestSystemPrompt(1)).toBe(requestSystemPrompt(0));
+      const btwHistoryText = JSON.stringify(requestHistory(1));
       expect(btwHistoryText).toContain('main task context');
       expect(btwHistoryText).toContain('What are you working on right now?');
 
@@ -718,6 +664,7 @@ async function configureFakeProvider(harness: SpiderByteHarness): Promise<void> 
     providers: {
       local: {
         type: 'openai',
+        baseUrl: provider.baseUrl,
         apiKey: 'sk-test',
       },
     },
@@ -730,6 +677,20 @@ async function configureFakeProvider(harness: SpiderByteHarness): Promise<void> 
     },
     defaultModel: 'fake-model',
   });
+}
+
+function requestMessages(index: number): readonly Record<string, unknown>[] {
+  const messages = provider.requests[index]?.body['messages'];
+  return Array.isArray(messages) ? messages as readonly Record<string, unknown>[] : [];
+}
+
+function requestSystemPrompt(index: number): string | undefined {
+  const content = requestMessages(index).find((message) => message['role'] === 'system')?.['content'];
+  return typeof content === 'string' ? content : undefined;
+}
+
+function requestHistory(index: number): readonly Record<string, unknown>[] {
+  return requestMessages(index).filter((message) => message['role'] !== 'system');
 }
 
 function waitForEvent(

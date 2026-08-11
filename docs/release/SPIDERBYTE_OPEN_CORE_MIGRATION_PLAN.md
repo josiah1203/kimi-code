@@ -56,7 +56,7 @@ must not be replaced with a passing-only report after migration work begins.
 | `pnpm run lint` | **FAIL** | 47 errors and 3,015 warnings |
 | `pnpm run test` | **FAIL / aggregate unavailable** | Cascading `EMFILE` watcher exhaustion followed independent v2, ACP, CLI/TUI, persistence, and MCP failures; the run was stopped after it ceased producing reliable aggregate signal |
 | `pnpm run build` | **PASS** | Docs, packages, VS Code, CLI, search worker, and current web bundle build |
-| CLI `npm pack --dry-run` | **PASS with wrong identity** | Packs `@moonshot-ai/spiderbyte@0.34.0`, 546 files, including the unreproducible `dist-web` bundle |
+| CLI `npm pack --dry-run` | **PASS with wrong identity** | Packed the pre-migration upstream-scope CLI, 546 files, including the unreproducible `dist-web` bundle |
 | CLI `npm publish --dry-run` | **PASS with warning** | Dry-run warns that registry login is required; it is not publication evidence |
 | `pnpm run lint:pkg` | **PASS with warnings** | `publint` warns about import fallback and missing package types |
 | `pnpm run sherif` | **FAIL** | One unordered dependency issue in `packages/kap-server/package.json` |
@@ -68,10 +68,10 @@ must not be replaced with a passing-only report after migration work begins.
 Important current facts that drive sequencing:
 
 - `apps/spiderbyte/package.json` exposes both `spyderbyte` and the legacy
-  `spyderbyte` binary, and still uses the `@moonshot-ai/spiderbyte` package identity.
+  `spyderbyte` binary, and still uses the pre-migration package identity.
 - `packages/SpiderByte Agent Core` is the v2 engine, while the legacy v1 engine still
   exists as `packages/agent-core` and remains in the default workspace graph.
-- The Node SDK still exposes v1-shaped `KimiHarness` APIs and v2 migration
+- The Node SDK still exposes v1-shaped harness APIs and v2 migration
   pressure valves, including `not_implemented` paths and an `engineAccessor`.
 - `packages/SpiderByte Agent Core/src/workspace/commercial` is implemented and is
   re-exported through the core, server, and client surfaces.
@@ -175,7 +175,7 @@ source of truth:
    If a migration notice is necessary, implement it in the deprecated
    compatibility directory, not as a silent fallback.
 3. Remove v1 imports from the SDK and adapters. Rename public symbols such as
-   `KimiHarness` to SpiderByte-neutral names; do not keep a canonical export
+   legacy harness APIs to SpiderByte-neutral names; do not keep a canonical export
    alias merely to hide a breaking migration.
 4. Close every public SDK gap. The implementation order is:
 

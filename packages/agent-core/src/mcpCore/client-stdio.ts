@@ -48,8 +48,13 @@ export class StdioMcpClient implements MCPClient {
   static readonly stderrBufferCapacity = STDERR_BUFFER_CAPACITY;
 
   constructor(config: McpServerStdioConfig, options: StdioMcpClientOptions = {}) {
-    if (config.executor !== undefined && config.executor !== 'local') {
-      throw new Error2(ErrorCodes.NOT_IMPLEMENTED, `MCP stdio executor '${config.executor}' is not yet implemented`);
+    const executor = (config as { readonly executor?: unknown }).executor;
+    if (executor !== undefined && executor !== 'local') {
+      const executorLabel = typeof executor === 'string' ? executor : 'unknown';
+      throw new Error2(
+        ErrorCodes.CONFIG_INVALID,
+        `MCP stdio executor '${executorLabel}' is unsupported; only the local executor is available`,
+      );
     }
     this.transport = new StdioClientTransport({
       command: config.command,

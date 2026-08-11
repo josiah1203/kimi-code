@@ -161,13 +161,15 @@ export class AgentLifecycleService extends Disposable implements IAgentLifecycle
     try {
       const wire = handle.accessor.get(IWireService);
       await wire.seal();
-      await this.sessionMetadata.registerAgent(agentId, {
-        homedir: agentHomedir,
-        type: agentId === 'main' ? 'main' : 'sub',
-        parentAgentId: agentId === 'main' ? undefined : 'main',
-        forkedFrom: opts.forkedFrom,
-        labels: opts.labels,
-      });
+      if (opts.persist !== false) {
+        await this.sessionMetadata.registerAgent(agentId, {
+          homedir: agentHomedir,
+          type: agentId === 'main' ? 'main' : 'sub',
+          parentAgentId: agentId === 'main' ? undefined : 'main',
+          forkedFrom: opts.forkedFrom,
+          labels: opts.labels,
+        });
+      }
       this.onDidCreateEmitter.fire(handle);
       await wire.restore();
       await this.bindBootstrap(handle, opts);
@@ -210,7 +212,11 @@ export class AgentLifecycleService extends Disposable implements IAgentLifecycle
         details: { agentId: opts.agentId },
       });
     }
-    const child = await this.create({ agentId: opts?.agentId, forkedFrom: source.id });
+    const child = await this.create({
+      agentId: opts?.agentId,
+      forkedFrom: source.id,
+      persist: opts?.persist,
+    });
 
     const sourceData = source.accessor.get(IAgentProfileService).data();
     const childProfile = child.accessor.get(IAgentProfileService);

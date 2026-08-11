@@ -58,6 +58,7 @@ export interface CloudAppenderHostOptions {
   readonly model?: string;
   readonly buildSha?: string;
   readonly sessionId?: string;
+  readonly endpoint?: string;
   readonly getAccessToken?: () => string | null | Promise<string | null>;
 }
 

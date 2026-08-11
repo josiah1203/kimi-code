@@ -252,7 +252,8 @@ describe('server-v2 /api/v1 model/provider catalog', () => {
       unchanged: unknown[];
       failed: unknown[];
     }>('/api/v1/providers:refresh_oauth', {});
-    expect(status).toBe(404);
+    expect(status).toBe(200);
+    expect(body.code).toBe(40001);
   });
 
   it('returns an empty refresh result through the providers:refresh route', async () => {

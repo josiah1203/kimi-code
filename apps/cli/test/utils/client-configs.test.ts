@@ -12,6 +12,8 @@ import {
 } from '#/utils/client-configs';
 import { z } from 'zod';
 
+const CLIENT_CONFIGS_BASE_URL = 'https://configs.example.test';
+
 const configSchema = z.object({
   version: z.literal(1),
   config: z.record(z.string(), z.object({ min_tokens_to_hint: z.number(), cache_duration: z.number() })),
@@ -33,6 +35,11 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 afterEach(() => {
   resetClientConfigCache();
+  vi.unstubAllEnvs();
+});
+
+beforeEach(() => {
+  vi.stubEnv('SPIDERBYTE_CLIENT_CONFIGS_URL', CLIENT_CONFIGS_BASE_URL);
 });
 
 describe('fetchClientConfig', () => {

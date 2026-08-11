@@ -68,7 +68,10 @@ export class PlatformCapabilityPermissionPolicyService implements PermissionPoli
       metadata: { tool_name: context.toolCall.name },
     });
 
-    if (decision.outcome === 'allow') return { kind: 'approve' };
+    // An allow decision admits the capability to the normal SpiderByte tool
+    // policy; it is not itself a user approval. This preserves manual mode,
+    // user rules, sensitive-path checks, and session approval history.
+    if (decision.outcome === 'allow') return undefined;
     if (decision.outcome === 'deny') {
       return { kind: 'deny', message: decision.reason };
     }

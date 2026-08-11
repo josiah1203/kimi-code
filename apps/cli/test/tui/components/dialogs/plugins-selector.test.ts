@@ -73,7 +73,9 @@ describe('plugins selector dialogs', () => {
     panel.handleInput('https://example.test/plugin.zip');
     expect(selections).toEqual([]);
     panel.handleInput('\r');
-    expect(selections).toEqual([]);
+    expect(selections).toEqual([
+      { kind: 'install-source', source: 'https://example.test/plugin.zip' },
+    ]);
   });
 
   it('lists MCP servers and emits a toggle action', () => {

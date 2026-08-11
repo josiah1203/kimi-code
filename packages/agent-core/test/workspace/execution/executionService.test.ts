@@ -6,6 +6,7 @@ import { TestInstantiationService } from '#/_base/di/test';
 import { IPlatformSecretStore } from '#/app/secrets/platformSecretStore';
 import { IAtomicDocumentStore } from '#/persistence/interface/atomicDocumentStore';
 import { IWorkspaceArtifactService } from '#/workspace/artifacts/artifact';
+import { IWorkspaceBudgetService } from '#/workspace/budgets/budget';
 import { IWorkspaceContext } from '#/workspace/workspaceContext/workspaceContext';
 import { IWorkspaceExecutionTargetService } from '#/workspace/executionTargets/executionTarget';
 import { IWorkspaceExecutionService } from '#/workspace/execution/execution';
@@ -82,6 +83,33 @@ describe('WorkspaceExecutionService', () => {
       _serviceBrand: undefined,
       recordUsage: async (input: Record<string, unknown>) => input,
     } as unknown as IWorkspaceUsageService);
+    ix.stub(IWorkspaceBudgetService, {
+      _serviceBrand: undefined,
+      ready: Promise.resolve(),
+      onDidChange: (() => ({ dispose: () => undefined })) as never,
+      reserve: async (input: Record<string, unknown>) => ({
+        status: 'unbudgeted',
+        warnings: [],
+        reservation: {
+          id: `reservation_${String(input['request_id'])}`,
+          budget_id: 'budget_unbudgeted',
+          workspace_id: context.workspaceId,
+          run_id: input['run_id'],
+          request_id: input['request_id'],
+          scope: input['scope'],
+          scope_id: input['scope_id'],
+          meter: input['meter'],
+          unit: input['unit'],
+          estimated_amount: input['amount'],
+          reserved_amount: 0,
+          state: 'reserved',
+          created_at: '2026-08-09T00:00:00.000Z',
+          updated_at: '2026-08-09T00:00:00.000Z',
+        },
+      }),
+      reconcile: async (input: Record<string, unknown>) => input,
+      release: async (input: Record<string, unknown>) => input,
+    } as unknown as IWorkspaceBudgetService);
     ix.stub(IWorkspaceArtifactService, {
       _serviceBrand: undefined,
       get: async (id: string) => ['artifact_dataset', 'artifact_model'].includes(id)

@@ -125,7 +125,7 @@ import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { PlatformModelSelection } from '@spiderbyte/protocol';
 
-import { ErrorCodes, SpiderByteError } from '#/errors';
+import { ErrorCodes, normalizeSpiderByteError, SpiderByteError } from '#/errors';
 import { noopTelemetryClient } from '#/telemetry';
 import { HookDefSchema } from '@spiderbyte/agent-core/agent/externalHooks/configSection';
 import type { BeginGlobalMcpServerAuthResult } from '#/rpc-contract';
@@ -171,6 +171,7 @@ import {
   IBootstrapService,
   IConfigService,
   IEventService,
+  IEventBus,
   IHostEnvironment,
   IHostFileSystem,
   IModelCatalog,
@@ -228,7 +229,8 @@ import { createKlient } from '@spiderbyte/client/memory';
 import { assertSpiderByteHostIdentity, createSpiderByteDefaultHeaders } from '@spiderbyte/oauth';
 
 import { SpiderByteAuthFacade } from '#/auth';
-import { resolveConfigPath, resolveSpiderByteHome } from '#/host-utils';
+import { loadRuntimeConfigSafe, resolveConfigPath, resolveSpiderByteHome } from '#/host-utils';
+import { ImageLimits, type ImageConfig } from '#/image-limits';
 import { SpiderByteHarness } from '#/spiderbyte-harness';
 import {
   SDKRpcClientBase,
@@ -274,7 +276,6 @@ import type {
   SpiderByteHarnessOptions,
   SpiderByteHostIdentity,
   ListSessionsOptions,
-  McpServerConfig,
   McpServerInfo,
   McpStartupMetrics,
   McpTestResult,
@@ -353,6 +354,7 @@ export class SpiderByteSdkClient extends SDKRpcClientBase {
   readonly configPath: string;
   readonly identity: SpiderByteHostIdentity;
   readonly telemetry: TelemetryClient;
+  readonly imageLimits: ImageLimits;
   readonly auth: SpiderByteAuthFacade;
   readonly klient: Klient;
 
@@ -416,6 +418,7 @@ export class SpiderByteSdkClient extends SDKRpcClientBase {
       homeDir: this.homeDir,
       configPath: options.configPath,
     });
+    this.imageLimits = new ImageLimits(process.env, imageConfigFromRuntime(this.configPath));
     ensureSpiderByteHome(this.homeDir);
     this.telemetry = options.telemetry ?? noopTelemetryClient;
     this.auth = new SpiderByteAuthFacade({
@@ -492,6 +495,7 @@ export class SpiderByteSdkClient extends SDKRpcClientBase {
     // disposal fires — a host that removes homeDir right after close() must
     // not race an in-flight shard close (ENOTEMPTY on teardown).
     await this.app.accessor.get(ISessionIndexMirror).drain();
+    await this.app.accessor.get(IAtomicDocumentStore).drain?.();
     this.app.dispose();
     await drainSessionIndexMirror();
     await drainQueryStoreDisposals();
@@ -918,18 +922,19 @@ export class SpiderByteSdkClient extends SDKRpcClientBase {
         thinkingLevel: profile.thinkingLevel,
         systemPrompt: profile.systemPrompt,
       },
-      context: context as AgentContextData,
+      context,
       replay: limitAgentReplayByTurns(folded.replay, replayTurnLimit),
       permission: {
         mode: agent.accessor.get(IAgentPermissionModeService).mode,
         rules: [...agent.accessor.get(IAgentPermissionRulesService).rules],
       } as ResumedAgentState['permission'],
-      plan: plan as ResumedAgentState['plan'],
+      plan,
       swarmMode: agent.accessor.get(IAgentSwarmService).isActive,
-      usage: usage as ResumedAgentState['usage'],
+      usage,
       tools: agent.accessor.get(IAgentRPCService).getTools({}) as ResumedAgentState['tools'],
       tasks: [],
       toolStore: folded.toolStore,
+      toolDisplays: folded.toolDisplays,
       background: background as readonly BackgroundTaskInfo[],
     };
   }
@@ -1086,17 +1091,21 @@ export class SpiderByteSdkClient extends SDKRpcClientBase {
    * before restoring the fork when `turnIndex` is supplied.
    */
   override async forkSession(input: ForkSessionInput): Promise<SessionSummary> {
-    const forkHandler = await handlerForSession(this.appServices, input.id);
-    if (forkHandler === undefined) throw SpiderByteSdkClient.sessionNotFound(input.id);
-    const handle = await forkHandler.accessor.get(ISessionLifecycleService).fork({
-      sourceSessionId: input.id,
-      newSessionId: input.forkId,
-      title: input.title,
-      metadata: input.metadata,
-      turnIndex: input.turnIndex,
-    });
-    this.wireSession(handle);
-    return this.resumedSessionSummary(handle);
+    try {
+      const forkHandler = await handlerForSession(this.appServices, input.id);
+      if (forkHandler === undefined) throw SpiderByteSdkClient.sessionNotFound(input.id);
+      const handle = await forkHandler.accessor.get(ISessionLifecycleService).fork({
+        sourceSessionId: input.id,
+        newSessionId: input.forkId,
+        title: input.title,
+        metadata: input.metadata,
+        turnIndex: input.turnIndex,
+      });
+      this.wireSession(handle);
+      return await this.resumedSessionSummary(handle);
+    } catch (error) {
+      throw normalizeSpiderByteError(error);
+    }
   }
 
   override async closeSession(input: SessionIdRpcInput): Promise<void> {
@@ -1438,16 +1447,15 @@ export class SpiderByteSdkClient extends SDKRpcClientBase {
 
   /**
    * Facade (`agentRPCService.getContext`). The v2 `AgentContextData` is the
-   * same wire shape as v1's — the cast only bridges the two packages' type
-   * declarations (v2's origin union carries kinds a v1 client never sees in
-   * practice); the data itself crossed the same JSON boundary on both sides.
+   * same wire shape as v1's; the data crosses the same JSON boundary on both
+   * sides.
    * Token-count semantics differ by design: v1 reports the running estimate,
    * v2 the provider-measured prefix (`0` until the first LLM round) — pinned
    * in the parity KNOWN_DIFFS.
    */
   override async getContext(input: SessionIdRpcInput): Promise<AgentContextData> {
     const agent = await this.agentFacade(input.sessionId);
-    return agent.getContext() as Promise<AgentContextData>;
+    return agent.getContext();
   }
 
   override async getUsage(input: SessionIdRpcInput): Promise<SessionUsage> {
@@ -1498,6 +1506,7 @@ export class SpiderByteSdkClient extends SDKRpcClientBase {
   }
 
   override async cancel(input: SessionIdRpcInput): Promise<void> {
+    this.requireLiveSession(input.sessionId).accessor.get(ISessionInitService).cancelInit();
     const agent = await this.agentFacade(input.sessionId);
     return agent.cancel();
   }
@@ -1510,11 +1519,15 @@ export class SpiderByteSdkClient extends SDKRpcClientBase {
    * `compaction.unable` on an empty history or an active turn.
    */
   override async compact(input: SessionIdRpcInput & CompactOptions): Promise<void> {
-    const agent = await this.agentScope(input.sessionId);
-    agent.accessor.get(IAgentFullCompactionService).begin({
-      source: 'manual',
-      instruction: input.instruction,
-    });
+    try {
+      const agent = await this.agentScope(input.sessionId);
+      agent.accessor.get(IAgentFullCompactionService).begin({
+        source: 'manual',
+        instruction: input.instruction,
+      });
+    } catch (error) {
+      throw normalizeSpiderByteError(error);
+    }
   }
 
   /**
@@ -1582,6 +1595,10 @@ export class SpiderByteSdkClient extends SDKRpcClientBase {
       capability.max_input_tokens ?? capability.max_context_tokens,
     );
     agent.accessor.get(IAgentContextMemoryService).append(message);
+    agent.accessor.get(IEventBus).publish({
+      type: 'agent.status.updated',
+      contextTokens: agent.accessor.get(IAgentTokenCountingService).statusSize(),
+    });
   }
 
   /**
@@ -2076,12 +2093,10 @@ export class SpiderByteSdkClient extends SDKRpcClientBase {
    */
   private async globalMcpOAuthService(): Promise<McpOAuthService> {
     await this.appServices.get(IAgentIdentity).resolved();
-    if (this.globalMcpOAuth === undefined) {
-      this.globalMcpOAuth = new McpOAuthService({
-        store: createMcpOAuthStore(this.appServices.get(IAtomicDocumentStore)),
-        resolveClientName: () => this.resolveMcpClientName(),
-      });
-    }
+    this.globalMcpOAuth ??= new McpOAuthService({
+      store: createMcpOAuthStore(this.appServices.get(IAtomicDocumentStore)),
+      resolveClientName: () => this.resolveMcpClientName(),
+    });
     return this.globalMcpOAuth;
   }
 
@@ -2296,13 +2311,23 @@ export function createSpiderByteHarness(options: SpiderByteHarnessOptions): Spid
     telemetry: rpc.telemetry,
     ensureConfigFile: () => rpc.ensureConfigFile(),
     onClose: () => rpc.close(),
-    // v1-core-owned ingestion limits; the v2 engine has no equivalent yet, so
-    // ingestion falls back to env / built-in defaults like daemon-client hosts.
-    imageLimits: undefined,
+    imageLimits: rpc.imageLimits,
     platform: rpc.klient.global.platform,
     platformSessionRuns: (sessionId) => rpc.klient.session(sessionId).runs,
     sessionStartedProperties: options.sessionStartedProperties,
   });
+}
+
+function imageConfigFromRuntime(configPath: string): ImageConfig | undefined {
+  const image = loadRuntimeConfigSafe(configPath).config.image;
+  if (image === undefined) return undefined;
+  const maxEdgePx = positiveInteger(image['maxEdgePx'] ?? image['max_edge_px']);
+  const readByteBudget = positiveInteger(image['readByteBudget'] ?? image['read_byte_budget']);
+  return { maxEdgePx, readByteBudget };
+}
+
+function positiveInteger(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined;
 }
 
 /** v1's `requiredWorkDir`: reject blank and normalize to the canonical spelling. */

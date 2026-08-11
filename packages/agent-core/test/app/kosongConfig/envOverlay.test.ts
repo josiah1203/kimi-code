@@ -4,17 +4,13 @@
  *  - with `SPIDERBYTE_MODEL_NAME` set it synthesizes the reserved env model +
  *    provider entries and selects the model; without it only the
  *    `modelOverrides` knobs apply;
- *  - the env provider's default `baseUrl` comes from the provider-definition
- *    registry (`resolveProviderEndpoint` against the same env the overlay
- *    reads): the Kimi chain yields `SPIDERBYTE_BASE_URL` →
- *    `https://api.moonshot.ai/v1`;
+ *  - the default env provider is vendor-neutral and OpenAI-compatible;
  *  - `strip` keeps the synthesized values out of `config.toml`.
  */
 
 import { describe, expect, it } from 'vitest';
 
 import { ENV_MODEL_PROVIDER_KEY } from '#/app/kosongConfig/configSection';
-import '#/kosong/provider/providers/kimi/kimi.contrib';
 import '#/kosong/provider/providers/standard.contrib';
 import { ENV_MODEL_ALIAS_KEY, spiderbyteModelEnvOverlay } from '#/app/kosongConfig/envOverlay';
 
@@ -61,21 +57,19 @@ describe('spiderbyteModelEnvOverlay.apply', () => {
       capabilities: ['image_in', 'thinking'],
     });
     expect((effective['providers'] as Record<string, unknown>)[ENV_MODEL_PROVIDER_KEY]).toEqual({
-      type: 'kimi',
-      baseUrl: 'https://api.moonshot.ai/v1',
+      type: 'openai-compatible',
     });
     expect(effective['defaultModel']).toBe(ENV_MODEL_ALIAS_KEY);
   });
 
-  it('honors the vendor endpoint env chain for the default baseUrl', () => {
+  it('does not infer a vendor endpoint for the default provider', () => {
     const effective: Record<string, unknown> = {};
     apply(effective, {
       SPIDERBYTE_MODEL_NAME: 'kimi-k2-custom',
       SPIDERBYTE_BASE_URL: 'https://kimi-proxy.example.test/v1',
     });
     expect((effective['providers'] as Record<string, unknown>)[ENV_MODEL_PROVIDER_KEY]).toEqual({
-      type: 'kimi',
-      baseUrl: 'https://kimi-proxy.example.test/v1',
+      type: 'openai-compatible',
     });
   });
 

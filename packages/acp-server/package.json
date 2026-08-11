@@ -8,12 +8,13 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
     }
   },
   "scripts": {
-    "build": "tsdown",
+    "build": "tsdown && tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "clean": "rm -rf dist"
@@ -36,14 +37,14 @@
   "files": [
     "dist"
   ],
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
   "publishConfig": {
     "access": "public",
     "provenance": true,
     "exports": {
       ".": {
-        "types": "./dist/index.d.mts",
+        "types": "./dist/index.d.ts",
         "import": "./dist/index.mjs",
         "default": "./dist/index.mjs"
       }

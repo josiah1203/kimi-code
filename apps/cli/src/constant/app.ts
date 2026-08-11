@@ -13,7 +13,7 @@ export const SPIDERBYTE_SUPPORT_URL = 'https://support.spyderbyte.example';
 export const SPIDERBYTE_UPDATE_URL = 'https://updates.spyderbyte.example';
 
 // Used in telemetry app names and HTTP User-Agent headers.
-export const CLI_USER_AGENT_PRODUCT = 'spyderbyte-cli';
+export const CLI_USER_AGENT_PRODUCT = 'spiderbyte-cli';
 export const CLI_UI_MODE = 'shell';
 // Telemetry ui_mode for the `spyderbyte web` host. Same product
 // as the CLI (CLI_USER_AGENT_PRODUCT); the surface is distinguished by ui_mode.
@@ -83,8 +83,10 @@ export const SPIDERBYTE_INSTALL_SH_URL = `${SPIDERBYTE_CDN_BASE}/install.sh`;
 export const SPIDERBYTE_INSTALL_PS1_URL = `${SPIDERBYTE_CDN_BASE}/install.ps1`;
 // Official download page, referenced by prompt copy that steers users away
 // from third-party install sources.
-export const SPIDERBYTE_OFFICIAL_INSTALL_URL = process.env['SPIDERBYTE_OFFICIAL_INSTALL_URL'] ?? '';
+export const SPIDERBYTE_OFFICIAL_INSTALL_URL =
+  process.env['SPIDERBYTE_OFFICIAL_INSTALL_URL']
+  ?? 'https://www.npmjs.com/package/@spiderbyte/cli';
 
 // Native install commands, split by platform. Use these for prompt copy and spawn calls only; do not assemble the strings elsewhere.
-export const NATIVE_INSTALL_COMMAND_UNIX = `curl -fsSL ${SPIDERBYTE_INSTALL_SH_URL} | bash`;
-export const NATIVE_INSTALL_COMMAND_WIN = `irm ${SPIDERBYTE_INSTALL_PS1_URL} | iex`;
+export const NATIVE_INSTALL_COMMAND_UNIX = `npm install --global ${NPM_PACKAGE_NAME}@latest`;
+export const NATIVE_INSTALL_COMMAND_WIN = NATIVE_INSTALL_COMMAND_UNIX;

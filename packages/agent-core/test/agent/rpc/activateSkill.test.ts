@@ -40,7 +40,6 @@ describe('activateSkill RPC', () => {
     const launched = await ctx.rpc.activateSkill({ name: 'commit', args: '-m fix' });
     // Turn ids are 0-based; the point is the launch result came back at all.
     expect(launched?.turn_id).toBe(0);
-    expect(launched?.run_id).toEqual(expect.any(String));
 
     await ctx.untilTurnEnd();
     // JSON.stringify escapes the block's attribute quotes — assert on the

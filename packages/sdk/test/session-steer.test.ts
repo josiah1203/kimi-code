@@ -1,53 +1,23 @@
-import type * as KosongModule from '@spiderbyte/kosong';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createSpiderByteHarness, type SpiderByteError } from '#/index';
 
 import { makeTempDir, removeTempDirs, waitForAgentWireEvent } from './session-runtime-helpers';
 import { TEST_IDENTITY } from './test-identity';
-
-const fakeProviderState = vi.hoisted(() => ({
-  responseText: 'steer response',
-}));
-
-vi.mock('@spiderbyte/kosong', async (importOriginal) => {
-  const actual = await importOriginal<typeof KosongModule>();
-  return {
-    ...actual,
-    createProvider: () => ({
-      name: 'fake',
-      modelName: 'fake-model',
-      thinkingEffort: null,
-      async generate() {
-        return {
-          id: 'fake-response',
-          usage: {
-            inputOther: 0,
-            output: 1,
-            inputCacheRead: 0,
-            inputCacheCreation: 0,
-          },
-          finishReason: 'completed',
-          rawFinishReason: 'stop',
-          async *[Symbol.asyncIterator]() {
-            yield { type: 'text', text: fakeProviderState.responseText };
-          },
-        };
-      },
-      withThinking() {
-        return this;
-      },
-    }),
-  };
-});
+import { startOpenAITestServer, type OpenAITestServer } from './openai-test-server';
 
 const tempDirs: string[] = [];
+let provider: OpenAITestServer;
 
-beforeEach(() => {
-  fakeProviderState.responseText = 'steer response';
+beforeEach(async () => {
+  provider = await startOpenAITestServer({ responseText: () => 'steer response' });
 });
 
 afterEach(async () => {
+  await provider.close();
   await removeTempDirs(tempDirs);
 });
 
@@ -55,6 +25,7 @@ describe('Session.steer', () => {
   it('sends turn.steer to the core session runtime', async () => {
     const homeDir = await makeTempDir(tempDirs, 'spiderbyte-sdk-steer-home-');
     const workDir = await makeTempDir(tempDirs, 'spiderbyte-sdk-steer-work-');
+    await writeFakeModelConfig(homeDir, provider.baseUrl);
     const harness = createSpiderByteHarness({ homeDir, identity: TEST_IDENTITY });
 
     try {
@@ -110,3 +81,23 @@ describe('Session.steer', () => {
     }
   });
 });
+
+async function writeFakeModelConfig(homeDir: string, baseUrl: string): Promise<void> {
+  await writeFile(
+    join(homeDir, 'config.toml'),
+    `
+default_model = "fake-model"
+
+[providers.local]
+type = "openai"
+base_url = "${baseUrl}"
+api_key = "sk-test"
+
+[models.fake-model]
+provider = "local"
+model = "fake-model"
+max_context_size = 1000
+`,
+    'utf-8',
+  );
+}

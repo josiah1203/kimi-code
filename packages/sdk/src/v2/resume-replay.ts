@@ -5,10 +5,12 @@ import {
   type AgentReplayRecord,
   type WireRecord,
 } from '@spiderbyte/agent-core';
+import type { ToolInputDisplay } from '@spiderbyte/agent-core/tool/toolInputDisplay';
 
 export interface FoldedAgentReplay {
   readonly replay: readonly AgentReplayRecord[];
   readonly toolStore: Readonly<Record<string, unknown>>;
+  readonly toolDisplays: Readonly<Record<string, ToolInputDisplay>>;
 }
 
 /** Keep the most recent user-turn window without changing record order. */
@@ -28,7 +30,7 @@ export function limitAgentReplayByTurns<T extends { readonly type: string; reado
   return records.slice(starts[starts.length - maxTurns]);
 }
 
-const EMPTY_FOLD: FoldedAgentReplay = { replay: [], toolStore: {} };
+const EMPTY_FOLD: FoldedAgentReplay = { replay: [], toolStore: {}, toolDisplays: {} };
 
 /** Rebuild the supported read-only replay view from the canonical v2 journal. */
 export async function foldAgentWireReplay(wirePath: string): Promise<FoldedAgentReplay> {
@@ -69,14 +71,29 @@ export async function foldAgentWireReplay(wirePath: string): Promise<FoldedAgent
     }
     replay.sort((a, b) => a.time - b.time);
     const toolStore: Record<string, unknown> = {};
+    const toolDisplays: Record<string, ToolInputDisplay> = {};
     for (const record of records) {
-      if (record.type !== 'tools.update_store' || typeof record['key'] !== 'string') continue;
-      toolStore[record['key']] = record['value'];
+      if (record.type === 'tools.update_store' && typeof record['key'] === 'string') {
+        toolStore[record['key']] = record['value'];
+        continue;
+      }
+      if (record.type !== 'context.append_loop_event') continue;
+      const event = record['event'];
+      if (!isRecord(event) || event['type'] !== 'tool.call') continue;
+      const toolCallId = event['toolCallId'];
+      const display = event['display'];
+      if (typeof toolCallId === 'string' && isRecord(display) && typeof display['kind'] === 'string') {
+        toolDisplays[toolCallId] = display as ToolInputDisplay;
+      }
     }
-    return { replay, toolStore };
+    return { replay, toolStore, toolDisplays };
   } catch {
     return EMPTY_FOLD;
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 function stripWireEnvelope(record: WireRecord): Record<string, unknown> {

@@ -70,7 +70,7 @@ export interface ModelAlias {
   readonly capabilities?: readonly string[];
   readonly displayName?: string;
   readonly reasoningKey?: string;
-  readonly protocol?: 'anthropic';
+  readonly protocol?: import('@spiderbyte/agent-core/kosong/protocol/protocol').Protocol;
   readonly adaptiveThinking?: boolean;
   readonly supportEfforts?: readonly string[];
   readonly defaultEffort?: string;
@@ -167,6 +167,7 @@ export type QuestionBackgroundTaskInfo = Extract<BackgroundTaskInfo, { readonly 
 
 export interface ResumedAgentState extends CoreResumedAgentState {
   readonly toolStore?: Readonly<Record<string, unknown>>;
+  readonly toolDisplays?: Readonly<Record<string, import('@spiderbyte/agent-core/tool/toolInputDisplay').ToolInputDisplay>>;
   readonly background?: readonly BackgroundTaskInfo[];
 }
 
@@ -390,6 +391,11 @@ export interface AddAdditionalDirResult {
   readonly persisted: boolean;
 }
 
-export type ResumedSessionState = Pick<ResumeSessionResult, 'sessionMetadata' | 'agents' | 'warning'>;
+export type ResumedSessionState = Omit<
+  Pick<ResumeSessionResult, 'sessionMetadata' | 'agents' | 'warning'>,
+  'agents'
+> & {
+  readonly agents: Readonly<Record<string, ResumedAgentState>>;
+};
 
 export interface ResumedSessionSummary extends SessionSummary, ResumedSessionState { }

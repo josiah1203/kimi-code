@@ -338,15 +338,11 @@ describe('ModelSelectorComponent', () => {
     expect(out).toContain('Thinking  (←→ to switch)');
   });
 
-  it('derives official Anthropic effort segments from the model name', () => {
+  it('renders declared Anthropic effort segments', () => {
     const onSelect = vi.fn();
     const picker = new ModelSelectorComponent({
       models: {
-        opus: {
-          provider: 'anthropic',
-          model: 'claude-opus-4-6',
-          maxContextSize: 200000,
-        },
+        opus: { ...effortModel('claude-opus-4-6', ['low', 'high', 'max'], 'high'), provider: 'anthropic' },
       },
       currentValue: 'opus',
       currentThinkingEffort: 'high',
@@ -366,13 +362,12 @@ describe('ModelSelectorComponent', () => {
     expect(onSelect).toHaveBeenCalledWith({ alias: 'opus', thinking: 'max' });
   });
 
-  it('derives official always-on Anthropic models without an Off segment', () => {
+  it('renders declared always-on Anthropic efforts without an Off segment', () => {
     const picker = new ModelSelectorComponent({
       models: {
         fable: {
+          ...effortModel('claude-fable-5', ['xhigh', 'max'], 'xhigh', ['always_thinking']),
           provider: 'anthropic',
-          model: 'claude-fable-5',
-          maxContextSize: 200000,
         },
       },
       currentValue: 'fable',

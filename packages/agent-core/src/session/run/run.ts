@@ -33,6 +33,8 @@ export interface ISessionRunService {
 
   /** Resolves after the session's durable Run document has been loaded. */
   readonly ready: Promise<void>;
+  /** Settles the durable mutation queue before session copy or teardown. */
+  drain(): Promise<void>;
   list(): Promise<readonly Run[]>;
   get(id: string): Promise<Run | undefined>;
   create(input: RunCreateInput): Promise<Run>;

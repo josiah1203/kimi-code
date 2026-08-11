@@ -24,7 +24,7 @@ spyderbyte export <session-id> -o ./session-export.zip
 
 ## 兼容材料
 
-临时兼容代码位于 `compat/` 下，并从 workspace 构建和发行包依赖图中排除。它不是受支持的运行时依赖。兼容性清单和移除计划记录在 [`PACKAGE_RENAME_MAP.md`](../release/PACKAGE_RENAME_MAP.md) 中。
+临时兼容代码位于 `compat/` 下，并从 workspace 构建和发行包依赖图中排除。它不是受支持的运行时依赖。兼容性清单和移除计划记录在 [`PACKAGE_RENAME_MAP.md`](../../release/PACKAGE_RENAME_MAP.md) 中。
 
 ## 不属于本次迁移的内容
 

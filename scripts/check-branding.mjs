@@ -59,10 +59,10 @@ const AUTHORITY_METADATA_PATHS = new Set([
 
 const LEGACY_PRODUCT_PATTERNS = [
   { id: 'kimi-code', regex: /kimi[ -]?code/gi },
-  { id: 'kimi', regex: /\bkimi\b/gi },
-  { id: 'moonshot', regex: /\bmoonshot\b/gi },
   { id: 'kimi-code-env', regex: /KIMI_CODE_[A-Z0-9_]+/g },
   { id: 'kimi-storage', regex: /\.kimi-code\b/gi },
+  { id: 'kimi-cli-constructor', regex: /new\s+Command\(\s*['"]kimi['"]\s*\)/g },
+  { id: 'kimi-cli-argv', regex: /\[\s*['"]node['"]\s*,\s*['"]kimi['"]\s*,/g },
 ];
 
 function rel(abs) {
@@ -114,6 +114,26 @@ function isAllowed(path, matchText, authority) {
   );
 }
 
+function scanBrandingText(path, text, authority = { allowlists: { branding: [] } }) {
+  const findings = [];
+  const lines = text.split('\n');
+  for (const [lineIndex, line] of lines.entries()) {
+    for (const pattern of LEGACY_PRODUCT_PATTERNS) {
+      pattern.regex.lastIndex = 0;
+      const match = pattern.regex.exec(line);
+      pattern.regex.lastIndex = 0;
+      if (match === null || isAllowed(path, match[0], authority)) continue;
+      findings.push({
+        path,
+        line: lineIndex + 1,
+        pattern: pattern.id,
+        text: line.trim().slice(0, 220),
+      });
+    }
+  }
+  return findings;
+}
+
 function scanBranding() {
   const authority = loadAuthority();
   const findings = [];
@@ -124,22 +144,7 @@ function scanBranding() {
       if (seen.has(path)) continue;
       seen.add(path);
       if (AUTHORITY_METADATA_PATHS.has(path)) continue;
-      const lines = readFileSync(file, 'utf8').split('\n');
-      for (const [lineIndex, line] of lines.entries()) {
-        for (const pattern of LEGACY_PRODUCT_PATTERNS) {
-          pattern.regex.lastIndex = 0;
-          const match = pattern.regex.exec(line);
-          if (match === null) continue;
-          pattern.regex.lastIndex = 0;
-          if (isAllowed(path, match[0], authority)) continue;
-          findings.push({
-            path,
-            line: lineIndex + 1,
-            pattern: pattern.id,
-            text: line.trim().slice(0, 220),
-          });
-        }
-      }
+      findings.push(...scanBrandingText(path, readFileSync(file, 'utf8'), authority));
     }
   }
 
@@ -198,4 +203,4 @@ function main() {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) main();
 
-export { scanBranding };
+export { scanBranding, scanBrandingText };

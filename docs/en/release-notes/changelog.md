@@ -745,7 +745,7 @@ This page documents the changes in each SpiderByte CLI release.
 
 ### Features
 
-- Plugins now support declaring lifecycle hooks in `spyderbyte.plugin.json` to run scripts at specific stages. See [Hooks in Plugins](../customization/plugins.md#hooks-in-plugins).
+- Plugins now support declaring lifecycle hooks in `spyderbyte.plugin.json` to run scripts at specific stages. See [Hooks in Plugins](../customization/plugins.md#mcp-servers-and-hooks).
 - `/feedback` now supports attaching diagnostic logs and codebase context.
 - Add the `spyderbyte update` command, equivalent to `spyderbyte upgrade`, for upgrading to the latest version.
 - `spyderbyte web` adds the `--allowed-host <host>` option to add a specified Host to the DNS-rebinding allowlist; 403 errors now explain how to allow it via `--allowed-host` or `SPIDERBYTE_ALLOWED_HOSTS`, e.g. `spyderbyte web --allowed-host example.com`.

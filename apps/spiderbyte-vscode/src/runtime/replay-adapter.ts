@@ -25,6 +25,7 @@ interface SubagentReplayInvocation {
   readonly startedAt: number;
   readonly order: number;
   records: readonly AgentReplayRecord[];
+  readonly toolDisplays: ResumedAgentState["toolDisplays"];
 }
 
 interface SubagentReplayIndex {
@@ -57,7 +58,7 @@ function replayAgentToWebviewEvents(
   const events: UIStreamEvent[] = [];
   let turnOpen = false;
   let step = 0;
-  const toolDisplays = new Map<string, readonly DisplayBlock[]>();
+  const toolDisplays = compatibilityToolDisplays(agent.toolDisplays);
 
   events.push(
     withSession(
@@ -244,6 +245,7 @@ function buildSubagentReplayIndex(state: ResumedSessionState): SubagentReplayInd
           startedAt: call.startedAt,
           order: call.order,
           records: [],
+          toolDisplays: state.agents[childAgentId]?.toolDisplays,
         });
       }
     }
@@ -331,7 +333,12 @@ function renderSubagentInvocation(
   visited: ReadonlySet<string>,
 ): CompatibilityWireEvent[] {
   const events: CompatibilityWireEvent[] = [];
-  const toolDisplays = new Map<string, readonly DisplayBlock[]>();
+  const toolDisplays = new Map(
+    [...compatibilityToolDisplays(invocation.toolDisplays)].map(([toolCallId, display]) => [
+      scopedReplayToolCallId(invocation.childAgentId, toolCallId),
+      display,
+    ]),
+  );
   let step = 0;
 
   const emit = (event: CompatibilityWireEvent) => {
@@ -572,6 +579,17 @@ function decodeXml(value: string): string {
     .replaceAll("&lt;", "<")
     .replaceAll("&gt;", ">")
     .replaceAll("&amp;", "&");
+}
+
+function compatibilityToolDisplays(
+  displays: ResumedAgentState["toolDisplays"],
+): Map<string, readonly DisplayBlock[]> {
+  return new Map(
+    Object.entries(displays ?? {}).map(([toolCallId, display]) => [
+      toolCallId,
+      toCompatibilityDisplay(display),
+    ]),
+  );
 }
 
 function withSession<T extends CompatibilityWireEvent>(event: T, sessionId: string): T & { _sessionId: string } {

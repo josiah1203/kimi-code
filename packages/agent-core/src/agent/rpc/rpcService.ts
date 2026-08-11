@@ -113,16 +113,12 @@ export class AgentRPCService implements IAgentRPCService {
 
   async steer(payload: SteerPayload): Promise<PromptLaunchResult | undefined> {
     this.telemetry.track2('input_steer', { parts: payload.input.length });
-    const queued = await this.promptService.enqueue({
-      message: {
-        role: 'user',
-        content: [...payload.input],
-        toolCalls: [],
-      },
+    const turn = await this.promptService.inject({
+      role: 'user',
+      content: [...payload.input],
+      toolCalls: [],
     });
-    const [steered] = await this.promptService.steer([queued.id]);
-    const turn = await steered?.launched;
-    return steered === undefined ? undefined : promptLaunchResult(steered, turn);
+    return turn === undefined ? undefined : { turn_id: turn.id };
   }
 
   cancel({ turnId }: CancelPayload): void {
@@ -216,6 +212,7 @@ export class AgentRPCService implements IAgentRPCService {
   }
 
   private async updatePromptMetadata(text: string | undefined): Promise<void> {
+    if (this.scopeContext.agentId !== MAIN_AGENT_ID) return;
     await applyPromptMetadataUpdate(
       {
         metadata: this.metadata,

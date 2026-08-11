@@ -34,6 +34,31 @@ describe('JsonAtomicDocumentStore', () => {
     expect(await config.get('session', 'state.json')).toBeUndefined();
   });
 
+  it('drain waits for an in-flight operation to settle', async () => {
+    let releaseRead: (() => void) | undefined;
+    ix.stub(
+      IFileSystemStorageService,
+      'read',
+      () => new Promise<undefined>((resolve) => {
+        releaseRead = () => resolve(undefined);
+      }),
+    );
+
+    const read = config.get('session', 'state.json');
+    await Promise.resolve();
+    let drained = false;
+    const drain = config.drain?.().then(() => {
+      drained = true;
+    });
+    await Promise.resolve();
+    expect(drained).toBe(false);
+
+    releaseRead?.();
+    await read;
+    await drain;
+    expect(drained).toBe(true);
+  });
+
   it('set + get round-trips a value', async () => {
     await config.set<State>('session', 'state.json', { title: 'hello', count: 1 });
     expect(await config.get<State>('session', 'state.json')).toEqual({ title: 'hello', count: 1 });

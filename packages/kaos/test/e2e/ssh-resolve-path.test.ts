@@ -151,7 +151,13 @@ function createMockedKaos(sftp: SFTPWrapper, home: string, cwd: string): SSHKaos
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const CtorAny = SSHKaos as any;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  return new CtorAny(client, sftp, home, cwd) as SSHKaos;
+  return new CtorAny(client, sftp, home, cwd, {
+    osKind: 'Linux',
+    osArch: 'x86_64',
+    osVersion: 'test',
+    shellName: 'sh',
+    shellPath: '/bin/sh',
+  }) as SSHKaos;
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────

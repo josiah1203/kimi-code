@@ -195,6 +195,10 @@ const config = withMermaid(defineConfig({
   },
 
   vite: {
+    build: {
+      // Mermaid and local search share a documentation-only client chunk.
+      chunkSizeWarningLimit: 1000,
+    },
     optimizeDeps: {
       include: mermaidOptimizeDeps.map((dep) => `mermaid > ${dep}`),
     },

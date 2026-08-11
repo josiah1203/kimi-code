@@ -25,12 +25,15 @@ import {
   type PermissionRule,
 } from '#/agent/permissionRules/permissionRules';
 import { IAgentScopeContext, makeAgentScopeContext } from '#/agent/scopeContext/scopeContext';
+import { IFlagService } from '#/app/flag/flag';
 import { IGitService } from '#/app/git/git';
 import { findGitWorkTree } from '#/app/git/workTree';
 import { ITelemetryService } from '#/app/telemetry/telemetry';
 import { HostFileSystem } from '#/os/backends/node-local/hostFsService';
 import { ToolAccesses, type ToolAccesses as ToolAccessList } from '#/tool/toolContract';
 import { ISessionWorkspaceContext } from '#/session/workspaceContext/workspaceContext';
+import { IWorkspacePolicyService } from '#/workspace/policy/policy';
+import type { PolicyDecision, PolicyDecisionOutcome } from '@spiderbyte/protocol';
 
 import { stubPermissionModeService } from '../permissionMode/stubs';
 import { recordingTelemetry } from '../../app/telemetry/stubs';
@@ -45,6 +48,8 @@ describe('AgentPermissionPolicyService chain', () => {
   let mode: PermissionMode;
   let rules: PermissionRule[];
   let sessionApprovalRulePatterns: string[];
+  let platformEnabled: boolean;
+  let platformOutcome: PolicyDecisionOutcome;
   let workspace: ReturnType<typeof workspaceStub>;
 
   beforeEach(() => {
@@ -52,6 +57,8 @@ describe('AgentPermissionPolicyService chain', () => {
     mode = 'manual';
     rules = [];
     sessionApprovalRulePatterns = [];
+    platformEnabled = false;
+    platformOutcome = 'allow';
     workspace = workspaceStub('/workspace');
     ix = createServices(disposables, {
       additionalServices: (reg) => {
@@ -67,6 +74,22 @@ describe('AgentPermissionPolicyService chain', () => {
         reg.defineInstance(ISessionWorkspaceContext, workspace.stub);
         reg.defineInstance(IHostEnvironment, kaosStub());
         reg.defineInstance(ITelemetryService, recordingTelemetry([]));
+        reg.definePartialInstance(IFlagService, {
+          enabled: () => platformEnabled,
+        });
+        reg.definePartialInstance(IWorkspacePolicyService, {
+          evaluate: async (input) => ({
+            id: 'policy_test',
+            workspace_id: 'wd_test_0123456789ab',
+            capability: input.capability,
+            action: input.action,
+            state: 'evaluated',
+            outcome: platformOutcome,
+            reason: `workspace policy ${platformOutcome}`,
+            requested_by: 'agent',
+            requested_at: new Date(0).toISOString(),
+          } satisfies PolicyDecision),
+        });
         reg.definePartialInstance(IGitService, { findWorkTree: async () => null });
         reg.define(IAgentPermissionPolicyService, AgentPermissionPolicyService);
       },
@@ -142,6 +165,35 @@ describe('AgentPermissionPolicyService chain', () => {
     })).resolves.toMatchObject({
       policyName: 'user-configured-ask',
       result: { kind: 'ask' },
+    });
+  });
+
+  it('defers a workspace capability allow to the manual permission chain', async () => {
+    platformEnabled = true;
+    platformOutcome = 'allow';
+
+    await expect(evaluate({
+      toolName: 'Bash',
+      args: { command: 'printf first', timeout: 60 },
+    })).resolves.toMatchObject({
+      policyName: 'fallback-ask',
+      result: { kind: 'ask' },
+    });
+  });
+
+  it('enforces a workspace capability denial before the manual permission chain', async () => {
+    platformEnabled = true;
+    platformOutcome = 'deny';
+
+    await expect(evaluate({
+      toolName: 'Bash',
+      args: { command: 'printf first', timeout: 60 },
+    })).resolves.toMatchObject({
+      policyName: 'platform-capability',
+      result: {
+        kind: 'deny',
+        message: 'workspace policy deny',
+      },
     });
   });
 

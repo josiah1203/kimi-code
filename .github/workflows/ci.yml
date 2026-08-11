@@ -127,3 +127,39 @@ jobs:
           done
       - name: Typecheck VS Code extension
         run: pnpm --filter spiderbyte-vscode run typecheck
+
+  open-core-release-gates:
+    name: Open Core release gates
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Frozen dependency installation
+        run: pnpm install --frozen-lockfile
+
+      - name: Build publishable artifacts
+        run: pnpm run build
+
+      - name: Run Open Core release gates
+        run: pnpm run verify:open-core-release
+        env:
+          SPIDERBYTE_RELEASE_LOG_DIR: .tmp/open-core-release-gates
+
+      - name: Preserve release-gate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-core-release-gate-logs
+          path: .tmp/open-core-release-gates
+          if-no-files-found: error
+          retention-days: 14

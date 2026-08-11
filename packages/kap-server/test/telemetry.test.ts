@@ -93,7 +93,15 @@ describe('server telemetry', () => {
     };
     const hostTelemetry = new TelemetryService();
     hostTelemetry.addAppender(hostAppender);
-    const app = await bootCore(undefined, undefined, [[ITelemetryService, hostTelemetry]]);
+    const app = await bootCore(
+      undefined,
+      {
+        ...process.env,
+        SPIDERBYTE_DISABLE_TELEMETRY: undefined,
+        SPIDERBYTE_TELEMETRY_ENDPOINT: 'https://telemetry.example.test/v1/event',
+      },
+      [[ITelemetryService, hostTelemetry]],
+    );
     const telemetry = await initializeServerTelemetry(app, home as string);
     const service = app.accessor.get(ITelemetryService);
 

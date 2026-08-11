@@ -34,11 +34,13 @@ export interface CreateAgentOptions {
   readonly binding?: BindAgentInput;
   readonly forkedFrom?: string;
   readonly labels?: Readonly<Record<string, string>>;
+  readonly persist?: boolean;
 }
 
 export interface ForkAgentOptions {
   readonly agentId?: string;
   readonly binding?: Partial<BindAgentInput>;
+  readonly persist?: boolean;
 }
 
 export interface AgentListFilter {

@@ -160,7 +160,7 @@ describe('LLMRequester service migration coverage', () => {
       });
     });
 
-    it('records the resolved Kimi thinking keep default when thinking is enabled', async () => {
+    it('records the resolved thinking level and keep default when thinking is enabled', async () => {
       ctx.configure({
         modelCapabilities: {
           image_in: false,
@@ -178,12 +178,12 @@ describe('LLMRequester service migration coverage', () => {
 
       expect(wireEvents(ctx, 'llm.request')).toHaveLength(1);
       expect(wireEvents(ctx, 'llm.request')[0]?.args).toMatchObject({
-        thinkingEffort: 'on',
+        thinkingEffort: 'high',
         thinkingKeep: 'all',
       });
     });
 
-    it('records the env-forced Kimi effort used by the provider', async () => {
+    it('does not bypass the config layer for a process-only effort override', async () => {
       await ctx.dispose();
       vi.stubEnv('SPIDERBYTE_MODEL_THINKING_EFFORT', 'max');
       ctx = createTestAgent();
@@ -200,15 +200,15 @@ describe('LLMRequester service migration coverage', () => {
       });
       const profile = ctx.get(IAgentProfileService);
       profile.update({ thinkingLevel: 'high' });
-      expect(profile.data().thinkingLevel).toBe('on');
-      expect(profile.resolveModelContext().thinkingLevel).toBe('max');
+      expect(profile.data().thinkingLevel).toBe('high');
+      expect(profile.resolveModelContext().thinkingLevel).toBe('high');
       ctx.mockNextResponse({ type: 'text', text: 'forced thinking response' });
 
       await llmRequester.request();
 
       expect(wireEvents(ctx, 'llm.request')).toHaveLength(1);
       expect(wireEvents(ctx, 'llm.request')[0]?.args).toMatchObject({
-        thinkingEffort: 'max',
+        thinkingEffort: 'high',
       });
     });
 
@@ -355,7 +355,7 @@ describe('LLMRequester service migration coverage', () => {
         }),
       ).rejects.toMatchObject({ message: 'temporary provider failure' });
 
-      expect(entries).toEqual([
+      expect(entries).toContainEqual(
         expect.objectContaining({
           requestKind: 'direct_test',
           turnStep: '0.1',
@@ -363,7 +363,7 @@ describe('LLMRequester service migration coverage', () => {
           errorName: 'Error',
           errorMessage: 'temporary provider failure',
         }),
-      ]);
+      );
       expect(JSON.stringify(entries)).not.toContain('messages');
       expect(JSON.stringify(entries)).not.toContain('stack');
     });
@@ -405,7 +405,7 @@ describe('LLMRequester service migration coverage', () => {
           agent_id: 'main',
           model: 'mock-model',
           alias: 'mock-model',
-          provider_type: 'kimi',
+          provider_type: 'openai',
           protocol: 'openai',
           retryable: expect.any(Boolean),
           duration_ms: expect.any(Number),

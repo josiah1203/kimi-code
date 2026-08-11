@@ -267,8 +267,8 @@
   "dependencies": {
     "@base-ui/react": "^1.0.0",
     "@fontsource-variable/inter": "5.2.8",
-    "@spiderbyte/sdk": "workspace:^",
     "@radix-ui/react-accordion": "^1.2.12",
+    "@spiderbyte/sdk": "workspace:^",
     "@tabler/icons-react": "^3.36.0",
     "ahooks": "^3.9.6",
     "class-variance-authority": "^0.7.1",

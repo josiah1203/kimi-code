@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest';
 
 import { Error2 } from '#/errors';
 import { mergeStdioEnv, StdioMcpClient } from '#/mcpCore/client-stdio';
+import { McpServerStdioConfigSchema } from '#/mcpCore/config-schema';
+import type { McpServerStdioConfig } from '#/mcpCore/config-schema';
 
 import {
   crashAfterConnectFixture,
@@ -15,26 +17,19 @@ import {
 } from './stubs';
 
 describe('StdioMcpClient', () => {
-  it('rejects unsupported executor at construction time', () => {
-    expect(
-      () =>
-        new StdioMcpClient({
-          transport: 'stdio',
-          command: 'true',
-          executor: 'kaos',
-        }),
-    ).toThrow(
-      expect.objectContaining({ name: 'Error2', code: 'not_implemented' }) as unknown as Error,
-    );
+  it('rejects unsupported stdio executors at the config boundary', () => {
+    const config = {
+      transport: 'stdio',
+      command: 'true',
+      executor: 'kaos',
+    } as const;
+    expect(McpServerStdioConfigSchema.safeParse(config).success).toBe(false);
 
-    let thrown: unknown;
-    try {
-      const client = new StdioMcpClient({ transport: 'stdio', command: 'true', executor: 'kaos' });
-      void client;
-    } catch (error) {
-      thrown = error;
-    }
-    expect(thrown).toBeInstanceOf(Error2);
+    const createClient = () => new StdioMcpClient(config as unknown as McpServerStdioConfig);
+    expect(createClient).toThrow(
+      expect.objectContaining({ name: 'Error2', code: 'config.invalid' }) as unknown as Error,
+    );
+    expect(createClient).toThrowError(Error2);
   });
 
   it('uses defaultCwd when config.cwd is omitted', async () => {

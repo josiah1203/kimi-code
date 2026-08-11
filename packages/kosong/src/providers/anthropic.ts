@@ -111,7 +111,7 @@ export interface AnthropicOptions {
    * the latest Opus profile for unrecognized Anthropic-compatible models.
    */
   supportEfforts?: readonly string[] | undefined;
-  kimiThinking?: boolean | undefined;
+  providerThinking?: boolean | undefined;
   /**
    * Use the Anthropic **beta** Messages API (`client.beta.messages.create`,
    * `POST /v1/messages?beta=true`) instead of the standard Messages API.
@@ -126,8 +126,8 @@ export interface AnthropicOptions {
    * Vendor error classification, consulted by `convertAnthropicError` with
    * each raw SDK failure exactly once (after the abort guard and the
    * already-converted pass-through) before the base rules run. `undefined`
-   * keeps the base classification. A external provider provider routed over this
-   * transport passes `classifyKimiQuotaError` here so a quota-exhausted 429
+   * keeps the base classification. An external provider routed over this
+   * transport passes a provider-specific quota classifier here so a quota-exhausted 429
    * fails fast instead of burning the retry budget.
    */
   convertError?: (error: unknown) => ChatProviderError | undefined;
@@ -930,7 +930,7 @@ export class AnthropicChatProvider implements ChatProvider {
   private _clientFactory: ((auth: ProviderRequestAuth) => Anthropic) | undefined;
   private _adaptiveThinking: boolean | undefined;
   private readonly _supportEfforts: readonly string[] | undefined;
-  private readonly _kimiThinking: boolean;
+  private readonly _providerThinking: boolean;
   private readonly _convertErrorHook: ((error: unknown) => ChatProviderError | undefined) | undefined;
   private _betaApi: boolean;
   private _explicitMaxTokens: boolean;
@@ -941,7 +941,7 @@ export class AnthropicChatProvider implements ChatProvider {
     this._metadata = options.metadata;
     this._adaptiveThinking = options.adaptiveThinking;
     this._supportEfforts = options.supportEfforts;
-    this._kimiThinking = options.kimiThinking ?? false;
+    this._providerThinking = options.providerThinking ?? false;
     this._convertErrorHook = options.convertError;
     this._betaApi = options.betaApi ?? false;
     this._apiKey =
@@ -1223,14 +1223,14 @@ export class AnthropicChatProvider implements ChatProvider {
     const profile = resolveThinkingProfile(
       this._model,
       this._supportEfforts,
-      this._kimiThinking ? true : this._adaptiveThinking,
+      this._providerThinking ? true : this._adaptiveThinking,
     );
     let thinking: MessageCreateParams['thinking'];
     let outputConfig: MessageCreateParams['output_config'] | undefined;
 
     if (effort === 'off') {
       thinking = { type: 'disabled' };
-    } else if (this._kimiThinking) {
+    } else if (this._providerThinking) {
       thinking = { type: 'enabled' } as MessageCreateParams['thinking'];
       outputConfig =
         effort === 'on' ? undefined : ({ effort } as MessageCreateParams['output_config']);

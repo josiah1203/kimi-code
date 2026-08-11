@@ -220,7 +220,7 @@ export interface VideoUploadInput {
 export interface ChatProvider {
   /** Short identifier for the provider backend (e.g. `"external provider"`, `"anthropic"`). */
   readonly name: string;
-  /** Model name passed to the upstream API (e.g. `"moonshot-v1-auto"`). */
+  /** Model name passed to the upstream API (for example, `"example-model"`). */
   readonly modelName: string;
   /** Current thinking effort, or `null` if thinking is not configured. */
   readonly thinkingEffort: ThinkingEffort | null;
@@ -263,7 +263,7 @@ export interface ChatProvider {
    *
    * Implementations MUST NOT mutate or replace internal HTTP clients on the
    * returned clone — the clone is expected to share transport state with the
-   * original. See `KimiChatProvider._clone()` for the rationale.
+   * original. See the provider clone implementation for the rationale.
    */
   withMaxCompletionTokens?(
     maxCompletionTokens: number,

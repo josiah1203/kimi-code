@@ -5,12 +5,12 @@ import { SRC_ROOT, checkSource } from '../../scripts/check-import-boundaries.mjs
 const at = (domain: string, file: string): string => `${SRC_ROOT}/${domain}/${file}`;
 const atKosong = (sub: string, file: string): string => `${SRC_ROOT}/kosong/${sub}/${file}`;
 
-const V1 = ['@moonshot-ai', 'agent-core'].join('/');
+const V1 = '@spiderbyte/legacy-agent-core';
 
 describe('check-import-boundaries', () => {
   it('flags a direct import of v1 (@spiderbyte/legacy-agent-core)', () => {
     const violations = checkSource(
-      `import { KimiCore } from '${V1}';`,
+      `import { LegacyCore } from '${V1}';`,
       at('loop', 'loop.ts'),
     );
     expect(violations).toHaveLength(1);

@@ -291,7 +291,7 @@ describe('models TOML transforms', () => {
 
 type EnvMap = Readonly<Record<string, string | undefined>>;
 
-function applyKimiModelEnvOverlay(
+function applyModelEnvOverlay(
   env: EnvMap,
   effective: Record<string, unknown> = {},
 ): { readonly changed: readonly string[]; readonly effective: Record<string, unknown> } {
@@ -326,14 +326,14 @@ describe('spiderbyteModelEnvOverlay', () => {
       defaultModel: 'existing',
     };
 
-    const result = applyKimiModelEnvOverlay({}, effective);
+    const result = applyModelEnvOverlay({}, effective);
 
     expect(result.changed).toEqual([]);
     expect(result.effective).toEqual(effective);
   });
 
   it('applies request overrides when SPIDERBYTE_MODEL_NAME is absent', () => {
-    const { changed, effective } = applyKimiModelEnvOverlay({
+    const { changed, effective } = applyModelEnvOverlay({
       SPIDERBYTE_MODEL_TEMPERATURE: '0.3',
       SPIDERBYTE_MODEL_THINKING_KEEP: 'all',
     });
@@ -346,7 +346,7 @@ describe('spiderbyteModelEnvOverlay', () => {
   });
 
   it('synthesizes an env model alias and default model from the minimal env set', () => {
-    const { changed, effective } = applyKimiModelEnvOverlay({
+    const { changed, effective } = applyModelEnvOverlay({
       SPIDERBYTE_MODEL_NAME: 'kimi-for-coding',
     });
 
@@ -361,12 +361,12 @@ describe('spiderbyteModelEnvOverlay', () => {
       },
     });
     expect(effective['providers']).toEqual({
-      [ENV_MODEL_PROVIDER_KEY]: { type: 'kimi', baseUrl: 'https://api.moonshot.ai/v1' },
+      [ENV_MODEL_PROVIDER_KEY]: { type: 'openai-compatible' },
     });
   });
 
   it('omits baseUrl for openai so the base SDK default applies at construction', () => {
-    const { effective } = applyKimiModelEnvOverlay(
+    const { effective } = applyModelEnvOverlay(
       { SPIDERBYTE_MODEL_NAME: 'env-model' },
       { providers: { [ENV_MODEL_PROVIDER_KEY]: { type: 'openai' } } },
     );
@@ -377,7 +377,7 @@ describe('spiderbyteModelEnvOverlay', () => {
   });
 
   it('omits baseUrl for anthropic so the SDK picks its default', () => {
-    const { effective } = applyKimiModelEnvOverlay(
+    const { effective } = applyModelEnvOverlay(
       { SPIDERBYTE_MODEL_NAME: 'env-model' },
       { providers: { [ENV_MODEL_PROVIDER_KEY]: { type: 'anthropic' } } },
     );
@@ -388,7 +388,7 @@ describe('spiderbyteModelEnvOverlay', () => {
   });
 
   it('honors an explicit baseUrl over the type default', () => {
-    const { effective } = applyKimiModelEnvOverlay(
+    const { effective } = applyModelEnvOverlay(
       { SPIDERBYTE_MODEL_NAME: 'env-model' },
       {
         providers: {
@@ -403,7 +403,7 @@ describe('spiderbyteModelEnvOverlay', () => {
   });
 
   it('keeps an explicit env provider type instead of the kimi default', () => {
-    const { changed, effective } = applyKimiModelEnvOverlay(
+    const { changed, effective } = applyModelEnvOverlay(
       { SPIDERBYTE_MODEL_NAME: 'env-model' },
       { providers: { [ENV_MODEL_PROVIDER_KEY]: { type: 'openai', baseUrl: 'http://x' } } },
     );
@@ -416,7 +416,7 @@ describe('spiderbyteModelEnvOverlay', () => {
 
   it('preserves configured aliases while adding the env alias', () => {
     const existing = { provider: 'p', model: 'm', maxContextSize: 1000 };
-    const { effective } = applyKimiModelEnvOverlay(
+    const { effective } = applyModelEnvOverlay(
       { SPIDERBYTE_MODEL_NAME: 'env-model' },
       { models: { existing } },
     );
@@ -428,7 +428,7 @@ describe('spiderbyteModelEnvOverlay', () => {
   });
 
   it('maps extended model metadata and request overrides', () => {
-    const { changed, effective } = applyKimiModelEnvOverlay({
+    const { changed, effective } = applyModelEnvOverlay({
       SPIDERBYTE_MODEL_NAME: 'env-model',
       SPIDERBYTE_MODEL_MAX_CONTEXT_SIZE: '1000000',
       SPIDERBYTE_MODEL_MAX_OUTPUT_SIZE: '8192',
@@ -465,7 +465,7 @@ describe('spiderbyteModelEnvOverlay', () => {
   });
 
   it('falls back to legacy SPIDERBYTE_MODEL_MAX_TOKENS for completion overrides', () => {
-    const { effective } = applyKimiModelEnvOverlay({
+    const { effective } = applyModelEnvOverlay({
       SPIDERBYTE_MODEL_NAME: 'env-model',
       SPIDERBYTE_MODEL_MAX_TOKENS: '2048',
     });
@@ -483,7 +483,7 @@ describe('spiderbyteModelEnvOverlay', () => {
     ['SPIDERBYTE_MODEL_TOP_P', 'NaN'],
   ])('throws config.invalid for invalid %s=%s', (key, value) => {
     expectConfigInvalid(() =>
-      applyKimiModelEnvOverlay({ SPIDERBYTE_MODEL_NAME: 'env-model', [key]: value }),
+      applyModelEnvOverlay({ SPIDERBYTE_MODEL_NAME: 'env-model', [key]: value }),
     );
   });
 

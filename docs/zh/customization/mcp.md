@@ -59,11 +59,11 @@ MCP server 配置写在 `mcp.json` 中，分两层：
 | `enabledTools` | `string[]` | 全部 | 工具白名单 |
 | `disabledTools` | `string[]` | 全部 | 工具黑名单 |
 
-连接超时和单次工具调用超时的默认值都不必逐个 server 设置：`config.toml` 的 `[mcp] startup_timeout_ms` / `[mcp] tool_timeout_ms` 或环境变量 `SPIDERBYTE_MCP_STARTUP_TIMEOUT_MS` / `SPIDERBYTE_MCP_TOOL_TIMEOUT_MS` 可以调整全局默认值，优先级为 server 字段 > 环境变量 > `config.toml` > 内置默认。详见 [配置文件](../configuration/config-files.md#mcp)。
+连接超时和单次工具调用超时的默认值都不必逐个 server 设置：`config.toml` 的 `[mcp] startup_timeout_ms` / `[mcp] tool_timeout_ms` 或环境变量 `SPIDERBYTE_MCP_STARTUP_TIMEOUT_MS` / `SPIDERBYTE_MCP_TOOL_TIMEOUT_MS` 可以调整全局默认值，优先级为 server 字段 > 环境变量 > `config.toml` > 内置默认。详见 [配置文件](../configuration/config-files.md#顶层字段)。
 
 HTTP 与 SSE server 支持通过 `headers` 或 `bearerTokenEnvVar` 提供静态凭证。需要 OAuth 时，运行 `/mcp-config login <server-name>` 完成浏览器授权。
 
-Plugins 也可以在 manifest 中声明 MCP servers。Plugin 声明的 servers 默认启用，可以在 `/plugins` 中禁用或重新启用：禁用或移除后，已打开会话中的工具调用会失败并返回移除提示；新增或启用 server 则在新会话或 `/reload` 后生效。详见 [Plugins](./plugins.md#plugin-中的-mcp-servers)。
+Plugins 也可以在 manifest 中声明 MCP servers。Plugin 声明的 servers 默认启用，可以在 `/plugins` 中禁用或重新启用：禁用或移除后，已打开会话中的工具调用会失败并返回移除提示；新增或启用 server 则在新会话或 `/reload` 后生效。详见 [Plugins](./plugins.md#mcp-server-和-hook)。
 
 ::: warning 注意
 项目级 `.spiderbyte/mcp.json` 中的 stdio 条目会在会话启动时执行本地命令，只在你信任的仓库里启用。
@@ -87,7 +87,7 @@ decision = "deny"
 pattern = "mcp__filesystem__write_file"
 ```
 
-权限规则的完整语法见[配置文件](../configuration/config-files.md#permission)。
+权限规则的完整语法见[配置文件](../configuration/config-files.md#顶层字段)。
 
 ## 安全性
 
@@ -104,4 +104,4 @@ pattern = "mcp__filesystem__write_file"
 ## 下一步
 
 - [Plugins](./plugins.md) — 在 plugin manifest 中声明 MCP server，一键打包和分发
-- [配置文件](../configuration/config-files.md#permission) — 权限规则的完整字段参考
+- [配置文件](../configuration/config-files.md#顶层字段) — 权限规则的完整字段参考

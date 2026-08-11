@@ -634,7 +634,7 @@ describe('SessionEventBroadcaster', () => {
     const statuses = envelopes.filter((envelope) => envelope.type === 'agent.status.updated');
     expect(statuses).toHaveLength(3);
     expect(statuses.map((envelope) => envelope.payload)).toMatchObject([
-      { model: 'SpiderByte K2' },
+      { model: 'SpiderByte Model' },
       { model: 'external-model-wire' },
       { model: SECONDARY_DERIVED_MODEL_ID },
     ]);

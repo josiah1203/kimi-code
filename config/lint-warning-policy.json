@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "owner": "Open Core maintainers",
+  "review_by": "2026-09-30",
+  "maximum_warning_count": 2103,
+  "disposition": "Existing warning debt is time-boxed and may only decrease; all lint errors remain blocking. Compatibility, generated declarations, and benchmarks are outside the supported Open Core lint graph."
+}

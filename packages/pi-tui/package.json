@@ -34,8 +34,9 @@
   },
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
     },
     "./package.json": "./package.json"
   },
@@ -68,6 +69,6 @@
   "engines": {
     "node": ">=22.19.0"
   },
-  "main": "./src/index.ts",
-  "types": "./src/index.ts"
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts"
 }

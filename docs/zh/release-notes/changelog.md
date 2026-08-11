@@ -745,7 +745,7 @@ outline: 2
 
 ### 新功能
 
-- 插件现支持在 `spyderbyte.plugin.json` 中声明生命周期 hooks，在指定阶段运行脚本。详见[插件 Hooks](../customization/plugins.md#插件中的-hooks)。
+- 插件现支持在 `spyderbyte.plugin.json` 中声明生命周期 hooks，在指定阶段运行脚本。详见[插件 Hooks](../customization/plugins.md#mcp-server-和-hook)。
 - `/feedback` 现支持附加诊断日志与代码库上下文。
 - 新增 `spyderbyte update` 命令，等价于 `spyderbyte upgrade`，可用于升级到最新版本。
 - `spyderbyte web` 新增 `--allowed-host <host>` 选项，可将指定 Host 加入 DNS 重绑定白名单；403 错误会提示如何通过 `--allowed-host` 或 `SPIDERBYTE_ALLOWED_HOSTS` 放行，例如 `spyderbyte web --allowed-host example.com`。

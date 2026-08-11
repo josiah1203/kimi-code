@@ -20,7 +20,7 @@ import { createScriptedProvider } from './_helpers/scriptedProvider';
 
 /** Real stdio MCP fixture server from the SpiderByte Agent Core test suite. */
 const STDIO_MCP_FIXTURE = fileURLToPath(
-  new URL('../../SpiderByte Agent Core/test/mcpCore/fixtures/mock-stdio-server.mjs', import.meta.url),
+  new URL('../../agent-core/test/mcpCore/fixtures/mock-stdio-server.mjs', import.meta.url),
 );
 
 describe('acp-server session lifecycle', () => {

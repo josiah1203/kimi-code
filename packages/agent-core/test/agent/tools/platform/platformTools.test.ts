@@ -45,6 +45,7 @@ function runs(): ISessionRunService {
   return {
     _serviceBrand: undefined,
     ready: Promise.resolve(),
+    drain: async () => undefined,
     list: async () => [current],
     get: async () => current,
     create: async () => current,

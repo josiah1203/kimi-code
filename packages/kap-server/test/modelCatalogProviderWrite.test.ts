@@ -477,7 +477,7 @@ describe('server-v2 /api/v1 provider write endpoints', () => {
     await boot(MANAGED_TOML);
     const { body } = await deleteJson<unknown>('/api/v1/providers/managed%3Aspiderbyte');
     expect(body?.code).toBe(40003);
-    expect(body?.msg).toContain('/oauth/logout');
+    expect(body?.msg).toContain('not supported by the local route');
 
     const providers = await getJson<{ items: Array<{ id: string }> }>('/api/v1/providers');
     expect(providers.body.data.items.map((p) => p.id)).toEqual(['managed:spiderbyte']);
@@ -762,7 +762,7 @@ describe('server-v2 /api/v1 provider write endpoints', () => {
       REPLACE_BODY,
     );
     expect(body.code).toBe(40003);
-    expect(body.msg).toContain('/oauth/logout');
+    expect(body.msg).toContain('not supported by the local route');
 
     // The managed provider and its alias are left untouched.
     const providers = await getJson<{ items: Array<{ id: string }> }>('/api/v1/providers');

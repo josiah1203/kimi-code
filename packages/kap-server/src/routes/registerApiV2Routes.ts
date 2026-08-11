@@ -10,6 +10,7 @@
 
 import type { Scope } from '@spiderbyte/agent-core';
 
+import { registerV2AuthRoutes } from './v2/auth';
 import { registerV2SessionsRoutes } from './v2/sessions';
 import { registerPlatformRoutes } from './v2/platform';
 import { registerRunRoutes } from './v2/runs';
@@ -24,6 +25,7 @@ interface ApiV2AppHost {
 export async function registerApiV2Routes(app: ApiV2AppHost, core: Scope): Promise<void> {
   await app.register(
     async (apiV2) => {
+      registerV2AuthRoutes(apiV2 as Parameters<typeof registerV2AuthRoutes>[0]);
       registerV2SessionsRoutes(apiV2 as Parameters<typeof registerV2SessionsRoutes>[0], core);
       registerRunRoutes(apiV2 as Parameters<typeof registerRunRoutes>[0], core);
       registerPlatformRoutes(apiV2 as Parameters<typeof registerPlatformRoutes>[0], core);

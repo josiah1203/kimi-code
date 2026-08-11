@@ -22,12 +22,12 @@ import { PLATFORM_NO_CREDENTIAL_SECRET_REF } from '@spiderbyte/protocol';
 const context: WorkspaceContext = {
   _serviceBrand: undefined,
   workspaceId: 'wd_workspace_0123456789ab',
-  cwd: '/tmp/kimi',
+  cwd: '/tmp/workspace',
   source: 'local',
   meta: {
     id: 'wd_workspace_0123456789ab',
-    root: '/tmp/kimi',
-    name: 'kimi',
+    root: '/tmp/workspace',
+    name: 'workspace',
     createdAt: Date.now(),
     lastOpenedAt: Date.now(),
   },

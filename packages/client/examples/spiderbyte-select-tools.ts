@@ -13,7 +13,7 @@
  *
  * The wire fact that makes this provider-specific: only the provider adapter vendor trait
  * serializes `message.tools` into the outbound request
- * (`kimiOpenAITrait.convertMessage`); every other base SKIPS
+ * (the external provider adapter's `convertMessage`); every other base SKIPS
  * tool-declaration-only messages entirely. So the whole mechanism can only
  * work on `(provider adapter, openai)` — this example proves that on a stub, then
  * behaviorally tests each external-provider model with a simulated "provider adapter computer
