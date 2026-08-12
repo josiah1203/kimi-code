@@ -1,0 +1,2 @@
+# Repo-scoped default for Otis workflows. Codex loads this when the project is trusted.
+model = "gpt-5.3-codex"

@@ -2,6 +2,12 @@
 
 [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) is an open protocol that lets models safely call tools exposed by external processes or services — for example, reading GitHub issues, querying databases, or operating the local file system. SpiderByte CLI acts as an MCP client to connect these external tools and exposes them to the Agent alongside built-in tools (`Read`, `Bash`, `Grep`, etc.) with no behavioral difference.
 
+SpiderByte’s own local MCP server (`spyderbyte mcp` and the authenticated
+`/mcp` endpoint) uses the official MCP 2026-07-28 server entry points and
+stateless per-request HTTP behavior. This page documents the CLI’s separate
+outbound-client compatibility surface. Its legacy SSE option remains only for
+external servers that have not migrated; SSE is deprecated for new servers.
+
 ## Connection Methods
 
 SpiderByte CLI supports three MCP server connection methods:

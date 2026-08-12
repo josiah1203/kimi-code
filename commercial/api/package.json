@@ -1,0 +1,44 @@
+{
+  "name": "@spiderbyte/commercial-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SpiderByte hosted HTTP/WebSocket API adapters and capability contracts",
+  "license": "MIT",
+  "type": "module",
+  "imports": {
+    "#/*": "./src/*.ts"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "dependencies": {
+    "@spiderbyte/commercial-admin": "workspace:^",
+    "@spiderbyte/commercial-application": "workspace:^",
+    "@spiderbyte/commercial-artifacts": "workspace:^",
+    "@spiderbyte/commercial-billing": "workspace:^",
+    "@spiderbyte/commercial-compute": "workspace:^",
+    "@spiderbyte/commercial-domain": "workspace:^",
+    "@spiderbyte/commercial-enterprise": "workspace:^",
+    "@spiderbyte/commercial-ports": "workspace:^",
+    "fastify": "^5.1.0",
+    "ws": "^8.21.0",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "@types/ws": "^8.18.0"
+  }
+}

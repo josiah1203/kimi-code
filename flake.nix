@@ -62,6 +62,19 @@
       # pnpmConfigHook (dependencies for that workspace won't be fetched).
       # -------------------------------------------------------------------
       workspacePaths = [
+        ./commercial/domain
+        ./commercial/ports
+        ./commercial/application
+        ./commercial/adapters
+        ./commercial/api
+        ./commercial/billing
+        ./commercial/compute
+        ./commercial/artifacts
+        ./commercial/admin
+        ./commercial/enterprise
+        ./commercial/persistence
+        ./commercial/sdk
+        ./commercial/mcp
         ./packages/acp-server
         ./packages/agent-core
         ./packages/kap-server
@@ -83,6 +96,19 @@
       ];
 
       workspaceNames = [
+        "@spiderbyte/commercial-domain"
+        "@spiderbyte/commercial-ports"
+        "@spiderbyte/commercial-application"
+        "@spiderbyte/commercial-adapters"
+        "@spiderbyte/commercial-api"
+        "@spiderbyte/commercial-billing"
+        "@spiderbyte/commercial-compute"
+        "@spiderbyte/commercial-artifacts"
+        "@spiderbyte/commercial-admin"
+        "@spiderbyte/commercial-enterprise"
+        "@spiderbyte/commercial-persistence"
+        "@spiderbyte/commercial-sdk"
+        "@spiderbyte/commercial-mcp"
         "@spiderbyte/acp-server"
         "@spiderbyte/agent-core"
         "@spiderbyte/kap-server"

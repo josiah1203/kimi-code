@@ -57,6 +57,15 @@ are `@spiderbyte/cli`, `@spiderbyte/agent-core`, `@spiderbyte/sdk`,
 the provider-neutral execution and persistence packages documented in
 [`PACKAGE_RENAME_MAP.md`](docs/release/PACKAGE_RENAME_MAP.md).
 
+## Otis plugin
+
+[`plugins/otis`](plugins/otis) is the Codex/ChatGPT MCP plugin package. It
+bundles reusable ML/data workflow skills and the headless local MCP adapter;
+run `spyderbyte mcp` for stdio clients or use the authenticated `/mcp` endpoint
+for an HTTPS development deployment. Hosted identity, billing, managed
+compute, enterprise controls, and the optional UI remain explicitly outside
+this Open Core checkout.
+
 ## License and security
 
 SpiderByte Open Core is released under the [MIT License](LICENSE). See

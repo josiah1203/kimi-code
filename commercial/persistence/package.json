@@ -1,0 +1,29 @@
+{
+  "name": "@spiderbyte/commercial-persistence",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SpiderByte commercial persistence migrations and database capability boundary",
+  "license": "MIT",
+  "type": "module",
+  "imports": { "#/*": "./src/*.ts" },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "dependencies": {
+    "@spiderbyte/commercial-domain": "workspace:^",
+    "@spiderbyte/commercial-ports": "workspace:^"
+  }
+}

@@ -1,5 +1,8 @@
 # SpiderByte Open Core boundary
 
+The Otis MCP/plugin-specific architecture and capability status authority is
+[`SPIDERBYTE_OTIS_PLUGIN_ARCHITECTURE.md`](./SPIDERBYTE_OTIS_PLUGIN_ARCHITECTURE.md).
+
 Status: normative target contract. This document describes the boundary that
 the implementation and audits must enforce; it does not assert that the
 current repository already satisfies it.

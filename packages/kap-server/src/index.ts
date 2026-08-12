@@ -5,6 +5,17 @@
 
 export { startServer } from './start';
 export type { ServerHostIdentity, ServerStartOptions, RunningServer } from './start';
+export {
+  createSpyderbyteMcpServer,
+  SPIDERBYTE_MCP_DEFAULT_TIMEOUT_MS,
+  SPIDERBYTE_MCP_MAX_ARTIFACT_BYTES,
+  SPIDERBYTE_MCP_MAX_RESULT_TEXT,
+  SPIDERBYTE_MCP_PROTOCOL_VERSION,
+  SPIDERBYTE_MCP_SERVER_NAME,
+} from './mcp/server';
+export type { SpyderbyteMcpOptions } from './mcp/server';
+export { createSpyderbyteMcpHandler } from './mcp/routes';
+export type { RegisterMcpRoutesOptions } from './mcp/routes';
 export { okEnvelope, errEnvelope } from './envelope';
 export type { Envelope } from './envelope';
 export { classify } from './security/bindClassify';

@@ -29,6 +29,10 @@ const HOSTED_PACKAGE_WORDS = ['commercial', 'enterprise', 'billing', 'hosted'];
 const IMPORT_RE = /(?:from\s*|import\s*\(|require\s*\()(['"])([^'"]+)\1/g;
 const SOURCE_EXTENSIONS = new Set(['.js', '.jsx', '.mjs', '.cjs', '.ts', '.tsx', '.mts', '.cts']);
 
+function isCommercialPackageName(name, prefix) {
+  return name === prefix || name.startsWith(`${prefix}/`) || name.startsWith(`${prefix}-`);
+}
+
 function loadManifest() {
   return JSON.parse(readFileSync(MANIFEST_PATH, 'utf8'));
 }
@@ -126,7 +130,7 @@ export function checkOpenCoreBoundary(manifest = loadManifest()) {
         const packageName = specifier.startsWith('@')
           ? specifier.split('/').slice(0, 2).join('/')
           : specifier.split('/')[0];
-        if (manifest.commercial.package_prefixes.some((prefix) => specifier === prefix || specifier.startsWith(`${prefix}/`))) {
+        if (manifest.commercial.package_prefixes.some((prefix) => isCommercialPackageName(specifier, prefix))) {
           violations.push({ kind: 'commercial-package-import', path, detail: specifier });
         }
         if (HOSTED_PACKAGE_WORDS.some((word) => packageName.toLowerCase().includes(word))) {
@@ -159,7 +163,7 @@ export function checkOpenCoreBoundary(manifest = loadManifest()) {
     const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
     for (const section of ['dependencies', 'optionalDependencies', 'peerDependencies']) {
       for (const name of Object.keys(pkg[section] ?? {})) {
-        if (manifest.commercial.package_prefixes.some((prefix) => name === prefix || name.startsWith(`${prefix}/`))) {
+        if (manifest.commercial.package_prefixes.some((prefix) => isCommercialPackageName(name, prefix))) {
           violations.push({ kind: 'commercial-package-dependency', path: pkgPath, detail: `${section}: ${name}` });
         }
       }

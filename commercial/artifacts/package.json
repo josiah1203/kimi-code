@@ -1,0 +1,30 @@
+{
+  "name": "@spiderbyte/commercial-artifacts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SpiderByte hosted artifact storage, ownership, retention, and scoped access orchestration",
+  "license": "MIT",
+  "type": "module",
+  "imports": { "#/*": "./src/*.ts" },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "dependencies": {
+    "@spiderbyte/commercial-billing": "workspace:^",
+    "@spiderbyte/commercial-domain": "workspace:^",
+    "@spiderbyte/commercial-ports": "workspace:^"
+  }
+}

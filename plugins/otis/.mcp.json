@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "spiderbyte-local": {
+      "command": "spyderbyte",
+      "args": ["mcp"]
+    }
+  }
+}

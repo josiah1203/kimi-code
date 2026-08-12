@@ -43,6 +43,7 @@ import { registerRequestLogging } from './requestLogging';
 import { resolveRequestId } from './request-id';
 import { registerApiV1Routes } from './routes/registerApiV1Routes';
 import { registerApiV2Routes } from './routes/registerApiV2Routes';
+import { registerMcpRoutes } from './mcp/routes';
 import { registerWebAssetRoutes } from './routes/webAssets';
 import {
   createServerLogger,
@@ -108,6 +109,8 @@ export interface ServerHostIdentity extends SpiderByteHostIdentity {
 export interface ServerStartOptions {
   readonly host?: string;
   readonly port?: number;
+  /** Build the Fastify app without opening a TCP listener (used by stdio MCP hosts). */
+  readonly listen?: boolean;
   readonly homeDir?: string;
   readonly configPath?: string;
   /**
@@ -540,6 +543,11 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
   // `/api/v2` — same envelope conventions as v1, domain-grouped payloads.
   // Mounted after v1; the root auth/host/origin hooks cover it identically.
   await registerApiV2Routes(app, core);
+  await registerMcpRoutes(app, core, {
+    defaultWorkspaceId: process.env['SPIDERBYTE_MCP_WORKSPACE_ID'],
+    actorId: process.env['SPIDERBYTE_LOCAL_ACTOR_ID'],
+    logger,
+  });
 
   const wssV1 = registerWsV1(core, {
     validateCredential,
@@ -680,27 +688,34 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
   // second instance yields to 58628 (and so on) — the retry doubles as the
   // multi-instance coexistence mechanism. A busy port held by a third-party
   // listener gets the same treatment, matching the v1 policy.
-  try {
-    await listenWithPortRetry({
-      listen: (h, p) => app.listen({ host: h, port: p }),
-      host,
-      port,
-      logger,
-    });
-  } catch (error) {
-    // Listen failed even after the port walk (or for a non-EADDRINUSE reason).
-    // Tear down what boot already assembled so a failed start does not leak the
-    // instance registration, the Core scope, or the refresh scheduler.
+  let boundPort = port;
+  if (opts.listen !== false) {
     try {
-      await close();
-    } catch {
-      // best-effort cleanup; the original listen error is what matters
+      await listenWithPortRetry({
+        listen: (h, p) => app.listen({ host: h, port: p }),
+        host,
+        port,
+        logger,
+      });
+    } catch (error) {
+      // Listen failed even after the port walk (or for a non-EADDRINUSE reason).
+      // Tear down what boot already assembled so a failed start does not leak the
+      // instance registration, the Core scope, or the refresh scheduler.
+      try {
+        await close();
+      } catch {
+        // best-effort cleanup; the original listen error is what matters
+      }
+      throw error;
     }
-    throw error;
-  }
 
-  const address = app.server.address();
-  const boundPort = typeof address === 'object' && address !== null ? address.port : port;
+    const address = app.server.address();
+    boundPort = typeof address === 'object' && address !== null ? address.port : port;
+  } else {
+    // `app.listen()` normally calls `ready()` for us. Stdio MCP hosts still
+    // need all hooks/routes compiled before they connect the transport.
+    await app.ready();
+  }
   // Advertise the actually-bound port (e.g. ephemeral when `port: 0`, or the
   // `port + 1` retry winner) so a status/kill lookup against the instance
   // registry finds the real listener.

@@ -942,6 +942,7 @@ export const platformEntityTypeSchema = z.enum([
   'pipeline_run',
   'model_package',
   'serving_endpoint',
+  'mcp_invocation',
 ]);
 
 export type PlatformEntityType = z.infer<typeof platformEntityTypeSchema>;
@@ -949,7 +950,7 @@ export type PlatformEntityType = z.infer<typeof platformEntityTypeSchema>;
 export const platformLifecycleEventTypeSchema = z
   .string()
   .regex(
-    /^(workspace|agent_session|run|artifact|provider_connection|resource|policy_decision|usage_record|execution_target|automation|experiment|training_run|evaluation|model|comparison|analysis|pipeline|pipeline_run|model_package|serving_endpoint)\.(created|updated|state_changed|completed|failed|cancelled|archived|revoked|validated|activated|evaluated|approved|denied|audited|fired)$/,
+    /^(workspace|agent_session|run|artifact|provider_connection|resource|policy_decision|usage_record|execution_target|automation|experiment|training_run|evaluation|model|comparison|analysis|pipeline|pipeline_run|model_package|serving_endpoint|mcp_invocation)\.(created|updated|state_changed|completed|failed|cancelled|archived|revoked|validated|activated|evaluated|approved|denied|audited|fired)$/,
     {
       message: 'must be a supported <entity>.<lifecycle> event name',
     },

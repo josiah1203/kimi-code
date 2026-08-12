@@ -58,8 +58,8 @@ function decodeRequestPath(rawUrl: string): string | null {
  *
  * NOT bypassed (token required): every `/api/…` route — including the
  * `/api/v1/debug` RPC surface — plus `/openapi.json` and `/asyncapi.json` (the meta
- * documents leak the API shape, so they stay gated). One persistent bearer
- * token protects them all.
+ * documents leak the API shape, so they stay gated), and `/mcp` (the Streamable
+ * HTTP MCP surface). One persistent bearer token protects them all.
  */
 function defaultIsBypassed(req: FastifyRequest): boolean {
   if (req.method === 'OPTIONS') {
@@ -74,8 +74,9 @@ function defaultIsBypassed(req: FastifyRequest): boolean {
     return true;
   }
   const isApi = path.startsWith('/api/');
+  const isMcp = path === '/mcp' || path.startsWith('/mcp/');
   const isMeta = path === '/openapi.json' || path === '/asyncapi.json';
-  return !isApi && !isMeta;
+  return !isApi && !isMcp && !isMeta;
 }
 
 function extractBearer(header: string | undefined): string | null {

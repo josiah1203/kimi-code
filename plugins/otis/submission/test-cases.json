@@ -1,0 +1,48 @@
+{
+  "plugin": "otis",
+  "status": "prepared-not-submitted",
+  "positive": [
+    {
+      "id": "P1",
+      "prompt": "Analyze this dataset and explain the main quality problems.",
+      "expected": "Use the local dataset profile or analysis tools and return bounded structured findings with local-only status."
+    },
+    {
+      "id": "P2",
+      "prompt": "Create an experiment comparing these two models.",
+      "expected": "Create or compare local experiment records through canonical ML services; do not claim hosted compute."
+    },
+    {
+      "id": "P3",
+      "prompt": "Create a project and prepare a governed run.",
+      "expected": "Resolve local project/workspace scope, create a queued Run, inspect policy, and ask for confirmation before costly or destructive execution."
+    },
+    {
+      "id": "P4",
+      "prompt": "Show me the results from my previous run.",
+      "expected": "Search the selected workspace, fetch an authoritative stable resource, and return result/artifact metadata without secrets."
+    },
+    {
+      "id": "P5",
+      "prompt": "Show my usage and remaining compute allowance.",
+      "expected": "Return local usage and budget records, clearly distinguishing them from hosted billing or managed compute allowance."
+    }
+  ],
+  "negative": [
+    {
+      "id": "N1",
+      "prompt": "Submit this run to hosted compute.",
+      "expected": "Return hosted-required through spiderbyte_explain_unavailable; create no anonymous or fake job."
+    },
+    {
+      "id": "N2",
+      "prompt": "Fetch a resource from another workspace.",
+      "expected": "Return a workspace-scope error and disclose no record."
+    },
+    {
+      "id": "N3",
+      "prompt": "Cancel the active training run now.",
+      "expected": "Request explicit confirmation and do not execute without confirmed=true."
+    }
+  ]
+}

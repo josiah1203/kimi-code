@@ -1,0 +1,23 @@
+{
+  "name": "Otis",
+  "slug": "otis",
+  "category": "Data & ML",
+  "description": "Repo-aware SpiderByte tools, runtime, ML, and data workflows for Codex and MCP-compatible clients.",
+  "architecture": "skills-plus-headless-mcp-server",
+  "mcp_endpoint": {
+    "path": "/mcp",
+    "production_url": null,
+    "status": "required-before-public-submission"
+  },
+  "privacy_policy_url": null,
+  "support_url": null,
+  "icon": {
+    "status": "required",
+    "plan": "Create a production 1:1 asset and verify the current platform format and size requirements before submission."
+  },
+  "screenshots": {
+    "status": "planned",
+    "plan": "Capture local developer-mode tools/list, capability status, dataset analysis, run inspection, and artifact lineage after a stable test environment exists."
+  },
+  "submission_status": "prepared-not-submitted"
+}

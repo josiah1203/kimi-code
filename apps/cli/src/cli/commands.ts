@@ -10,6 +10,7 @@ import { registerExportCommand } from './sub/export';
 import { registerProviderCommand } from './sub/provider';
 import { registerPlatformCommands } from './sub/platform';
 import { registerRunCommand } from './sub/run';
+import { registerMcpCommand } from './sub/mcp';
 import { registerWebCommand } from './sub/web';
 
 export type MainCommandHandler = (opts: CLIOptions) => void;
@@ -119,6 +120,7 @@ export function createProgram(
   registerProviderCommand(program);
   registerPlatformCommands(program, version);
   registerAcpCommand(program);
+  registerMcpCommand(program);
   registerWebCommand(program);
   registerDoctorCommand(program);
   program

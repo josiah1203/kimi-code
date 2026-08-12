@@ -74,6 +74,14 @@
       "review_by": "2026-09-30"
     },
     {
+      "path_or_surface": "commercial",
+      "kind": "commercial-workspace",
+      "target": "commercial-distribution",
+      "disposition": "separate-workspace-and-never-import-from-open-core",
+      "owner": "commercial-boundary",
+      "review_by": "2026-09-30"
+    },
+    {
       "path_or_surface": "compat/legacy-agent-core",
       "kind": "legacy-package",
       "target": "excluded-compatibility-distribution",

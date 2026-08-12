@@ -30,6 +30,8 @@
   "dependencies": {
     "@fastify/multipart": "^10.0.0",
     "@fastify/swagger": "^9.7.0",
+    "@modelcontextprotocol/node": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
     "@spiderbyte/agent-core": "workspace:^",
     "@spiderbyte/minidb": "workspace:^",
     "@spiderbyte/oauth": "workspace:^",
@@ -44,6 +46,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "^2.0.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/ws": "^8.18.0",
     "tsx": "^4.21.0"

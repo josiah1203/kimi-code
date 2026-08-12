@@ -14,6 +14,19 @@ the default workspace and Open Core graph.
 | `apps/inspect` | `@spiderbyte/inspect` | `apps/inspect` | `@spiderbyte/inspect` | No | Private local debugging application; excluded from the public package set. |
 | `apps/spiderbyte-vscode` | `spiderbyte-vscode` | `apps/spiderbyte-vscode` | `spiderbyte-vscode` | No | Private editor integration; local/BYOK only and excluded from hosted account flows. |
 | `docs` | `spiderbyte-docs` | `docs` | `spiderbyte-docs` | No | Private documentation workspace; published documentation is maintained with the repository. |
+| `commercial/domain` | `@spiderbyte/commercial-domain` | `commercial/domain` | `@spiderbyte/commercial-domain` | No | Commercial domain models and state validation; excluded from Open Core publication. |
+| `commercial/ports` | `@spiderbyte/commercial-ports` | `commercial/ports` | `@spiderbyte/commercial-ports` | No | Commercial provider-neutral ports; excluded from Open Core publication. |
+| `commercial/application` | `@spiderbyte/commercial-application` | `commercial/application` | `@spiderbyte/commercial-application` | No | Commercial tenancy, identity, authorization, and audit use cases; excluded from Open Core publication. |
+| `commercial/adapters` | `@spiderbyte/commercial-adapters` | `commercial/adapters` | `@spiderbyte/commercial-adapters` | No | Deterministic and unavailable commercial adapter implementations; excluded from Open Core publication. |
+| `commercial/api` | `@spiderbyte/commercial-api` | `commercial/api` | `@spiderbyte/commercial-api` | No | Hosted API request-context contracts; no local `kap-server` route registration. |
+| `commercial/billing` | `@spiderbyte/commercial-billing` | `commercial/billing` | `@spiderbyte/commercial-billing` | No | Plan, entitlement, usage-ledger, budget, and payment orchestration; excluded from Open Core publication. |
+| `commercial/compute` | `@spiderbyte/commercial-compute` | `commercial/compute` | `@spiderbyte/commercial-compute` | No | Hosted compute control-plane lifecycle and provider-neutral execution orchestration. |
+| `commercial/artifacts` | `@spiderbyte/commercial-artifacts` | `commercial/artifacts` | `@spiderbyte/commercial-artifacts` | No | Hosted artifact ownership, retention, legal-hold, and scoped access orchestration. |
+| `commercial/admin` | `@spiderbyte/commercial-admin` | `commercial/admin` | `@spiderbyte/commercial-admin` | No | Team, Business, support-access, API-key, service-account, policy, and webhook administration. |
+| `commercial/enterprise` | `@spiderbyte/commercial-enterprise` | `commercial/enterprise` | `@spiderbyte/commercial-enterprise` | No | SSO/SCIM/domain/security configuration contracts and fail-closed enterprise adapters. |
+| `commercial/persistence` | `@spiderbyte/commercial-persistence` | `commercial/persistence` | `@spiderbyte/commercial-persistence` | No | Reversible commercial migration definitions and hosted-database capability boundary. |
+| `commercial/sdk` | `@spiderbyte/commercial-sdk` | `commercial/sdk` | `@spiderbyte/commercial-sdk` | No | Hosted API SDK transport and typed request/error contracts; no Open Core dependency. |
+| `commercial/mcp` | `@spiderbyte/commercial-mcp` | `commercial/mcp` | `@spiderbyte/commercial-mcp` | No | Capability- and entitlement-gated hosted MCP tool registry; not registered in local MCP by default. |
 | `packages/acp-server` | `@spiderbyte/acp-server` | `packages/acp-server` | `@spiderbyte/acp-server` | Yes | Canonical local ACP server; no legacy adapter or hosted route dependency. |
 | `packages/agent-core` | `@spiderbyte/agent-core` | `packages/agent-core` | `@spiderbyte/agent-core` | Yes | Canonical unversioned SpiderByte Agent Core runtime. |
 | `packages/client` | `@spiderbyte/client` | `packages/client` | `@spiderbyte/client` | Yes | Provider-neutral Klient facade for local memory, IPC, and browser contracts. |

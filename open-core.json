@@ -83,6 +83,7 @@
     "implementation_paths": [
     ],
     "excluded_implementation_paths": [
+      "commercial",
       "compat/commercial-agent-core",
       "compat/commercial-cli",
       "compat/commercial-oauth"

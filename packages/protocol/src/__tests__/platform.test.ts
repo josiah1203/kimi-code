@@ -6,6 +6,8 @@ import {
   executionTargetSchema,
   executionTargetCreateInputSchema,
   platformCommandAcceptedSchema,
+  platformEntityTypeSchema,
+  platformLifecycleEventTypeSchema,
   platformLifecycleEventSchema,
   platformWorkspaceSchema,
   policyDecisionAuditInputSchema,
@@ -224,6 +226,22 @@ describe('platform contracts', () => {
       object_type: 'run',
       object_id: 'run_01',
     });
+  });
+
+  it('accepts MCP invocation audit entities and rejects mismatched lifecycle prefixes', () => {
+    expect(platformEntityTypeSchema.parse('mcp_invocation')).toBe('mcp_invocation');
+    expect(platformLifecycleEventTypeSchema.parse('mcp_invocation.created')).toBe('mcp_invocation.created');
+    expect(() => platformLifecycleEventTypeSchema.parse('mcp_invocation.started')).toThrow();
+    expect(() => platformLifecycleEventSchema.parse({
+      event_id: 'event_mcp',
+      event_type: 'mcp_invocation.completed',
+      entity_type: 'run',
+      entity_id: 'mcp_01',
+      workspace_id: workspaceId,
+      sequence: 6,
+      occurred_at: timestamps.updated_at,
+      actor: 'agent',
+    })).toThrow();
   });
 
   it('requires request ids on Run mutations', () => {

@@ -1,0 +1,49 @@
+{
+  "name": "otis",
+  "version": "0.2.0+codex.20260811203945",
+  "description": "Repo-aware SpiderByte runtime, tool, ML, and data workflows for Codex.",
+  "author": {
+    "name": "SpiderByte contributors"
+  },
+  "homepage": "https://github.com/SpiderByte/spiderbyte",
+  "repository": "https://github.com/SpiderByte/spiderbyte",
+  "license": "MIT",
+  "keywords": [
+    "spiderbyte",
+    "agents",
+    "ml",
+    "data",
+    "llm",
+    "datasets",
+    "experiments",
+    "tools",
+    "mcp",
+    "plugins",
+    "sdk",
+    "runtime",
+    "search",
+    "persistence"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Otis",
+    "shortDescription": "Repo-aware SpiderByte tools, runtime, ML, and data workflows.",
+    "longDescription": "Otis helps Codex work safely in SpiderByte's governed agent runtime and its ML/data platform, covering the built-in tool registry, governed platform tools, plugins and MCP boundaries, model catalogs, providers, datasets, artifacts, experiments, training, evaluation, transcript/search read models, SDK/server surfaces, and MiniDB persistence.",
+    "developerName": "SpiderByte contributors",
+    "category": "Data & ML",
+    "websiteURL": "https://github.com/SpiderByte/spiderbyte",
+    "capabilities": [
+      "Read",
+      "Write",
+      "Analyze",
+      "Test"
+    ],
+    "defaultPrompt": [
+      "Review this change through SpiderByte's tool, runtime, ML, and data architecture.",
+      "Trace a SpiderByte tool, dataset, artifact, experiment, model, plugin, or API flow end to end.",
+      "Check policy, Run, persistence, search, transcript, MCP, and model-catalog invariants."
+    ],
+    "brandColor": "#1F6FEB"
+  }
+}
