@@ -11,6 +11,7 @@ import type { Scope } from '@spiderbyte/agent-core';
 import {
   createSpyderbyteMcpServer,
   type SpyderbyteMcpOptions,
+  type SpyderbyteMcpProfile,
 } from './server';
 import type { ServerLogger } from '../services/pinoLoggerService';
 
@@ -22,6 +23,7 @@ const REQUEST_WINDOW_MS = 60_000;
 
 export interface RegisterMcpRoutesOptions {
   readonly logger?: ServerLogger;
+  readonly profile?: SpyderbyteMcpProfile;
   readonly defaultWorkspaceId?: string;
   readonly actorId?: string;
 }
@@ -44,6 +46,7 @@ export function createSpyderbyteMcpHandler(
   const serverOptions: SpyderbyteMcpOptions = {
     core,
     mode: 'local-http',
+    profile: options.profile,
     defaultWorkspaceId: options.defaultWorkspaceId,
     actorId: options.actorId,
     clientName: 'streamable-http',

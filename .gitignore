@@ -11,6 +11,9 @@ coverage/
 .vitest-results/
 .vite/
 .DS_Store
+.env
+.env.*
+!.env.example
 .playwright-mcp/
 .claude
 .conductor

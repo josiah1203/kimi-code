@@ -27,6 +27,10 @@ import type {
 } from '@spiderbyte/agent-core/session/sessionMetadata/sessionMetadata';
 import type { SkillSummary } from '@spiderbyte/agent-core/app/skillCatalog/types';
 import type {
+  Attempt,
+  AttemptActionInput,
+  AttemptCreateInput,
+  AttemptTransitionInput,
   Run,
   RunActionInput,
   RunCreateInput,
@@ -87,11 +91,18 @@ export interface SessionSkillsFacade {
 export interface SessionRunsFacade {
   list(): Promise<readonly Run[]>;
   get(id: string): Promise<Run | undefined>;
+  listAttempts(runId?: string): Promise<readonly Attempt[]>;
+  getAttempt(id: string): Promise<Attempt | undefined>;
   create(input: RunCreateInput): Promise<Run>;
+  createAttempt(runId: string, input: AttemptCreateInput): Promise<Attempt | undefined>;
   transition(id: string, input: RunTransitionInput): Promise<Run | undefined>;
+  transitionAttempt(id: string, input: AttemptTransitionInput): Promise<Attempt | undefined>;
   resume(id: string, input: RunActionInput): Promise<Run | undefined>;
+  resumeAttempt(id: string, input: AttemptActionInput): Promise<Attempt | undefined>;
   cancel(id: string, input: RunActionInput): Promise<Run | undefined>;
+  cancelAttempt(id: string, input: AttemptActionInput): Promise<Attempt | undefined>;
   retry(id: string, input: RunActionInput): Promise<Run | undefined>;
+  retryAttempt(runId: string, input: AttemptActionInput): Promise<Attempt | undefined>;
   rerun(id: string, input: RunActionInput): Promise<Run | undefined>;
   fork(id: string, input: RunForkInput): Promise<Run | undefined>;
 }
@@ -251,16 +262,28 @@ export function createSessionFacade(call: ScopedCaller, sessionId: string): Sess
     runs: {
       list: () => call(scope, 'sessionRunService', 'list', []) as Promise<readonly Run[]>,
       get: (id) => call(scope, 'sessionRunService', 'get', [id]) as Promise<Run | undefined>,
+      listAttempts: (runId) => call(scope, 'sessionRunService', 'listAttempts', [runId]) as Promise<readonly Attempt[]>,
+      getAttempt: (id) => call(scope, 'sessionRunService', 'getAttempt', [id]) as Promise<Attempt | undefined>,
       create: (input) =>
         call(scope, 'sessionRunService', 'create', [input]) as Promise<Run>,
+      createAttempt: (runId, input) =>
+        call(scope, 'sessionRunService', 'createAttempt', [runId, input]) as Promise<Attempt | undefined>,
       transition: (id, input) =>
         call(scope, 'sessionRunService', 'transition', [id, input]) as Promise<Run | undefined>,
+      transitionAttempt: (id, input) =>
+        call(scope, 'sessionRunService', 'transitionAttempt', [id, input]) as Promise<Attempt | undefined>,
       resume: (id, input) =>
         call(scope, 'sessionRunService', 'resume', [id, input]) as Promise<Run | undefined>,
+      resumeAttempt: (id, input) =>
+        call(scope, 'sessionRunService', 'resumeAttempt', [id, input]) as Promise<Attempt | undefined>,
       cancel: (id, input) =>
         call(scope, 'sessionRunService', 'cancel', [id, input]) as Promise<Run | undefined>,
+      cancelAttempt: (id, input) =>
+        call(scope, 'sessionRunService', 'cancelAttempt', [id, input]) as Promise<Attempt | undefined>,
       retry: (id, input) =>
         call(scope, 'sessionRunService', 'retry', [id, input]) as Promise<Run | undefined>,
+      retryAttempt: (runId, input) =>
+        call(scope, 'sessionRunService', 'retryAttempt', [runId, input]) as Promise<Attempt | undefined>,
       rerun: (id, input) =>
         call(scope, 'sessionRunService', 'rerun', [id, input]) as Promise<Run | undefined>,
       fork: (id, input) =>

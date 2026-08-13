@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import {
   artifactIdSchema,
+  attemptIdSchema,
   executionTargetIdSchema,
   platformIdentifierSchema,
   platformMetadataSchema,
@@ -130,6 +131,7 @@ export type TrainingRun = z.infer<typeof trainingRunSchema>;
 export const trainingStartInputSchema = z.strictObject({
   request_id: platformIdentifierSchema,
   run_id: runIdSchema,
+  attempt_id: attemptIdSchema.optional(),
   execution_target_id: executionTargetIdSchema.optional(),
   execution_target_policy_decision_id: platformIdentifierSchema.optional(),
   dataset_policy_decision_id: platformIdentifierSchema.optional(),
@@ -180,6 +182,7 @@ export type Evaluation = z.infer<typeof evaluationSchema>;
 export const evaluationCreateInputSchema = z.strictObject({
   request_id: platformIdentifierSchema,
   run_id: runIdSchema,
+  attempt_id: attemptIdSchema.optional(),
   experiment_id: experimentIdSchema.optional(),
   dataset_id: platformIdentifierSchema,
   dataset_version: z.number().int().positive().optional(),
@@ -283,6 +286,7 @@ export type Analysis = z.infer<typeof analysisSchema>;
 export const analysisCreateInputSchema = z.strictObject({
   request_id: platformIdentifierSchema,
   run_id: runIdSchema,
+  attempt_id: attemptIdSchema.optional(),
   dataset_id: platformIdentifierSchema,
   dataset_version: z.number().int().positive().optional(),
   execution_target_id: executionTargetIdSchema.optional(),

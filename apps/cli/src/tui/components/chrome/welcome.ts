@@ -1,6 +1,6 @@
 /**
  * Welcome panel shown at the top of the TUI.
- * Renders a round-bordered box with the logo, session, model, and version.
+ * Renders a round-bordered box with the welcome text, session, model, and version.
  */
 
 import type { Component } from '@spiderbyte/pi-tui';
@@ -46,11 +46,7 @@ export class WelcomeComponent implements Component {
     const innerWidth = Math.max(1, safeWidth - 4);
     const pad = '  ';
 
-    // Logo + side-by-side text.
-    const logo = ['▐█▛█▛█▌', '▐█████▌'] as const;
-    const logoWidth = Math.max(...logo.map((row) => visibleWidth(row)));
-    const gap = '  ';
-    const textWidth = Math.max(4, innerWidth - logoWidth - gap.length);
+    const textWidth = Math.max(4, innerWidth);
 
     const rightRow0 = truncateToWidth(
       chalk.bold.hex(currentTheme.palette.primary)(`Welcome to ${PRODUCT_NAME}!`),
@@ -65,12 +61,9 @@ export class WelcomeComponent implements Component {
       '…',
     );
 
-    let renderedHeaderLines = [
-      primary(logo[0].padEnd(logoWidth)) + gap + rightRow0,
-      primary(logo[1].padEnd(logoWidth)) + gap + rightRow1,
-    ];
+    let renderedHeaderLines = [rightRow0, rightRow1];
     if (isRainbowDancing()) {
-      renderedHeaderLines = renderDanceWelcomeHeader(logo, textWidth, rightRow1);
+      renderedHeaderLines = renderDanceWelcomeHeader(textWidth, rightRow1);
     }
 
     const modelValue = isLoggedOut

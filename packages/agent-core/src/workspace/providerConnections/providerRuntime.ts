@@ -40,7 +40,15 @@ export interface ProviderRuntimeValidationResult {
 export interface ProviderRuntimeOperationOptions {
   readonly request_id?: string;
   readonly run_id?: string;
+  readonly attempt_id?: string;
+  readonly invocation_id?: string;
   readonly policy_decision_id?: string;
+  readonly policy_decision_ids?: readonly string[];
+  readonly approval_ids?: readonly string[];
+  readonly artifact_ids?: readonly string[];
+  readonly project_id?: string;
+  readonly execution_target_id?: string;
+  readonly user_id?: string;
   readonly actor?: PlatformActor;
   readonly signal?: AbortSignal;
 }
@@ -48,7 +56,15 @@ export interface ProviderRuntimeOperationOptions {
 export interface ProviderRuntimeRequest {
   readonly request_id?: string;
   readonly run_id?: string;
+  readonly attempt_id?: string;
+  readonly invocation_id?: string;
   readonly policy_decision_id?: string;
+  readonly policy_decision_ids?: readonly string[];
+  readonly approval_ids?: readonly string[];
+  readonly artifact_ids?: readonly string[];
+  readonly project_id?: string;
+  readonly execution_target_id?: string;
+  readonly user_id?: string;
   readonly actor?: PlatformActor;
   readonly model?: string;
   /** Ordered connection ids tried only when the preceding provider fails before emitting output. */
@@ -79,6 +95,8 @@ export interface ProviderRuntimeModel {
   readonly support_efforts?: readonly string[];
   readonly default_effort?: string;
   readonly provider_options?: ProtocolProviderOptions;
+  /** The governed transport used for requests; omitted by legacy callers. */
+  readonly transport?: 'api' | 'provider-command';
 }
 
 export interface ProviderRuntimeDiscoveryOptions {

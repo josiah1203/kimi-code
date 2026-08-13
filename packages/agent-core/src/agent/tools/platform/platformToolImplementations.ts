@@ -496,6 +496,7 @@ export class DatasetTool implements IDatasetTool {
           const profile = await this.datasets.profile(requiredDatasetId, {
             request_id: requestId(ctx.toolCallId, 'dataset:profile'),
             run_id: run.id,
+            attempt_id: run.active_attempt_id,
             version: args.version,
             policy_decision_id: args.policy_decision_id,
           });
@@ -1392,6 +1393,7 @@ export class MlTool implements IMlTool {
           const analysis = await this.ml.analyze({
             request_id: requestId(ctx.toolCallId, 'ml:analysis:create'),
             run_id: run.id,
+            attempt_id: run.active_attempt_id,
             dataset_id: args.dataset_id,
             dataset_version: args.dataset_version,
             execution_target_id: args.execution_target_id,
@@ -1442,6 +1444,7 @@ export class MlTool implements IMlTool {
           const training = await this.ml.startTraining(args.experiment_id, {
             request_id: requestId(ctx.toolCallId, 'ml:training:start'),
             run_id: run.id,
+            attempt_id: run.active_attempt_id,
             execution_target_id: args.execution_target_id,
             execution_target_policy_decision_id: args.execution_target_policy_decision_id,
             dataset_policy_decision_id: args.dataset_policy_decision_id,
@@ -1467,6 +1470,7 @@ export class MlTool implements IMlTool {
           const evaluation = await this.ml.evaluate({
             request_id: requestId(ctx.toolCallId, 'ml:evaluation:create'),
             run_id: run.id,
+            attempt_id: run.active_attempt_id,
             experiment_id: args.experiment_id,
             dataset_id: args.dataset_id,
             dataset_version: args.dataset_version,
@@ -1666,6 +1670,7 @@ export class ServingTool implements IServingTool {
           const endpoint = await this.serving.deploy({
             request_id: requestId(ctx.toolCallId, 'serving:deploy'),
             run_id: run.id,
+            attempt_id: run.active_attempt_id,
             name: args.name,
             model_package_id: args.package_id,
             execution_target_id: args.execution_target_id,
@@ -1705,6 +1710,7 @@ export class ServingTool implements IServingTool {
         const endpoint = await this.serving.action(endpointId, action, {
           request_id: requestId(ctx.toolCallId, `serving:${action}`),
           run_id: run.id,
+          attempt_id: run.active_attempt_id,
           model_package_id: args.operation === 'rollback' ? args.package_id : undefined,
           deploy_policy_decision_id: 'deploy_policy_decision_id' in args ? args.deploy_policy_decision_id : undefined,
           execution_target_policy_decision_id: args.execution_target_policy_decision_id,
@@ -1821,6 +1827,7 @@ export class PipelineTool implements IPipelineTool {
           const pipelineRun = await this.pipelines.run(args.pipeline_id, {
             request_id: requestId(ctx.toolCallId, 'pipeline:run'),
             run_id: run.id,
+            attempt_id: run.active_attempt_id,
             execution_target_id: args.execution_target_id,
             execution_target_policy_decision_id: args.execution_target_policy_decision_id,
             policy_decision_id: args.policy_decision_id,

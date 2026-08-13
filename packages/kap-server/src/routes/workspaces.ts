@@ -47,6 +47,8 @@ import { errEnvelope, okEnvelope } from '../envelope';
 import { requestLog } from '../lib/requestLog';
 import { defineRoute } from '../middleware/defineRoute';
 import { ErrorCode } from '../protocol/error-codes';
+import { mapPlatformError } from './v2/platformErrors';
+import { assertWorkspaceAuthorization, isWorkspaceAuthorized } from '../services/platformAuthorization';
 import {
   createWorkspaceRequestSchema,
   createWorkspaceResponseSchema,
@@ -107,7 +109,15 @@ export function registerWorkspacesRoutes(app: WorkspaceRouteHost, core: Scope): 
     },
     async (req, reply) => {
       const items = await core.accessor.get(IWorkspaceService).list();
-      const projected = await Promise.all(items.map((ws) => toWireWorkspace(core, ws)));
+      const visible = [] as Workspace[];
+      for (const ws of items) {
+        if (await isWorkspaceAuthorized(core, {
+          workspaceId: ws.id,
+          requestId: `workspace_list:${ws.id}`,
+          capability: 'workspace.read',
+        })) visible.push(ws);
+      }
+      const projected = await Promise.all(visible.map((ws) => toWireWorkspace(core, ws)));
       reply.send(okEnvelope({ items: projected }, req.id));
     },
   );
@@ -151,6 +161,7 @@ export function registerWorkspacesRoutes(app: WorkspaceRouteHost, core: Scope): 
         return;
       }
       const ws = await core.accessor.get(IWorkspaceService).createOrTouch(root, req.body.name);
+      if (!await authorizeWorkspace(core, ws.id, req.id, 'project.manage', reply)) return;
       reply.send(okEnvelope(await toWireWorkspace(core, ws), req.id));
     },
   );
@@ -176,6 +187,14 @@ export function registerWorkspacesRoutes(app: WorkspaceRouteHost, core: Scope): 
     },
     async (req, reply) => {
       const { workspace_id } = req.params;
+      const existing = await core.accessor.get(IWorkspaceService).get(workspace_id);
+      if (existing === undefined) {
+        reply.send(
+          errEnvelope(ErrorCode.WORKSPACE_NOT_FOUND, `workspace ${workspace_id} does not exist`, req.id),
+        );
+        return;
+      }
+      if (!await authorizeWorkspace(core, workspace_id, req.id, 'project.manage', reply)) return;
       const ws = await core.accessor
         .get(IWorkspaceService)
         .update(workspace_id, { name: req.body.name });
@@ -217,6 +236,7 @@ export function registerWorkspacesRoutes(app: WorkspaceRouteHost, core: Scope): 
         );
         return;
       }
+      if (!await authorizeWorkspace(core, workspace_id, req.id, 'project.manage', reply)) return;
       await registry.delete(workspace_id);
       requestLog(req)?.info({ workspace_id }, 'workspace deleted');
       reply.send(okEnvelope({ deleted: true as const }, req.id));
@@ -241,7 +261,7 @@ export function registerWorkspacesRoutes(app: WorkspaceRouteHost, core: Scope): 
       tags: ['workspaces'],
     },
     async (req, reply) => {
-      const trust = await resolveTrust(core, req.params.workspace_id, req.id, reply);
+      const trust = await resolveTrust(core, req.params.workspace_id, req.id, 'workspace.read', reply);
       if (trust === undefined) return;
       reply.send(okEnvelope({ trusted: await trust.get() }, req.id));
     },
@@ -265,7 +285,7 @@ export function registerWorkspacesRoutes(app: WorkspaceRouteHost, core: Scope): 
       tags: ['workspaces'],
     },
     async (req, reply) => {
-      const trust = await resolveTrust(core, req.params.workspace_id, req.id, reply);
+      const trust = await resolveTrust(core, req.params.workspace_id, req.id, 'project.manage', reply);
       if (trust === undefined) return;
       await trust.trust();
       reply.send(okEnvelope({ trusted: true }, req.id));
@@ -290,7 +310,7 @@ export function registerWorkspacesRoutes(app: WorkspaceRouteHost, core: Scope): 
       tags: ['workspaces'],
     },
     async (req, reply) => {
-      const trust = await resolveTrust(core, req.params.workspace_id, req.id, reply);
+      const trust = await resolveTrust(core, req.params.workspace_id, req.id, 'project.manage', reply);
       if (trust === undefined) return;
       await trust.untrust();
       reply.send(okEnvelope({ trusted: false }, req.id));
@@ -309,6 +329,7 @@ async function resolveTrust(
   core: Scope,
   workspaceId: string,
   requestId: string,
+  capability: 'workspace.read' | 'project.manage',
   reply: TrustReply,
 ): Promise<IWorkspaceTrust | undefined> {
   const ws = await core.accessor.get(IWorkspaceService).get(workspaceId);
@@ -318,10 +339,27 @@ async function resolveTrust(
     );
     return undefined;
   }
+  if (!await authorizeWorkspace(core, workspaceId, requestId, capability, reply)) return undefined;
   const handle = await core
     .accessor.get(IWorkspaceLifecycleService)
     .handlerFor({ workspaceId, root: ws.root });
   return handle.accessor.get(IWorkspaceTrust);
+}
+
+async function authorizeWorkspace(
+  core: Scope,
+  workspaceId: string,
+  requestId: string,
+  capability: 'workspace.read' | 'project.manage',
+  reply: TrustReply,
+): Promise<boolean> {
+  try {
+    await assertWorkspaceAuthorization(core, { workspaceId, requestId, capability });
+    return true;
+  } catch (error) {
+    reply.send(mapPlatformError(error, requestId));
+    return false;
+  }
 }
 
 // ---------------------------------------------------------------------------

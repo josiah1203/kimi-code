@@ -85,6 +85,7 @@
     "@modelcontextprotocol/server": "^2.0.0",
     "@spiderbyte/acp-server": "workspace:^",
     "@spiderbyte/agent-core": "workspace:^",
+    "@spiderbyte/kaos": "workspace:^",
     "@spiderbyte/kap-server": "workspace:^",
     "@spiderbyte/minidb": "workspace:^",
     "@spiderbyte/oauth": "workspace:^",

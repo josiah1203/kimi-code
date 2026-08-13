@@ -23,6 +23,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
+import type { ProviderSecretRef } from '@spiderbyte/protocol';
 
 import { ILogService, type LogPayload } from '#/_base/log/log';
 import {
@@ -35,6 +36,7 @@ import { type ModelRecord } from '#/kosong/model/model';
 import { ModelService } from '#/kosong/model/modelService';
 import { type ProviderConfig } from '#/kosong/provider/provider';
 import { ProviderService } from '#/kosong/provider/providerService';
+import type { IPlatformSecretStore } from '#/app/secrets/platformSecretStore';
 
 import { StubConfigService } from '../../kosong/stubs';
 import { KosongConfigService } from '#/app/kosongConfig/kosongConfigService';
@@ -67,12 +69,32 @@ interface BridgeFixture {
   readonly bridge: KosongConfigService;
 }
 
+function stubSecretStore(): IPlatformSecretStore {
+  const values = new Map<ProviderSecretRef, string>();
+  return {
+    _serviceBrand: undefined,
+    ready: Promise.resolve(),
+    put: async (secret) => {
+      const ref = `secret_test_${secret.replaceAll(/[^A-Za-z0-9._:-]/g, '_')}` as ProviderSecretRef;
+      values.set(ref, secret);
+      return ref;
+    },
+    set: async (ref, secret) => {
+      values.set(ref, secret);
+    },
+    get: async (ref) => values.get(ref),
+    remove: async (ref) => {
+      values.delete(ref);
+    },
+  };
+}
+
 async function createBridge(sections: Record<string, unknown> = {}): Promise<BridgeFixture> {
   const config = new StubConfigService(sections);
   const providers = new ProviderService();
   const models = new ModelService();
   const log = stubLogService();
-  const bridge = new KosongConfigService(config, providers, models, log);
+  const bridge = new KosongConfigService(config, providers, models, log, stubSecretStore());
   await bridge.ready;
   return { config, providers, models, log, bridge };
 }
@@ -84,6 +106,15 @@ async function flush(): Promise<void> {
 }
 
 const SPIDERBYTE_PROVIDER: ProviderConfig = { type: 'kimi', apiKey: 'sk-test' };
+const PERSISTED_SPIDERBYTE_PROVIDER: ProviderConfig = {
+  type: 'kimi',
+  secretRef: 'secret_test_sk-test' as ProviderSecretRef,
+  apiKey: undefined,
+};
+const HYDRATED_SPIDERBYTE_PROVIDER: ProviderConfig = {
+  ...PERSISTED_SPIDERBYTE_PROVIDER,
+  apiKey: 'sk-test',
+};
 const K1_MODEL: ModelRecord = { provider: 'kimi', model: 'kimi-k2', maxContextSize: 1000 };
 
 const seededSections: Record<string, unknown> = {
@@ -97,7 +128,7 @@ describe('KosongConfigService startup hydration', () => {
   it('loads providers, models, and the default pointers from config and readies the registries', async () => {
     const { providers, models } = await createBridge(seededSections);
 
-    expect(providers.list()).toEqual({ kimi: SPIDERBYTE_PROVIDER });
+    expect(providers.list()).toEqual({ kimi: HYDRATED_SPIDERBYTE_PROVIDER });
     expect(providers.getDefaultProvider()).toBe('kimi');
     expect(models.list()).toEqual({ k1: K1_MODEL });
     expect(models.getDefaultModel()).toBe('k1');
@@ -113,6 +144,34 @@ describe('KosongConfigService startup hydration', () => {
     expect(models.list()).toEqual({});
     expect(models.getDefaultModel()).toBeUndefined();
   });
+
+  it('migrates legacy provider env credentials into the encrypted reference', async () => {
+    const { config, providers, bridge } = await createBridge({
+      providers: {
+        openai: {
+          type: 'openai',
+          env: { OPENAI_API_KEY: 'sk-env', OPENAI_BASE_URL: 'https://example.test/v1' },
+        },
+      },
+    });
+    try {
+      expect(config.get<Record<string, ProviderConfig>>(PROVIDERS_SECTION)).toEqual({
+        openai: {
+          type: 'openai',
+          secretRef: 'secret_test_sk-env' as ProviderSecretRef,
+          env: { OPENAI_BASE_URL: 'https://example.test/v1' },
+        },
+      });
+      expect(providers.get('openai')).toEqual({
+        type: 'openai',
+        secretRef: 'secret_test_sk-env' as ProviderSecretRef,
+        apiKey: 'sk-env',
+        env: { OPENAI_BASE_URL: 'https://example.test/v1' },
+      });
+    } finally {
+      bridge.dispose();
+    }
+  });
 });
 
 describe('KosongConfigService kosong → config persistence', () => {
@@ -124,18 +183,26 @@ describe('KosongConfigService kosong → config persistence', () => {
       await providers.set('openai', { type: 'openai', apiKey: 'sk-o' });
       await flush();
       expect(replaceSpy).toHaveBeenCalledWith(PROVIDERS_SECTION, {
-        kimi: SPIDERBYTE_PROVIDER,
-        openai: { type: 'openai', apiKey: 'sk-o' },
+        kimi: PERSISTED_SPIDERBYTE_PROVIDER,
+        openai: {
+          type: 'openai',
+          secretRef: 'secret_test_sk-o' as ProviderSecretRef,
+          apiKey: undefined,
+        },
       });
       expect(config.get<Record<string, ProviderConfig>>(PROVIDERS_SECTION)).toEqual({
-        kimi: SPIDERBYTE_PROVIDER,
-        openai: { type: 'openai', apiKey: 'sk-o' },
+        kimi: PERSISTED_SPIDERBYTE_PROVIDER,
+        openai: {
+          type: 'openai',
+          secretRef: 'secret_test_sk-o' as ProviderSecretRef,
+          apiKey: undefined,
+        },
       });
 
       await providers.delete('openai');
       await flush();
       expect(config.get<Record<string, ProviderConfig>>(PROVIDERS_SECTION)).toEqual({
-        kimi: SPIDERBYTE_PROVIDER,
+        kimi: PERSISTED_SPIDERBYTE_PROVIDER,
       });
     } finally {
       bridge.dispose();
@@ -179,8 +246,12 @@ describe('KosongConfigService awaited-mutation semantics', () => {
     try {
       await providers.set('openai', { type: 'openai', apiKey: 'sk-o' });
       expect(config.get<Record<string, ProviderConfig>>(PROVIDERS_SECTION)).toEqual({
-        kimi: SPIDERBYTE_PROVIDER,
-        openai: { type: 'openai', apiKey: 'sk-o' },
+        kimi: PERSISTED_SPIDERBYTE_PROVIDER,
+        openai: {
+          type: 'openai',
+          secretRef: 'secret_test_sk-o' as ProviderSecretRef,
+          apiKey: undefined,
+        },
       });
 
       await models.setDefaultModel('k1');
@@ -213,7 +284,7 @@ describe('KosongConfigService awaited-mutation semantics', () => {
       }
 
       expect(config.get<Record<string, ProviderConfig>>(PROVIDERS_SECTION)).toEqual({
-        kimi: SPIDERBYTE_PROVIDER,
+        kimi: PERSISTED_SPIDERBYTE_PROVIDER,
         openai: { type: 'openai' },
       });
       expect(log.warnings).toHaveLength(0);
@@ -238,7 +309,7 @@ describe('KosongConfigService awaited-mutation semantics', () => {
 
       expect(providers.get('openai')).toEqual({ type: 'openai' });
       expect(config.get<Record<string, ProviderConfig>>(PROVIDERS_SECTION)).toEqual({
-        kimi: SPIDERBYTE_PROVIDER,
+        kimi: PERSISTED_SPIDERBYTE_PROVIDER,
       });
       expect(log.warnings).toHaveLength(1);
       expect(log.warnings[0]?.message).toBe('kosong config persist failed');
@@ -246,7 +317,7 @@ describe('KosongConfigService awaited-mutation semantics', () => {
       replaceSpy.mockRestore();
       await providers.set('mistral', { type: 'mistral' });
       expect(config.get<Record<string, ProviderConfig>>(PROVIDERS_SECTION)).toEqual({
-        kimi: SPIDERBYTE_PROVIDER,
+        kimi: PERSISTED_SPIDERBYTE_PROVIDER,
         openai: { type: 'openai' },
         mistral: { type: 'mistral' },
       });
@@ -368,7 +439,13 @@ describe('KosongConfigService env-pinned default pointer', () => {
     const config = new PinnedConfigService(DEFAULT_MODEL_SECTION, 'env-model', seededSections);
     const providers = new ProviderService();
     const models = new ModelService();
-    const bridge = new KosongConfigService(config, providers, models, stubLogService());
+    const bridge = new KosongConfigService(
+      config,
+      providers,
+      models,
+      stubLogService(),
+      stubSecretStore(),
+    );
     await bridge.ready;
     try {
       expect(models.getDefaultModel()).toBe('env-model');

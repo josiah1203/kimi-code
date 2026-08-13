@@ -12,11 +12,12 @@ For ordinary runtime settings, command-line options have priority over the user 
 
 Provider credentials resolve in this order:
 
-1. `[providers.<name>].api_key` or `base_url`.
-2. The matching value in `[providers.<name>.env]`.
-3. A stable missing-credential or missing-endpoint error.
+1. The encrypted material addressed by `[providers.<name>].secret_ref`, or a process-local `SPIDERBYTE_MODEL_API_KEY` overlay.
+2. A legacy `[providers.<name>].api_key` or credential entry in `[providers.<name>.env]` is migrated at startup when the secret-store key is available.
+3. The matching non-secret endpoint value in `[providers.<name>.env]` and `base_url`.
+4. A stable missing-credential or missing-endpoint error.
 
-The `[providers.<name>.env]` table is still part of `config.toml`; it does not mutate the shell environment.
+The `[providers.<name>.env]` table is still part of `config.toml`; it does not mutate the shell environment. New durable credentials should use `spyderbyte configure` or a provider import command.
 
 The one-shot `SPIDERBYTE_MODEL_*` channel creates an in-memory model and provider for the current process. It is useful for smoke tests and BYOK, and is never written to disk.
 

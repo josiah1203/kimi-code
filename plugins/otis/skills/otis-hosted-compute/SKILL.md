@@ -12,15 +12,15 @@ availability, hosted logs/outputs, or provider orchestration.
 
 ## Required tools
 
-Always call `spiderbyte_capabilities`, `spiderbyte_account_status`, and
-`spiderbyte_explain_unavailable` first. If a future authenticated commercial
-MCP server advertises hosted tools, use only the exact advertised schemas.
+Always call `get_capabilities` first. The curated profile does not advertise a
+hosted-compute submission tool. If a future authenticated commercial MCP
+server advertises hosted tools, use only the exact advertised schemas.
 
 ## Workflow
 
 1. Report that this checkout exposes local/customer-managed targets only.
 2. Explain the missing hosted identity, entitlement, budget, provider, and
-   worker boundary with `spiderbyte_explain_unavailable`.
+   worker boundary from the capability response.
 3. Offer a local execution target after inspecting policy and budget.
 4. Do not submit a fake job, estimate invented prices, or return fabricated
    machine availability.

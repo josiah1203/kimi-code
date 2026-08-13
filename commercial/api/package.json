@@ -32,6 +32,7 @@
     "@spiderbyte/commercial-compute": "workspace:^",
     "@spiderbyte/commercial-domain": "workspace:^",
     "@spiderbyte/commercial-enterprise": "workspace:^",
+    "@spiderbyte/commercial-licensing": "workspace:^",
     "@spiderbyte/commercial-ports": "workspace:^",
     "fastify": "^5.1.0",
     "ws": "^8.21.0",

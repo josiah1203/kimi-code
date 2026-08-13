@@ -30,7 +30,11 @@
 import {
   IConfigService,
   IEventService,
+  IPlatformSecretStore,
+  normalizeProviderModelConfigPatch,
   SECONDARY_DERIVED_MODEL_ID,
+  type ModelsSection,
+  type ProvidersSection,
   type Scope,
 } from '@spiderbyte/agent-core';
 
@@ -103,8 +107,20 @@ export function registerConfigRoutes(app: ConfigRouteHost, core: Scope): void {
           camelPatch['defaultPermissionMode'] = 'yolo';
         }
         delete camelPatch['yolo'];
+        const secretfulPatch = await normalizeProviderModelConfigPatch(
+          config.inspect<ProvidersSection>('providers').userValue ?? {},
+          config.inspect<ModelsSection>('models').userValue ?? {},
+          camelPatch,
+          core.accessor.get(IPlatformSecretStore),
+        );
         for (const domain of Object.keys(camelPatch)) {
-          await config.set(domain, camelPatch[domain]);
+          if (domain === 'providers' && secretfulPatch.providers !== undefined) {
+            await config.replace(domain, secretfulPatch.providers);
+          } else if (domain === 'models' && secretfulPatch.models !== undefined) {
+            await config.replace(domain, secretfulPatch.models);
+          } else {
+            await config.set(domain, camelPatch[domain]);
+          }
         }
         const response = toConfigResponse(config.getAll());
         const changedFields = Object.keys(req.body as Record<string, unknown>);
@@ -165,6 +181,7 @@ interface ProviderLike {
   readonly type?: unknown;
   readonly baseUrl?: unknown;
   readonly defaultModel?: unknown;
+  readonly secretRef?: unknown;
   readonly apiKey?: unknown;
   readonly oauth?: unknown;
 }
@@ -199,6 +216,7 @@ function toProviderResponses(value: unknown): Record<string, ProviderResponse> {
 }
 
 function hasProviderCredential(provider: ProviderLike): boolean {
+  if (nonEmpty(provider.secretRef) !== undefined) return true;
   if (nonEmpty(provider.apiKey) !== undefined) return true;
   if (provider.oauth !== undefined) return true;
   return false;

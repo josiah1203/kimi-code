@@ -12,7 +12,7 @@ export function mapPlatformError(error: unknown, requestId: string): Envelope<nu
     return errEnvelope(ErrorCode.INTERNAL_ERROR, 'platform request failed', requestId);
   }
 
-  const domainCode = String(error.code);
+  const domainCode = error.code;
   const code = platformProtocolErrorCode(domainCode);
   return errEnvelope(code, platformProtocolErrorMessage(domainCode), requestId);
 }
@@ -55,6 +55,8 @@ export function platformProtocolErrorCode(domainCode: string): ProtocolErrorCode
   }
   if (
     domainCode.endsWith('.invalid_state') ||
+    domainCode.endsWith('.endpoint_invalid') ||
+    domainCode.endsWith('.unsupported') ||
     domainCode.endsWith('.invalid_input') ||
     domainCode.endsWith('.cycle') ||
     domainCode.endsWith('.execution_failed') ||
@@ -113,7 +115,12 @@ export function platformProtocolErrorMessage(domainCode: string): string {
     return 'secret material must be represented by an opaque reference';
   }
   if (domainCode.startsWith('storage.')) return 'platform persistence failed';
-  if (domainCode.endsWith('.invalid_state') || domainCode.endsWith('.invalid')) return 'platform request is invalid';
+  if (
+    domainCode.endsWith('.invalid_state') ||
+    domainCode.endsWith('.endpoint_invalid') ||
+    domainCode.endsWith('.unsupported') ||
+    domainCode.endsWith('.invalid')
+  ) return 'platform request is invalid';
   if (domainCode.endsWith('.invalid_input')) return 'platform request contains invalid ML input';
   if (domainCode.endsWith('.executor_unavailable')) return 'requested ML execution target is unavailable';
   if (domainCode.endsWith('.execution_failed')) return 'pipeline execution is unavailable or failed';

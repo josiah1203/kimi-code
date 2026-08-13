@@ -341,4 +341,29 @@ describe('LocalFetchURLProvider connection pinning', () => {
     const dispatcher = (fetchImpl.mock.calls[0]![1] as RequestInit).dispatcher;
     expect(asUndiciAgent(dispatcher).closed).toBe(true);
   });
+
+  it('cancels a chunked oversized response before materializing it', async () => {
+    let pulls = 0;
+    let cancelled = false;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulls += 1;
+        controller.enqueue(new Uint8Array(64 * 1024));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(body, {
+      status: 200,
+      headers: { 'content-type': 'text/plain' },
+    }));
+    const provider = new LocalFetchURLProvider({ fetchImpl, maxBytes: 100 * 1024 });
+
+    await expect(provider.fetch('https://example.com/chunked-big')).rejects.toThrow(
+      'Response body too large',
+    );
+    expect(cancelled).toBe(true);
+    expect(pulls).toBeLessThanOrEqual(3);
+  });
 });

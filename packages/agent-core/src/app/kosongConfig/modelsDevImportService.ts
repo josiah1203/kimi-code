@@ -40,11 +40,13 @@ import {
   type CustomRegistrySource,
   type SpiderByteConfigShape,
 } from '@spiderbyte/oauth';
+import type { ProviderSecretRef } from '@spiderbyte/protocol';
 import { LifecycleScope } from '#/app/scopes';
 import { ScopeActivation, registerScopedService } from '#/_base/di/scope';
 import { Error2 } from '#/_base/errors/errors';
 import { IAgentIdentity } from '#/app/agentIdentity/agentIdentity';
 import { IConfigService } from '#/app/config/config';
+import { IPlatformSecretStore } from '#/app/secrets/platformSecretStore';
 import { IModelCatalog } from '#/kosong/model/catalog';
 import { type ModelsSection } from '#/kosong/model/model';
 import { type ProviderConfig, type ProvidersSection } from '#/kosong/provider/provider';
@@ -53,6 +55,7 @@ import { modelsDevProviderModels, resolveModelsDevImport } from './modelsDev';
 import { DEFAULT_MODEL_SECTION, MODELS_SECTION, PROVIDERS_SECTION } from './configSection';
 import { ModelsDevImportErrors } from './errors';
 import { IKosongConfigService } from './kosongConfig';
+import { secretRefForInput } from './providerSecrets';
 import {
   IModelsDevImportService,
   PROVIDER_ID_PATTERN,
@@ -83,6 +86,7 @@ export class ModelsDevImportService implements IModelsDevImportService {
     @IKosongConfigService private readonly kosongConfig: IKosongConfigService,
     @IModelCatalog private readonly modelCatalog: IModelCatalog,
     @IAgentIdentity private readonly identity: IAgentIdentity,
+    @IPlatformSecretStore private readonly secrets: IPlatformSecretStore,
   ) {}
 
   private async outboundUserAgent(): Promise<string> {
@@ -188,7 +192,11 @@ export class ModelsDevImportService implements IModelsDevImportService {
 
     const provider: ProviderConfig = { type: resolution.wire };
     provider.baseUrl = resolution.baseUrl;
-    provider.apiKey = options.apiKey ?? existing?.apiKey;
+    provider.secretRef = await secretRefForInput(
+      this.secrets,
+      options.apiKey ?? existing?.apiKey,
+      existing?.secretRef,
+    );
     await config.replace(PROVIDERS_SECTION, { ...providers, [targetId]: provider });
 
     const records = config.inspect<ModelsSection>(MODELS_SECTION).userValue ?? {};
@@ -217,11 +225,14 @@ export class ModelsDevImportService implements IModelsDevImportService {
     const { url } = options;
     const config = await this.readyConfig();
     const providers = config.inspect<ProvidersSection>(PROVIDERS_SECTION).userValue ?? {};
+    const existingSecretRef = registrySecretRefFromExisting(providers, url);
+    const existingApiKey = await resolveRegistryApiKey(this.secrets, providers, url);
     const source: CustomRegistrySource = {
       kind: 'apiJson',
       url,
-      apiKey: options.apiKey ?? registryKeyFromExisting(providers, url) ?? '',
+      secretRef: existingSecretRef,
     };
+    const apiKey = options.apiKey ?? existingApiKey;
 
     let entries: Record<string, CustomRegistryProviderEntry>;
     try {
@@ -229,6 +240,7 @@ export class ModelsDevImportService implements IModelsDevImportService {
         fetchImpl: upstreamFetch(),
         userAgent: await this.outboundUserAgent(),
         signal: AbortSignal.timeout(UPSTREAM_FETCH_TIMEOUT_MS),
+        apiKey,
       });
     } catch (err) {
       throw new Error2(
@@ -242,6 +254,17 @@ export class ModelsDevImportService implements IModelsDevImportService {
         `custom registry at ${url} has no importable providers`,
       );
     }
+
+    const credentialRef = await secretRefForInput(
+      this.secrets,
+      options.apiKey ?? (existingSecretRef === undefined ? existingApiKey : undefined),
+      existingSecretRef,
+    );
+    const appliedSource: CustomRegistrySource = {
+      kind: 'apiJson',
+      url,
+      secretRef: credentialRef,
+    };
 
     for (const entry of Object.values(entries)) {
       if (providers[entry.id]?.oauth !== undefined) {
@@ -285,7 +308,7 @@ export class ModelsDevImportService implements IModelsDevImportService {
       models: removed.models,
     } as SpiderByteConfigShape;
     for (const entry of Object.values(entries)) {
-      applyCustomRegistryProvider(applied, entry, source);
+      applyCustomRegistryProvider(applied, entry, appliedSource);
     }
     await config.replace(PROVIDERS_SECTION, applied.providers as ProvidersSection);
     await config.replace(MODELS_SECTION, (applied.models ?? {}) as ModelsSection);
@@ -314,7 +337,7 @@ async function seedDefaultModelWhenUnset(config: IConfigService, alias: string):
   await config.replace(DEFAULT_MODEL_SECTION, alias);
 }
 
-function registryKeyFromExisting(
+function registrySecretRefFromExisting(
   providers: ProvidersSection,
   url: string,
 ): string | undefined {
@@ -322,9 +345,28 @@ function registryKeyFromExisting(
     if (!isRecord(provider)) continue;
     const source = provider['source'];
     if (isRecord(source) && source['kind'] === 'apiJson' && source['url'] === url) {
-      const key = source['apiKey'];
-      if (typeof key === 'string' && key.length > 0) return key;
+      const secretRef = source['secretRef'];
+      if (typeof secretRef === 'string' && secretRef.length > 0) return secretRef;
     }
+  }
+  return undefined;
+}
+
+async function resolveRegistryApiKey(
+  secrets: IPlatformSecretStore,
+  providers: ProvidersSection,
+  url: string,
+): Promise<string | undefined> {
+  for (const provider of Object.values(providers)) {
+    if (!isRecord(provider)) continue;
+    const source = provider['source'];
+    if (!isRecord(source) || source['kind'] !== 'apiJson' || source['url'] !== url) continue;
+    const secretRef = source['secretRef'];
+    if (typeof secretRef === 'string' && secretRef.length > 0) {
+      return secrets.get(secretRef as ProviderSecretRef);
+    }
+    const apiKey = source['apiKey'];
+    if (typeof apiKey === 'string' && apiKey.length > 0) return apiKey;
   }
   return undefined;
 }

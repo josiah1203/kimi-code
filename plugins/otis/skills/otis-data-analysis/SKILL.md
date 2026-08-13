@@ -12,14 +12,16 @@ transformation, lineage, or analysis requests.
 
 ## Required tools
 
-`spiderbyte_list_datasets`, `spiderbyte_get_dataset`,
-`spiderbyte_register_dataset`, `spiderbyte_profile_dataset`,
-`spiderbyte_query_dataset`, `spiderbyte_transform_dataset`,
-`spiderbyte_analyze_dataset`, `search`, and `fetch`.
+`get_capabilities`, `profile_dataset`, `run_sql_analysis`, `list_artifacts`,
+and `get_artifact`. The curated surface operates on an already registered
+dataset ID; dataset registration, transformation, and arbitrary search/fetch
+are full-profile or local CLI workflows, not Otis plugin guarantees.
 
 ## Workflow
 
-1. Identify the workspace and dataset without reading unrelated files.
+1. Identify the workspace and dataset without reading unrelated files; require
+   a stable `workspace_id` and registered `dataset_id` when the caller has not
+   supplied them.
 2. Inspect metadata and versions before processing content.
 3. Profile first; describe nulls, types, duplicates, ranges, and quality
    findings with bounded evidence.

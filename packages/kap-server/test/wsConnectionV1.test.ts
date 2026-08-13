@@ -5,6 +5,7 @@
 
 import type { WebSocket } from 'ws';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Scope } from '@spiderbyte/agent-core';
 
 import type { IConnectionRegistry } from '../src/transport/ws/connectionRegistry';
 import type { SessionEventBroadcaster } from '../src/transport/ws/v1/sessionEventBroadcaster';
@@ -88,6 +89,9 @@ function makeRegistry(): IConnectionRegistry {
 function makeConn(socket: FakeSocket, opts: Partial<WsConnectionV1Options> = {}): WsConnectionV1 {
   return new WsConnectionV1({
     socket: socket as unknown as WebSocket,
+    core: {
+      accessor: { get: () => ({ get: async () => undefined }) },
+    } as unknown as Scope,
     broadcaster: makeBroadcaster(),
     connectionRegistry: makeRegistry(),
     remoteAddress: null,

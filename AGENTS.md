@@ -15,7 +15,7 @@ This is a TypeScript monorepo built for agent-assisted development. Keep the roo
 ## Project Map
 
 - `apps/cli`: the canonical CLI / TUI application. It consumes core capabilities through `@spiderbyte/sdk` and must not depend directly on a compatibility engine. When writing or modifying its terminal UI, use the `write-tui` skill (`.agents/skills/write-tui/SKILL.md`).
-- the browser web UI: **its source is external to this repository.** Open Core ships no generated browser bundle; `spyderbyte web` serves the local REST/WebSocket API and an external frontend may be supplied explicitly for development or a separate distribution.
+- `apps/web`: the hosted SpiderByte Next.js frontend. It owns browser presentation and Clerk UI integration; local commercial packages remain the source of truth for provider-neutral identity, billing, entitlements, usage, and audit behavior.
 - `compat/legacy-vis`: excluded visual debugging compatibility code; it is not a workspace package or Open Core release surface.
 - `apps/inspect`: web inspector for the kap-server `/api/v1/debug` RPC surface — workspace/session browser, per-session transcript chat, per-scope Service panels, and the DI unit inspection view. See `apps/inspect/AGENTS.md`.
 - `packages/agent-core`: the canonical SpiderByte Agent Core (the former v2 implementation), including Agent, Session, profile, skills, tools, plan, permission, background, records, the in-process DI service layer, and other core capabilities. See `packages/agent-core/AGENTS.md` and use the `agent-core-dev` skill (`.agents/skills/agent-core-dev/SKILL.md`) when developing here.

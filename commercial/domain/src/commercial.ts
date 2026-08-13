@@ -7,6 +7,9 @@ import {
   commandContextSchema,
   entitlementIdSchema,
   isoDateTimeSchema,
+  licenseActivationIdSchema,
+  licenseIdSchema,
+  licenseSeatIdSchema,
   organizationIdSchema,
   planIdSchema,
   recordFieldsSchema,
@@ -19,6 +22,67 @@ import {
 
 export const editionSchema = z.enum(['free', 'team', 'business', 'enterprise']);
 export type Edition = z.infer<typeof editionSchema>;
+
+export const licenseDeploymentRestrictionSchema = z.strictObject({
+  deployment_id: z.string().min(1).max(256).optional(),
+  host_fingerprint: z.string().min(16).max(256).regex(/^[A-Fa-f0-9:-]+$/).optional(),
+  allowed_domains: z.array(z.string().min(1).max(253)).max(100).optional(),
+});
+export type LicenseDeploymentRestriction = z.infer<typeof licenseDeploymentRestrictionSchema>;
+
+/** Signed payload issued by a commercial license authority. */
+export const offlineLicenseSchema = z.strictObject({
+  id: licenseIdSchema,
+  organization_id: organizationIdSchema,
+  plan: z.string().trim().toLowerCase().regex(/^[a-z][a-z0-9_-]{1,63}$/),
+  seat_count: z.number().int().positive(),
+  enabled_capabilities: z.array(z.string().trim().min(1).max(200)).max(500),
+  issued_at: isoDateTimeSchema,
+  expires_at: isoDateTimeSchema,
+  grace_period_days: z.number().int().min(0).max(3650),
+  license_version: z.number().int().positive(),
+  key_id: z.string().trim().min(1).max(200),
+  deployment_restrictions: licenseDeploymentRestrictionSchema.optional(),
+  signature: z.string().min(32).max(1024).regex(/^[A-Za-z0-9_-]+$/),
+}).superRefine((value, context) => {
+  if (Date.parse(value.expires_at) <= Date.parse(value.issued_at)) {
+    context.addIssue({ code: 'custom', path: ['expires_at'], message: 'license must expire after issuance' });
+  }
+});
+export type OfflineLicense = z.infer<typeof offlineLicenseSchema>;
+
+export const licenseActivationStateSchema = z.enum(['active', 'grace', 'expired', 'revoked', 'invalid']);
+export type LicenseActivationState = z.infer<typeof licenseActivationStateSchema>;
+export const licenseActivationSchema = z.strictObject({
+  id: licenseActivationIdSchema,
+  license_id: licenseIdSchema,
+  account_id: accountIdSchema,
+  organization_id: organizationIdSchema,
+  state: licenseActivationStateSchema,
+  activated_at: isoDateTimeSchema,
+  last_evaluated_at: isoDateTimeSchema,
+  verified_at: isoDateTimeSchema,
+  verification_source: z.enum(['signature', 'cached']),
+  license_digest: z.string().regex(/^[a-f0-9]{64}$/),
+  deployment_id: z.string().min(1).max(256).optional(),
+  revoked_at: isoDateTimeSchema.optional(),
+  ...recordFieldsSchema.shape,
+});
+export type LicenseActivation = z.infer<typeof licenseActivationSchema>;
+
+export const licenseSeatStateSchema = z.enum(['active', 'revoked']);
+export const licenseSeatSchema = z.strictObject({
+  id: licenseSeatIdSchema,
+  license_id: licenseIdSchema,
+  account_id: accountIdSchema,
+  organization_id: organizationIdSchema,
+  user_id: userIdSchema,
+  state: licenseSeatStateSchema,
+  assigned_at: isoDateTimeSchema,
+  revoked_at: isoDateTimeSchema.optional(),
+  ...recordFieldsSchema.shape,
+});
+export type LicenseSeat = z.infer<typeof licenseSeatSchema>;
 
 export const planStateSchema = z.enum(['draft', 'active', 'retired']);
 export const planValueSchema = z.union([z.boolean(), z.number().finite(), z.string().max(500)]);

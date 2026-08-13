@@ -37,6 +37,7 @@ import { type SessionEventBroadcaster } from '../transport/ws/v1/sessionEventBro
 import { toWireApproval } from './approvals';
 import { toWireQuestion } from './questions';
 import { resolveSessionFacts, toWireSession } from './sessions';
+import { assertSessionAuthorization } from '../services/platformAuthorization';
 
 /** Most-recent messages included in the snapshot page. */
 const SNAPSHOT_MESSAGE_PAGE_SIZE = 100;
@@ -89,7 +90,7 @@ export function registerSnapshotRoutes(app: SnapshotRouteHost, deps: SnapshotRou
     async (req, reply) => {
       const { session_id } = req.params;
       try {
-        const data = await assembleSnapshot(core, broadcaster, session_id);
+        const data = await assembleSnapshot(core, broadcaster, session_id, req.id);
         reply.send(okEnvelope(data, req.id));
       } catch (err) {
         if (err instanceof SnapshotNotFoundError) {
@@ -107,7 +108,13 @@ async function assembleSnapshot(
   core: Scope,
   broadcaster: SessionEventBroadcaster,
   sessionId: string,
+  requestId: string,
 ): Promise<SessionSnapshotResponse> {
+  await assertSessionAuthorization(core, {
+    sessionId,
+    requestId,
+    capability: 'data.read',
+  });
   // Resolve the live handle, loading the session from disk when it is cold
   // (created by a previous process or by v1). `resume` returns `undefined`
   // only when the session is unknown or its workspace is gone → 404.

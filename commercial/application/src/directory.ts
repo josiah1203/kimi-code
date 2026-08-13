@@ -20,6 +20,7 @@ import {
   acceptInvitationInputSchema,
   inviteMemberInputSchema,
   membershipStateInputSchema,
+  membershipRolesInputSchema,
   type Account,
   type AcceptInvitationInput,
   type AuthorizationDecision,
@@ -30,6 +31,7 @@ import {
   type Invitation,
   type Membership,
   type MembershipStateInput,
+  type MembershipRolesInput,
   type Organization,
   type Principal,
   type User,
@@ -569,6 +571,9 @@ export class CommercialDirectoryService {
     if (membership === undefined) {
       throw new CommercialApplicationError(CommercialApplicationCodes.MEMBERSHIP_NOT_FOUND, 'membership not found');
     }
+    if (command.organization_id !== undefined && command.organization_id !== membership.organization_id) {
+      throw new CommercialApplicationError(CommercialApplicationCodes.MEMBERSHIP_NOT_FOUND, 'membership is outside the requested organization');
+    }
     await this.assertAuthorized(principal, membership.organization_id, 'member.manage', command.request_id);
     const roles = await Promise.all(membership.role_ids.map((roleId) => this.requireRole(roleId, membership.organization_id)));
     if (roles.some((role) => role.name === 'owner') && command.state !== 'active') {
@@ -611,6 +616,65 @@ export class CommercialDirectoryService {
       request_id: command.request_id,
       occurred_at: updated.updated_at,
       detail: { state: command.state },
+    });
+    return updated;
+  }
+
+  async changeMembershipRoles(principal: Principal, input: MembershipRolesInput): Promise<Membership> {
+    const command = membershipRolesInputSchema.parse(input);
+    const membership = await this.deps.store.get('memberships', command.membership_id);
+    if (membership === undefined) {
+      throw new CommercialApplicationError(CommercialApplicationCodes.MEMBERSHIP_NOT_FOUND, 'membership not found');
+    }
+    if (command.organization_id !== undefined && command.organization_id !== membership.organization_id) {
+      throw new CommercialApplicationError(CommercialApplicationCodes.MEMBERSHIP_NOT_FOUND, 'membership is outside the requested organization');
+    }
+    await this.assertAuthorized(principal, membership.organization_id, 'member.manage', command.request_id);
+    const roles = await Promise.all(command.role_ids.map((roleId) => this.requireRole(roleId, membership.organization_id)));
+    const oldRoles = await Promise.all(membership.role_ids.map((roleId) => this.requireRole(roleId, membership.organization_id)));
+    const wasOwner = oldRoles.some((role) => role.name === 'owner');
+    const remainsOwner = roles.some((role) => role.name === 'owner');
+    if (membership.state === 'active' && wasOwner && !remainsOwner) {
+      const otherActiveOwners = (await this.deps.store.list('memberships')).filter((candidate) =>
+        candidate.organization_id === membership.organization_id &&
+        candidate.id !== membership.id &&
+        candidate.state === 'active',
+      );
+      const ownerCount = (await Promise.all(otherActiveOwners.map(async (candidate) => {
+        const candidateRoles = await Promise.all(candidate.role_ids.map((roleId) => this.requireRole(roleId, candidate.organization_id)));
+        return candidateRoles.some((role) => role.name === 'owner');
+      }))).filter(Boolean).length;
+      if (ownerCount === 0) {
+        throw new CommercialApplicationError(CommercialApplicationCodes.LAST_OWNER_REQUIRED, 'organization must retain an active owner');
+      }
+    }
+    const roleIds = [...new Set(command.role_ids)];
+    const actor = actorForPrincipal(principal);
+    const updated = membershipSchema.parse({
+      ...membership,
+      role_ids: roleIds,
+      version: membership.version + 1,
+      updated_at: this.deps.clock.now(),
+      updated_by: actor,
+    });
+    const fingerprint = hashJson({ membership_id: membership.id, role_ids: roleIds });
+    const replay = await this.replay<Membership>('membership.roles', command.request_id, fingerprint);
+    if (replay !== undefined) return replay;
+    await this.deps.store.transaction(async (store) => {
+      await store.put('memberships', updated.id, updated);
+      await this.remember(store, 'membership.roles', command.request_id, fingerprint, updated);
+    });
+    await this.writeAudit({
+      account_id: membership.account_id,
+      organization_id: membership.organization_id,
+      actor,
+      action: 'membership.roles',
+      target_type: 'membership',
+      target_id: membership.id,
+      outcome: 'succeeded',
+      request_id: command.request_id,
+      occurred_at: updated.updated_at,
+      detail: { role_ids: roleIds },
     });
     return updated;
   }

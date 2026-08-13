@@ -58,6 +58,9 @@ export const auditEventIdSchema = prefixedIdentifier('audit_');
 export const supportGrantIdSchema = prefixedIdentifier('support_');
 export const webhookEndpointIdSchema = prefixedIdentifier('webhook_');
 export const enterpriseConfigIdSchema = prefixedIdentifier('enterprise_');
+export const licenseIdSchema = prefixedIdentifier('license_');
+export const licenseActivationIdSchema = prefixedIdentifier('activation_');
+export const licenseSeatIdSchema = prefixedIdentifier('lseat_');
 
 export type AccountId = z.infer<typeof accountIdSchema>;
 export type UserId = z.infer<typeof userIdSchema>;
@@ -96,6 +99,9 @@ export type AuditEventId = z.infer<typeof auditEventIdSchema>;
 export type SupportGrantId = z.infer<typeof supportGrantIdSchema>;
 export type WebhookEndpointId = z.infer<typeof webhookEndpointIdSchema>;
 export type EnterpriseConfigId = z.infer<typeof enterpriseConfigIdSchema>;
+export type LicenseId = z.infer<typeof licenseIdSchema>;
+export type LicenseActivationId = z.infer<typeof licenseActivationIdSchema>;
+export type LicenseSeatId = z.infer<typeof licenseSeatIdSchema>;
 
 export const isoDateTimeSchema = z.string().refine((value) => {
   if (!ISO_8601_RE.test(value)) return false;
@@ -154,11 +160,17 @@ export const capabilityKeySchema = z.enum([
   'payment',
   'hosted_compute',
   'hosted_artifacts',
+  'managed_llm',
+  'event_bus',
+  'workflow_engine',
+  'secrets',
+  'observability',
   'sso',
   'scim',
   'webhooks',
   'customer_managed_keys',
   'private_networking',
+  'licensing',
 ]);
 export type CapabilityKey = z.infer<typeof capabilityKeySchema>;
 

@@ -231,6 +231,7 @@ export class WorkspaceMlService extends Disposable implements IWorkspaceMlServic
           const remote = await this.execution.execute({
             request_id: `${command.request_id}:worker`,
             run_id: command.run_id,
+            attempt_id: command.attempt_id,
             target_id: executionTarget.target.id,
             lease_id: executionTarget.leaseId,
             operation: 'analysis',
@@ -629,6 +630,7 @@ export class WorkspaceMlService extends Disposable implements IWorkspaceMlServic
           );
         }
       }
+      const executor = executorForTarget(executionTarget);
       if (executionTarget !== undefined && executionTarget.type !== 'local') {
         const lease = await this.executionTargets.acquireLease(executionTarget.id, {
           request_id: `${command.request_id}:lease`,
@@ -655,7 +657,7 @@ export class WorkspaceMlService extends Disposable implements IWorkspaceMlServic
         status: 'running',
         execution_target_id: target,
         execution_target_policy_decision_id: command.execution_target_policy_decision_id,
-        executor: executorForTarget(executionTarget),
+        executor,
         dataset_artifact_id: experiment.dataset_artifact_id,
         metrics: {},
         checkpoint_artifact_ids: [],
@@ -697,6 +699,7 @@ export class WorkspaceMlService extends Disposable implements IWorkspaceMlServic
           const remote = await this.execution.execute({
             request_id: `${command.request_id}:worker`,
             run_id: command.run_id,
+            attempt_id: command.attempt_id,
             target_id: executionTarget.id,
             lease_id: executionLeaseId,
             operation: 'training',
@@ -1058,6 +1061,7 @@ export class WorkspaceMlService extends Disposable implements IWorkspaceMlServic
           const remote = await this.execution.execute({
             request_id: `${command.request_id}:worker`,
             run_id: command.run_id,
+            attempt_id: command.attempt_id,
             target_id: executionTarget.target.id,
             lease_id: executionTarget.leaseId,
             operation: 'evaluation',
@@ -2151,7 +2155,12 @@ function validateExternalTrainingResult(experiment: Experiment, result: LocalTra
 
 function executorForTarget(target: ExecutionTarget | undefined): TrainingRun['executor'] {
   if (target === undefined || target.type === 'local') return 'local';
-  return target.type;
+  if (target.type === 'customer-managed' || target.type === 'private-gateway') return 'customer-managed';
+  throw new MlServiceError(
+    MlErrors.codes.ML_EXECUTOR_UNAVAILABLE,
+    `${target.type} execution transport adapter is not configured`,
+    { executionTargetId: target.id, targetType: target.type },
+  );
 }
 
 function numericMetadata(value: unknown): Readonly<Record<string, number>> {

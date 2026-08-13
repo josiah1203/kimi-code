@@ -36,6 +36,7 @@ import {
   executionLeaseReleaseInputSchema,
   executionTargetCommandInputSchema,
   executionTargetCreateInputSchema,
+  executionTargetTestInputSchema,
   executionTargetUpdateInputSchema,
   platformReplayQuerySchema,
   policyDecisionAuditInputSchema,
@@ -95,6 +96,14 @@ import { errEnvelope, okEnvelope } from '../../protocol/envelope';
 import { ErrorCode } from '../../protocol/error-codes';
 import { validationEnvelope } from '../../transport/errors';
 import { mapPlatformError } from './platformErrors';
+import {
+  assertOrganizationAuthorization,
+  assertProjectAuthorization,
+  assertWorkspaceAuthorization,
+  listAuthorizedOrganizations,
+  listAuthorizedProjects,
+  resolveLocalActorId,
+} from '../../services/platformAuthorization';
 
 interface PlatformRouteHost {
   get(path: string, options: { preHandler: unknown[] }, handler: PlatformHandler): unknown;
@@ -104,6 +113,8 @@ interface PlatformRouteHost {
 
 interface PlatformRequest {
   readonly id: string;
+  readonly method?: string;
+  readonly url?: string;
   readonly params: unknown;
   readonly query: unknown;
   readonly body: unknown;
@@ -149,122 +160,173 @@ export function registerPlatformRoutes(app: PlatformRouteHost, core: Scope): voi
   const opts = { preHandler: [] };
 
   app.post('/authorization/evaluate', opts, async (req, reply) => {
-    await authorizationRequest(req, reply, core, (service) =>
-      service.evaluate(platformAuthorizationEvaluateInputSchema.parse(req.body)),
-    );
+    await authorizationRequest(req, reply, core, async (service) => {
+      const input = platformAuthorizationEvaluateInputSchema.parse(withServerActor(req.body));
+      const project = await assertProjectAuthorization(core, {
+        projectId: input.project_id,
+        workspaceId: input.workspace_id,
+        requestId: req.id,
+        capability: 'project.read',
+      });
+      if (project === undefined) return undefined;
+      return service.evaluate(input);
+    });
   });
 
   app.get('/plugins', opts, async (req, reply) => {
-    await pluginRequest(req, reply, core, (service) => {
+    await pluginRequest(req, reply, core, async (service) => {
       const query = z.strictObject({ project_id: z.string().min(1).optional() }).parse(req.query ?? {});
-      return service.list(query.project_id);
+      if (query.project_id !== undefined) {
+        const project = await assertProjectAuthorization(core, {
+          projectId: query.project_id,
+          requestId: req.id,
+          capability: 'project.read',
+        });
+        return project === undefined ? undefined : service.list(project.id);
+      }
+      const projects = await listAuthorizedProjects(core);
+      const plugins = await Promise.all(projects.map((project) => service.list(project.id)));
+      return plugins.flat();
     });
   });
   app.get('/plugins/:plugin_id', opts, async (req, reply) => {
-    await pluginRequest(req, reply, core, (service, params) => service.get(params.plugin_id), pluginParamsSchema);
+    await pluginRequest(req, reply, core, async (service, params) => {
+      const plugin = await service.get(params.plugin_id);
+      if (plugin === undefined) return undefined;
+      await assertProjectAuthorization(core, {
+        projectId: plugin.project_id,
+        requestId: req.id,
+        capability: 'project.read',
+      });
+      return plugin;
+    }, pluginParamsSchema);
   });
   app.post('/plugins/discover', opts, async (req, reply) => {
     await pluginRequest(req, reply, core, (service) =>
-      service.discover(platformPluginDiscoverInputSchema.parse(req.body)),
+      service.discover(platformPluginDiscoverInputSchema.parse(withServerActor(req.body))),
     );
   });
   app.post('/plugins', opts, async (req, reply) => {
     await pluginRequest(req, reply, core, (service) =>
-      service.install(platformPluginInstallInputSchema.parse(req.body)),
+      service.install(platformPluginInstallInputSchema.parse(withServerActor(req.body))),
     );
   });
   app.post('/plugins/:plugin_id/configure', opts, async (req, reply) => {
     await pluginRequest(req, reply, core, (service, params) =>
       service.configure(
-        platformPluginConfigureInputSchema.parse(withPathField(req.body, 'plugin_id', params.plugin_id)),
+        platformPluginConfigureInputSchema.parse(withServerActor(withPathField(req.body, 'plugin_id', params.plugin_id))),
       ), pluginParamsSchema);
   });
   app.post('/plugins/:plugin_id/command', opts, async (req, reply) => {
     await pluginRequest(req, reply, core, (service, params) =>
       service.command(
-        platformPluginCommandInputSchema.parse(withPathField(req.body, 'plugin_id', params.plugin_id)),
+        platformPluginCommandInputSchema.parse(withServerActor(withPathField(req.body, 'plugin_id', params.plugin_id))),
       ), pluginParamsSchema);
   });
 
   app.get('/organizations', opts, async (req, reply) => {
-    await governanceRequest(req, reply, core, z.object({}), (service) => service.listOrganizations());
+    await governanceRequest(req, reply, core, z.object({}), () => listAuthorizedOrganizations(core));
   });
   app.post('/organizations', opts, async (req, reply) => {
     await governanceRequest(req, reply, core, z.object({}), (service) =>
-      service.createOrganization(organizationCreateInputSchema.parse(req.body)),
+      service.createOrganization(organizationCreateInputSchema.parse(withServerActor(req.body))),
     );
   });
   app.post('/organizations/local', opts, async (req, reply) => {
     await governanceRequest(req, reply, core, z.object({}), (service) => {
-      const body = z.strictObject({ actor_id: z.string().min(1).optional() }).parse(req.body ?? {});
-      return service.ensureLocalOrganization(body.actor_id);
+      z.strictObject({ actor_id: z.string().min(1).optional() }).parse(req.body ?? {});
+      return service.ensureLocalOrganization(resolveLocalActorId());
     });
   });
   app.get('/organizations/:organization_id', opts, async (req, reply) => {
-    await governanceRequest(req, reply, core, organizationParamsSchema, (service, params) =>
-      service.getOrganization(params.organization_id),
+    await governanceRequest(req, reply, core, organizationParamsSchema, async (_service, params) =>
+      assertOrganizationAuthorization(core, { organizationId: params.organization_id, requestId: req.id }),
     );
   });
   app.get('/organizations/:organization_id/members', opts, async (req, reply) => {
-    await governanceRequest(req, reply, core, organizationParamsSchema, (service, params) =>
-      service.listOrganizationMembers(params.organization_id),
-    );
+    await governanceRequest(req, reply, core, organizationParamsSchema, async (service, params) => {
+      const organization = await assertOrganizationAuthorization(core, {
+        organizationId: params.organization_id,
+        requestId: req.id,
+      });
+      if (organization === undefined) return undefined;
+      return service.listOrganizationMembers(organization.id);
+    });
   });
   app.post('/organizations/:organization_id/members', opts, async (req, reply) => {
     await governanceRequest(req, reply, core, organizationParamsSchema, (service, params) =>
       service.upsertOrganizationMember(
-        organizationMemberUpsertInputSchema.parse(withPathField(req.body, 'organization_id', params.organization_id)),
+        organizationMemberUpsertInputSchema.parse(withServerActor(withPathField(req.body, 'organization_id', params.organization_id))),
       ),
     );
   });
   app.get('/organizations/:organization_id/projects', opts, async (req, reply) => {
-    await governanceRequest(req, reply, core, organizationParamsSchema, (service, params) =>
-      service.listProjects(params.organization_id),
-    );
+    await governanceRequest(req, reply, core, organizationParamsSchema, async (_service, params) => {
+      const organization = await assertOrganizationAuthorization(core, {
+        organizationId: params.organization_id,
+        requestId: req.id,
+      });
+      return organization === undefined ? undefined : listAuthorizedProjects(core, organization.id);
+    });
   });
   app.get('/projects', opts, async (req, reply) => {
-    await governanceRequest(req, reply, core, z.object({}), (service) => {
+    await governanceRequest(req, reply, core, z.object({}), () => {
       const query = z.strictObject({ organization_id: z.string().min(1).optional() }).parse(req.query ?? {});
-      return service.listProjects(query.organization_id);
+      return listAuthorizedProjects(core, query.organization_id);
     });
   });
   app.post('/projects', opts, async (req, reply) => {
     await governanceRequest(req, reply, core, z.object({}), (service) =>
-      service.createProject(projectCreateInputSchema.parse(req.body)),
+      service.createProject(projectCreateInputSchema.parse(withServerActor(req.body))),
     );
   });
   app.get('/projects/:project_id', opts, async (req, reply) => {
-    await governanceRequest(req, reply, core, projectParamsSchema, (service, params) =>
-      service.getProject(params.project_id),
+    await governanceRequest(req, reply, core, projectParamsSchema, async (_service, params) =>
+      assertProjectAuthorization(core, {
+        projectId: params.project_id,
+        requestId: req.id,
+        capability: 'project.read',
+      }),
     );
   });
   app.get('/projects/:project_id/members', opts, async (req, reply) => {
-    await governanceRequest(req, reply, core, projectParamsSchema, (service, params) =>
-      service.listProjectMembers(params.project_id),
-    );
+    await governanceRequest(req, reply, core, projectParamsSchema, async (service, params) => {
+      const project = await assertProjectAuthorization(core, {
+        projectId: params.project_id,
+        requestId: req.id,
+        capability: 'project.read',
+      });
+      return project === undefined ? undefined : service.listProjectMembers(project.id);
+    });
   });
   app.post('/projects/:project_id/members', opts, async (req, reply) => {
     await governanceRequest(req, reply, core, projectParamsSchema, (service, params) =>
       service.upsertProjectMember(
-        projectMemberUpsertInputSchema.parse(withPathField(req.body, 'project_id', params.project_id)),
+        projectMemberUpsertInputSchema.parse(withServerActor(withPathField(req.body, 'project_id', params.project_id))),
       ),
     );
   });
   app.post('/projects/:project_id/workspaces', opts, async (req, reply) => {
     await governanceRequest(req, reply, core, projectParamsSchema, (service, params) =>
-      service.bindWorkspace(params.project_id, projectWorkspaceBindInputSchema.parse(req.body)),
+      service.bindWorkspace(params.project_id, projectWorkspaceBindInputSchema.parse(withServerActor(req.body))),
     );
   });
   app.get('/projects/:project_id/bindings', opts, async (req, reply) => {
-    await governanceRequest(req, reply, core, projectParamsSchema, (service, params) => {
+    await governanceRequest(req, reply, core, projectParamsSchema, async (service, params) => {
+      const project = await assertProjectAuthorization(core, {
+        projectId: params.project_id,
+        requestId: req.id,
+        capability: 'project.read',
+      });
+      if (project === undefined) return undefined;
       const query = z.strictObject({ workspace_id: z.string().min(1).optional() }).parse(req.query ?? {});
-      return service.listProjectBindings(params.project_id, query.workspace_id);
+      return service.listProjectBindings(project.id, query.workspace_id);
     });
   });
   app.post('/projects/:project_id/bindings', opts, async (req, reply) => {
     await governanceRequest(req, reply, core, projectParamsSchema, (service, params) =>
       service.bindProjectResource(
-        projectBindingCreateInputSchema.parse(withPathField(req.body, 'project_id', params.project_id)),
+        projectBindingCreateInputSchema.parse(withServerActor(withPathField(req.body, 'project_id', params.project_id))),
       ),
     );
   });
@@ -272,14 +334,14 @@ export function registerPlatformRoutes(app: PlatformRouteHost, core: Scope): voi
     await governanceRequest(req, reply, core, projectBindingParamsSchema, (service, params) =>
       service.removeProjectBinding(
         projectBindingRemoveInputSchema.parse(
-          withPathField(withPathField(req.body, 'project_id', params.project_id), 'binding_id', params.binding_id),
+          withServerActor(withPathField(withPathField(req.body, 'project_id', params.project_id), 'binding_id', params.binding_id)),
         ),
       ),
     );
   });
   app.get('/workspaces/:workspace_id/platform/project', opts, async (req, reply) => {
-    await governanceRequest(req, reply, core, paramsSchema, (service, params) =>
-      service.projectForWorkspace(params.workspace_id),
+    await workspaceRequest(req, reply, core, paramsSchema, async (_workspace, params) =>
+      core.accessor.get(IPlatformGovernanceService).projectForWorkspace(params.workspace_id),
     );
   });
 
@@ -706,6 +768,16 @@ export function registerPlatformRoutes(app: PlatformRouteHost, core: Scope): voi
       accessor.get(IWorkspaceExecutionTargetService).disable(params.target_id, executionTargetCommandInputSchema.parse(req.body)),
     );
   });
+  app.post('/workspaces/:workspace_id/platform/execution-targets/:target_id/revoke', opts, async (req, reply) => {
+    await workspaceRequest(req, reply, core, targetParamsSchema, async (accessor, params) =>
+      accessor.get(IWorkspaceExecutionTargetService).revoke(params.target_id, executionTargetCommandInputSchema.parse(req.body)),
+    );
+  });
+  app.post('/workspaces/:workspace_id/platform/execution-targets/:target_id/test', opts, async (req, reply) => {
+    await workspaceRequest(req, reply, core, targetParamsSchema, async (accessor, params) =>
+      accessor.get(IWorkspaceExecutionTargetService).test(params.target_id, executionTargetTestInputSchema.parse(req.body)),
+    );
+  });
   app.post('/workspaces/:workspace_id/platform/execution-targets/:target_id/leases', opts, async (req, reply) => {
     await workspaceRequest(req, reply, core, targetParamsSchema, async (accessor, params) =>
       accessor.get(IWorkspaceExecutionTargetService).acquireLease(params.target_id, executionLeaseAcquireInputSchema.parse(req.body)),
@@ -754,7 +826,7 @@ export function registerPlatformRoutes(app: PlatformRouteHost, core: Scope): voi
 
   app.post('/workspaces/:workspace_id/platform/usage', opts, async (req, reply) => {
     await workspaceRequest(req, reply, core, paramsSchema, async (accessor) =>
-      accessor.get(IWorkspaceUsageService).recordUsage(usageRecordCreateInputSchema.parse(req.body)),
+      accessor.get(IWorkspaceUsageService).recordUsage(usageRecordCreateInputSchema.parse(withServerActor(req.body))),
     );
   });
   app.get('/workspaces/:workspace_id/platform/usage/summary', opts, async (req, reply) => {
@@ -775,25 +847,25 @@ export function registerPlatformRoutes(app: PlatformRouteHost, core: Scope): voi
   });
   app.post('/workspaces/:workspace_id/platform/budgets', opts, async (req, reply) => {
     await workspaceRequest(req, reply, core, paramsSchema, async (accessor) =>
-      accessor.get(IWorkspaceBudgetService).configure(budgetConfigureInputSchema.parse(req.body)),
+      accessor.get(IWorkspaceBudgetService).configure(budgetConfigureInputSchema.parse(withServerActor(req.body))),
     );
   });
   app.post('/workspaces/:workspace_id/platform/budgets/reservations', opts, async (req, reply) => {
     await workspaceRequest(req, reply, core, paramsSchema, async (accessor) =>
-      accessor.get(IWorkspaceBudgetService).reserve(budgetReserveInputSchema.parse(req.body)),
+      accessor.get(IWorkspaceBudgetService).reserve(budgetReserveInputSchema.parse(withServerActor(req.body))),
     );
   });
   app.post('/workspaces/:workspace_id/platform/budgets/reservations/:reservation_id/release', opts, async (req, reply) => {
     await workspaceRequest(req, reply, core, reservationParamsSchema, async (accessor, params) =>
       accessor.get(IWorkspaceBudgetService).release(
-        budgetReleaseInputSchema.parse({ ...req.body as object, reservation_id: params.reservation_id }),
+        budgetReleaseInputSchema.parse(withServerActor({ ...req.body as object, reservation_id: params.reservation_id })),
       ),
     );
   });
   app.post('/workspaces/:workspace_id/platform/budgets/reservations/:reservation_id/reconcile', opts, async (req, reply) => {
     await workspaceRequest(req, reply, core, reservationParamsSchema, async (accessor, params) =>
       accessor.get(IWorkspaceBudgetService).reconcile(
-        budgetReconcileInputSchema.parse({ ...req.body as object, reservation_id: params.reservation_id }),
+        budgetReconcileInputSchema.parse(withServerActor({ ...req.body as object, reservation_id: params.reservation_id })),
       ),
     );
   });
@@ -850,6 +922,52 @@ function withPathField(value: unknown, field: string, fieldValue: string): Recor
   return { ...(value as Record<string, unknown>), [field]: fieldValue };
 }
 
+function withServerActor(value: unknown): Record<string, unknown> {
+  const body = value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? { ...(value as Record<string, unknown>) }
+    : {};
+  delete body['actor_id'];
+  body['actor_id'] = resolveLocalActorId();
+  return body;
+}
+
+function optionalStringFromObject(value: unknown, key: string): string | undefined {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const candidate = (value as Record<string, unknown>)[key];
+  return typeof candidate === 'string' ? candidate : undefined;
+}
+
+function platformCapabilityForRequest(req: PlatformRequest): import('@spiderbyte/protocol').PlatformCapability {
+  const url = (req.url ?? '').split('?', 1)[0] ?? '';
+  const method = req.method ?? 'GET';
+  if (url.includes('/execution-targets')) return method === 'GET' ? 'workspace.read' : 'execution.execute';
+  if (url.includes('/connections')) return method === 'GET' ? 'connection.read' : 'connection.manage';
+  if (url.includes('/policy/decisions/') && /\/(approve|deny)$/.test(url)) return 'approval.grant';
+  if (url.includes('/policy/decisions/') && /\/audit$/.test(url)) return 'audit.read';
+  if (url.includes('/policy')) {
+    if (url.endsWith('/evaluate')) return 'workspace.read';
+    return method === 'GET' ? 'workspace.read' : 'policy.manage';
+  }
+  if (url.includes('/budgets')) return method === 'GET' ? 'usage.read' : 'budget.manage';
+  if (url.includes('/automations')) return url.endsWith('/fire') ? 'run.execute' : method === 'GET' ? 'workspace.read' : 'automation.manage';
+  if (url.includes('/pipeline-runs/') && url.endsWith('/cancel')) return 'run.execute';
+  if (url.includes('/pipelines/') && url.endsWith('/run')) return 'run.execute';
+  if (url.includes('/pipelines') || url.includes('/pipeline-runs')) return method === 'GET' ? 'data.read' : 'data.write';
+  if (url.includes('/ml/')) {
+    if (method === 'GET') return 'data.read';
+    if (url.includes('/train') || (url.includes('/training-runs/') && url.endsWith('/cancel'))) return 'execution.execute';
+    return 'data.write';
+  }
+  if (url.includes('/serving/')) return method === 'GET' ? 'data.read' : 'execution.execute';
+  if (url.includes('/datasets')) {
+    if (method === 'GET' || url.endsWith('/query')) return 'data.read';
+    return 'data.write';
+  }
+  if (url.includes('/artifacts')) return method === 'GET' ? 'data.read' : 'data.write';
+  if (url.includes('/resources')) return url.endsWith('/execute') ? 'execution.execute' : method === 'GET' ? 'data.read' : 'data.write';
+  return 'workspace.read';
+}
+
 function registerPolicyCommand(
   app: PlatformRouteHost,
   core: Scope,
@@ -898,6 +1016,15 @@ async function workspaceRequest<TParams extends z.ZodTypeAny>(
       reply.send(errEnvelope(ErrorCode.WORKSPACE_NOT_FOUND, 'workspace not found', req.id));
       return;
     }
+    await assertWorkspaceAuthorization(core, {
+      workspaceId,
+      requestId: req.id,
+      capability: platformCapabilityForRequest(req),
+      executionTargetId:
+        optionalStringFromObject(req.body, 'execution_target_id') ??
+        optionalStringFromObject(req.body, 'target_id') ??
+        optionalStringFromObject(params, 'target_id'),
+    });
     const data = await operation(workspace, params);
     if (data === undefined) {
       reply.send(
@@ -975,7 +1102,12 @@ async function authorizationRequest(
     return;
   }
   try {
-    reply.send(okEnvelope(await operation(core.accessor.get(IPlatformAuthorizationService)), req.id));
+    const data = await operation(core.accessor.get(IPlatformAuthorizationService));
+    if (data === undefined) {
+      reply.send(errEnvelope(ErrorCode.PLATFORM_RESOURCE_NOT_FOUND, 'platform resource not found', req.id));
+      return;
+    }
+    reply.send(okEnvelope(data, req.id));
   } catch (error) {
     if (error instanceof z.ZodError) {
       reply.send(

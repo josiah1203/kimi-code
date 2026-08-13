@@ -19,3 +19,8 @@ for (const key of Object.keys(process.env)) {
 // read-model suites opt in with explicit flag service overrides
 // (test/app/sessionIndex).
 process.env['SPIDERBYTE_EXPERIMENTAL_PERSISTENCE_MINIDB_READMODEL'] = 'false';
+
+// Provider/model config tests exercise the encrypted local credential bridge.
+// Use a deterministic test-only key; production requires an operator-managed
+// SPIDERBYTE_SECRET_STORE_KEY.
+process.env['SPIDERBYTE_SECRET_STORE_KEY'] = Buffer.alloc(32, 11).toString('base64url');

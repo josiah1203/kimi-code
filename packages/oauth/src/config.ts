@@ -40,6 +40,8 @@ export interface ProviderModelInfo {
 export interface ProviderConfigShape {
   readonly type?: string | undefined;
   readonly baseUrl?: string | undefined;
+  /** Opaque reference to credential material; raw apiKey is runtime-only. */
+  readonly secretRef?: string | undefined;
   readonly apiKey?: string | undefined;
   readonly oauth?: ProviderOAuthRef | undefined;
   readonly source?: unknown;

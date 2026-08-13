@@ -20,6 +20,15 @@ import { IWorkspaceContext } from '#/workspace/workspaceContext/workspaceContext
 import { IWorkspaceUsageService } from '#/workspace/usage/usage';
 import { IWorkspaceBudgetService } from '#/workspace/budgets/budget';
 import { IWorkspaceExecutionTargetService } from '#/workspace/executionTargets/executionTarget';
+import { IWorkspacePlatformEventService } from '#/workspace/platformEvents/platformEvents';
+import { IWorkspaceSshDaemonService, type IWorkspaceSshDaemonService as WorkspaceSshDaemonServiceContract } from './sshDaemon';
+import {
+  ExecutionEndpointError,
+  isLoopbackOrLinkLocalHost,
+  isPrivateNetworkHost,
+  resolveExecutionEndpoint,
+} from './endpointSecurity';
+import { readResponseTextBounded } from '#/app/net/responseBody';
 import { findSensitivePlatformMetadataPath } from '#/workspace/platformServices/metadata';
 import {
   artifactKindSchema,
@@ -93,6 +102,8 @@ export class WorkspaceExecutionService extends Disposable implements IWorkspaceE
     @IWorkspaceArtifactService private readonly artifacts: IWorkspaceArtifactService,
     @IPlatformSecretStore private readonly secrets: IPlatformSecretStore,
     @IWorkspaceUsageService private readonly usage: IWorkspaceUsageService,
+    @IWorkspacePlatformEventService private readonly events: IWorkspacePlatformEventService,
+    @IWorkspaceSshDaemonService private readonly sshDaemon: WorkspaceSshDaemonServiceContract,
     @IWorkspaceBudgetService private readonly budgets?: IWorkspaceBudgetService,
   ) {
     super();
@@ -167,10 +178,24 @@ export class WorkspaceExecutionService extends Disposable implements IWorkspaceE
         { targetId: input.target_id },
       );
     }
+    if (target.workspace_id !== this.context.workspaceId) {
+      throw new ExecutionServiceError(
+        ExecutionErrors.codes.EXECUTION_TARGET_UNAVAILABLE,
+        'execution target is not authorized for this workspace',
+        { targetId: target.id },
+      );
+    }
     if (target.type === 'local') {
       throw new ExecutionServiceError(
         ExecutionErrors.codes.EXECUTION_TARGET_UNAVAILABLE,
         'local execution is owned by the native workspace executor',
+        { targetId: target.id, targetType: target.type },
+      );
+    }
+    if (target.type !== 'ssh' && target.type !== 'customer-managed' && target.type !== 'private-gateway') {
+      throw new ExecutionServiceError(
+        ExecutionErrors.codes.EXECUTION_TARGET_UNAVAILABLE,
+        `${target.type} execution transport adapter is not configured`,
         { targetId: target.id, targetType: target.type },
       );
     }
@@ -196,6 +221,25 @@ export class WorkspaceExecutionService extends Disposable implements IWorkspaceE
         { targetId: target.id, state: target.state },
       );
     }
+    if (target.health_status !== 'healthy') {
+      throw new ExecutionServiceError(
+        ExecutionErrors.codes.EXECUTION_TARGET_UNAVAILABLE,
+        'execution target has not passed a recent health check',
+        { targetId: target.id, healthStatus: target.health_status ?? 'unknown' },
+      );
+    }
+    if (target.version_compatibility?.required_protocol_version !== undefined
+      && target.version_compatibility.compatible !== true) {
+      throw new ExecutionServiceError(
+        ExecutionErrors.codes.EXECUTION_TARGET_UNAVAILABLE,
+        'execution target protocol is not compatible',
+        {
+          targetId: target.id,
+          requiredProtocolVersion: target.version_compatibility.required_protocol_version,
+          observedProtocolVersion: target.version_compatibility.observed_protocol_version,
+        },
+      );
+    }
     if (target.capabilities.length > 0 && !hasCapability(target.capabilities, input.operation)) {
       throw new ExecutionServiceError(
         ExecutionErrors.codes.EXECUTION_TARGET_UNAVAILABLE,
@@ -203,13 +247,29 @@ export class WorkspaceExecutionService extends Disposable implements IWorkspaceE
         { targetId: target.id, operation: input.operation },
       );
     }
+    const allowedOperations = target.policy?.allowed_operations ?? [];
+    if (allowedOperations.length > 0 && !hasCapability(allowedOperations, input.operation)) {
+      throw new ExecutionServiceError(
+        ExecutionErrors.codes.EXECUTION_TARGET_UNAVAILABLE,
+        "execution target policy does not allow '" + input.operation + "'",
+        { targetId: target.id, operation: input.operation },
+      );
+    }
 
-    const endpoint = workerEndpoint(target.metadata);
-    const credential = await this.resolveCredential(target.credential_ref);
+    const credential = target.type === 'ssh' ? undefined : await this.resolveCredential(target.credential_ref);
     const budgetReservation = await this.reserveBudget(target, input);
     let response: WorkerResponse;
     try {
-      response = await this.callWorker(endpoint, target.metadata, credential, input, signal);
+      if (target.type === 'ssh') {
+        response = workerResponseSchema.parse(await this.callSsh(target, input, signal));
+      } else {
+        const endpoint = await this.resolveWorkerEndpoint(target.endpoint, target.metadata, target.type);
+        try {
+          response = await this.callWorker(endpoint.url, endpoint.dispatcher, target.metadata, credential, input, signal);
+        } finally {
+          await endpoint.dispatcher?.close().catch(() => undefined);
+        }
+      }
       // The remote call has completed, so charge the Run even if validating
       // or importing the worker's response fails below.
       await this.recordUsage(target.type, input, startedAt).catch(() => undefined);
@@ -263,6 +323,7 @@ export class WorkspaceExecutionService extends Disposable implements IWorkspaceE
           ...sanitizeMetadata(artifact.metadata, credential),
           execution_target_id: input.target_id,
           execution_operation: input.operation,
+          ...(input.attempt_id === undefined ? {} : { attempt_id: input.attempt_id }),
         },
       });
       outputArtifactIds.push(created.id);
@@ -336,15 +397,16 @@ export class WorkspaceExecutionService extends Disposable implements IWorkspaceE
       request_id: `${input.request_id}:usage`,
       actor_id: 'agent',
       run_id: input.run_id,
+      attempt_id: input.attempt_id,
       meter: 'execution',
       unit: 'seconds',
       amount: Math.max(0.001, (Date.now() - startedAt) / 1_000),
-      source: targetType === 'customer-managed' ? 'self_hosted' : 'local',
+      source: targetType === 'local' ? 'local' : 'self_hosted',
       execution_target_id: input.target_id,
       metadata: {
         operation: input.operation,
         execution_target_type: targetType,
-        usage_source: targetType === 'customer-managed' ? 'self_hosted' : 'local',
+        usage_source: targetType === 'local' ? 'local' : 'self_hosted',
       },
     });
   }
@@ -408,6 +470,7 @@ export class WorkspaceExecutionService extends Disposable implements IWorkspaceE
 
   private async callWorker(
     endpoint: string,
+    dispatcher: import('undici').Dispatcher | undefined,
     targetMetadata: Readonly<Record<string, unknown>> | undefined,
     credential: string | undefined,
     input: WorkspaceExecutionRequest,
@@ -416,7 +479,7 @@ export class WorkspaceExecutionService extends Disposable implements IWorkspaceE
     let lastError: unknown;
     for (let attempt = 0; attempt <= WORKER_RETRY_COUNT; attempt += 1) {
       try {
-        return await this.callWorkerAttempt(endpoint, targetMetadata, credential, input, signal);
+        return await this.callWorkerAttempt(endpoint, dispatcher, targetMetadata, credential, input, signal);
       } catch (error) {
         lastError = error;
         if (signal.aborted || !isRetryableWorkerError(error) || attempt === WORKER_RETRY_COUNT) throw error;
@@ -430,16 +493,80 @@ export class WorkspaceExecutionService extends Disposable implements IWorkspaceE
     );
   }
 
+  private async callSsh(
+    target: ExecutionTarget,
+    input: WorkspaceExecutionRequest,
+    signal: AbortSignal,
+  ): Promise<WorkerResponse> {
+    await this.events.append({
+      event_type: 'run.updated',
+      entity_type: 'run',
+      entity_id: input.run_id,
+      request_id: input.request_id,
+      actor: 'agent',
+      state: 'running',
+      payload: {
+        ...(input.attempt_id === undefined ? {} : { attempt_id: input.attempt_id }),
+        execution_target_id: target.id,
+        execution_target_type: 'ssh',
+        transport: 'ssh',
+        operation: input.operation,
+      },
+    });
+    try {
+      const response = await this.sshDaemon.execute(target, this.context.workspaceId, input, signal);
+      await this.events.append({
+        event_type: response.status === 'succeeded' ? 'run.completed' : 'run.failed',
+        entity_type: 'run',
+        entity_id: input.run_id,
+        request_id: input.request_id,
+        actor: 'agent',
+        state: response.status,
+        payload: {
+          ...(input.attempt_id === undefined ? {} : { attempt_id: input.attempt_id }),
+          execution_target_id: target.id,
+          execution_target_type: 'ssh',
+          transport: 'ssh',
+          operation: input.operation,
+        },
+      });
+      return response;
+    } catch (error) {
+      await this.events.append({
+        event_type: 'run.failed',
+        entity_type: 'run',
+        entity_id: input.run_id,
+        request_id: input.request_id,
+        actor: 'agent',
+        state: 'failed',
+        payload: {
+          ...(input.attempt_id === undefined ? {} : { attempt_id: input.attempt_id }),
+          execution_target_id: target.id,
+          execution_target_type: 'ssh',
+          transport: 'ssh',
+          operation: input.operation,
+          reason: redactText(error instanceof Error ? error.message : String(error), undefined),
+        },
+      });
+      throw new ExecutionServiceError(
+        ExecutionErrors.codes.EXECUTION_WORKER_REQUEST_FAILED,
+        signal.aborted ? 'SSH daemon execution was cancelled' : 'SSH daemon execution failed',
+        { targetId: target.id, operation: input.operation },
+      );
+    }
+  }
+
   private async callWorkerAttempt(
     endpoint: string,
+    dispatcher: import('undici').Dispatcher | undefined,
     targetMetadata: Readonly<Record<string, unknown>> | undefined,
     credential: string | undefined,
     input: WorkspaceExecutionRequest,
     signal: AbortSignal,
   ): Promise<WorkerResponse> {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), WORKER_TIMEOUT_MS);
-    const abort = () => controller.abort();
+    const timer = setTimeout(() => { controller.abort(); }, WORKER_TIMEOUT_MS);
+    const abort = () => { controller.abort(); };
     if (signal.aborted) controller.abort();
     signal.addEventListener('abort', abort, { once: true });
     try {
@@ -451,10 +578,14 @@ export class WorkspaceExecutionService extends Disposable implements IWorkspaceE
           method: 'POST',
           headers,
           signal: controller.signal,
+          redirect: 'error',
+          dispatcher,
           body: JSON.stringify({
             protocol_version: 1,
             workspace_id: this.context.workspaceId,
             run_id: input.run_id,
+            attempt_id: input.attempt_id,
+            project_id: input.project_id,
             request_id: input.request_id,
             target_id: input.target_id,
             lease_id: input.lease_id,
@@ -464,8 +595,14 @@ export class WorkspaceExecutionService extends Disposable implements IWorkspaceE
             // execution records; the durable payload remains artifact ids.
             payload: materializedPayload,
             policy_decision_id: input.policy_decision_id,
+            policy_decision_ids: input.policy_decision_ids,
+            approval_ids: input.approval_ids,
+            artifact_ids: input.artifact_ids,
+            provider: input.provider,
+            model: input.model,
+            user_id: input.user_id,
           }),
-        });
+        } as RequestInit & { readonly dispatcher?: import('undici').Dispatcher });
       } catch (error) {
         throw new ExecutionServiceError(
           ExecutionErrors.codes.EXECUTION_WORKER_REQUEST_FAILED,
@@ -474,8 +611,8 @@ export class WorkspaceExecutionService extends Disposable implements IWorkspaceE
             : 'worker request failed: ' + redactError(error, credential),
         );
       }
-      const text = await response.text();
-      if (text.length > MAX_WORKER_RESPONSE_BYTES) {
+      const text = await readResponseTextBounded(response, MAX_WORKER_RESPONSE_BYTES);
+      if (text === undefined) {
         throw new ExecutionServiceError(
           ExecutionErrors.codes.EXECUTION_WORKER_INVALID_RESPONSE,
           'worker response exceeds the maximum supported size',
@@ -508,6 +645,24 @@ export class WorkspaceExecutionService extends Disposable implements IWorkspaceE
     } finally {
       clearTimeout(timer);
       signal.removeEventListener('abort', abort);
+    }
+  }
+
+  private async resolveWorkerEndpoint(
+    endpoint: string | undefined,
+    metadata: Readonly<Record<string, unknown>> | undefined,
+    targetType: 'customer-managed' | 'private-gateway',
+  ): Promise<Awaited<ReturnType<typeof resolveExecutionEndpoint>>> {
+    const value = workerEndpoint(endpoint, metadata, targetType);
+    try {
+      return await resolveExecutionEndpoint(value, targetType);
+    } catch (error) {
+      throw new ExecutionServiceError(
+        ExecutionErrors.codes.EXECUTION_TARGET_UNAVAILABLE,
+        error instanceof ExecutionEndpointError
+          ? error.message
+          : 'execution target worker endpoint could not be validated',
+      );
     }
   }
 
@@ -652,8 +807,12 @@ function collectArtifactIds(
   return output;
 }
 
-function workerEndpoint(metadata: Readonly<Record<string, unknown>> | undefined): string {
-  const value = metadata?.['worker_endpoint'];
+function workerEndpoint(
+  endpoint: string | undefined,
+  metadata: Readonly<Record<string, unknown>> | undefined,
+  targetType: ExecutionTarget['type'],
+): string {
+  const value = endpoint ?? metadata?.['worker_endpoint'];
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new ExecutionServiceError(
       ExecutionErrors.codes.EXECUTION_TARGET_UNAVAILABLE,
@@ -675,10 +834,30 @@ function workerEndpoint(metadata: Readonly<Record<string, unknown>> | undefined)
       'execution target worker endpoint must use http or https',
     );
   }
-  if (isPrivateWorkerHost(url.hostname)) {
+  if (url.username !== '' || url.password !== '') {
+    throw new ExecutionServiceError(
+      ExecutionErrors.codes.EXECUTION_TARGET_UNAVAILABLE,
+      'execution target worker endpoint must not contain embedded credentials',
+    );
+  }
+  for (const key of url.searchParams.keys()) {
+    if (/(?:token|secret|password|api[_-]?key|authorization|credential)/i.test(key)) {
+      throw new ExecutionServiceError(
+        ExecutionErrors.codes.EXECUTION_TARGET_UNAVAILABLE,
+        'execution target worker endpoint must not contain credential query parameters',
+      );
+    }
+  }
+  if (targetType !== 'private-gateway' && isPrivateNetworkHost(url.hostname)) {
     throw new ExecutionServiceError(
       ExecutionErrors.codes.EXECUTION_TARGET_UNAVAILABLE,
       'execution target worker endpoint must not use a private address',
+    );
+  }
+  if (targetType === 'private-gateway' && isLoopbackOrLinkLocalHost(url.hostname)) {
+    throw new ExecutionServiceError(
+      ExecutionErrors.codes.EXECUTION_TARGET_UNAVAILABLE,
+      'private-gateway worker endpoint must not use a loopback or link-local address',
     );
   }
   return url.toString();
@@ -716,25 +895,17 @@ function workerHeaders(
   return headers;
 }
 
-function isPrivateWorkerHost(hostname: string): boolean {
-  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
-  if (host === 'localhost' || host.endsWith('.localhost') || host === '::1') return true;
-  const octets = host.split('.').map(Number);
-  if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
-    return host.startsWith('fc') || host.startsWith('fd') || /^fe[89ab]/.test(host);
-  }
-  const [first, second] = octets as [number, number, number, number];
-  return first === 0
-    || first === 10
-    || first === 127
-    || (first === 169 && second === 254)
-    || (first === 172 && second >= 16 && second <= 31)
-    || (first === 192 && second === 168)
-    || (first === 100 && second >= 64 && second <= 127);
-}
-
 function hasCapability(capabilities: readonly string[], operation: string): boolean {
-  return capabilities.includes(operation) || capabilities.includes('ml') || capabilities.includes('pipeline');
+  const semanticAliases: Record<string, readonly string[]> = {
+    analysis: ['analysis', 'execute_analysis', 'profile_dataset'],
+    training: ['training', 'train_model'],
+    evaluation: ['evaluation', 'inspect_run'],
+    comparison: ['comparison', 'inspect_run'],
+    serving: ['serving', 'retrieve_artifact'],
+  };
+  return (semanticAliases[operation] ?? [operation]).some((capability) => capabilities.includes(capability))
+    || capabilities.includes('ml')
+    || capabilities.includes('pipeline');
 }
 
 function estimatedExecutionSeconds(input: WorkspaceExecutionRequest): number {
@@ -814,11 +985,19 @@ function executionFingerprint(input: WorkspaceExecutionRequest): string {
   return createHash('sha256')
     .update(stableJson({
       run_id: input.run_id,
+      attempt_id: input.attempt_id,
+      project_id: input.project_id,
       target_id: input.target_id,
       lease_id: input.lease_id,
       operation: input.operation,
       payload: input.payload,
       policy_decision_id: input.policy_decision_id,
+      policy_decision_ids: input.policy_decision_ids,
+      approval_ids: input.approval_ids,
+      artifact_ids: input.artifact_ids,
+      provider: input.provider,
+      model: input.model,
+      user_id: input.user_id,
     }))
     .digest('hex');
 }

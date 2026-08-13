@@ -5,6 +5,7 @@ import {
   type Session,
   type ThinkingEffort,
 } from '@spiderbyte/sdk';
+import type { ProviderSecretRef } from '@spiderbyte/protocol';
 
 import { createSpiderByteUserAgent } from '#/cli/version';
 
@@ -192,6 +193,8 @@ export class AuthFlowController {
         await host.harness.replaceConfigSections(Object.fromEntries(Object.entries(patch)));
         return staged;
       },
+      resolveSecretRef: (secretRef) =>
+        host.harness.resolveProviderSecret(secretRef as ProviderSecretRef),
       userAgent,
     };
   }

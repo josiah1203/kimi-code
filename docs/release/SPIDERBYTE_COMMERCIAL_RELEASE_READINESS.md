@@ -2,7 +2,11 @@
 
 Status: not production-ready. This matrix is intentionally conservative: a
 capability is not marked ready because a schema, button, or deterministic test
-adapter exists.
+adapter exists. The accepted launch direction is a customer-owned,
+seat-based self-hosted commercial edition. Hosted compute and model-usage
+billing rows are optional future scope, not prerequisites for that launch.
+See [`SPIDERBYTE_PRODUCT_AUTHORITY.md`](../architecture/SPIDERBYTE_PRODUCT_AUTHORITY.md)
+for the current product decision.
 
 ## Capability matrix
 
@@ -10,6 +14,7 @@ adapter exists.
 | --- | --- | --- |
 | Open Core local execution and accountless operation | Implemented in the existing Open Core graph | Open Core boundary checker and local platform suites; no commercial imports |
 | Commercial domain records and validation | Implemented and unit-tested | `commercial/domain`, strict schemas and lifecycle fields |
+| Signed offline licenses and seat lifecycle | Implemented at deterministic service level; production authority/key distribution adapter-dependent | `commercial/licensing` verifies signed payloads locally, provides a fail-closed capability guard, persists activations/seats, enforces tenant/auth/seat/grace/expiry/idempotency, and audits mutations; production signing authority, key rotation, identity, durable deployment, and operational revocation remain external |
 | Commercial store and migrations | Injected SQL adapter and migration runner operational when a client is supplied; unavailable without one | `commercial/persistence`; production driver/pooling, credentials, backups, restore, migration operations, and tenant-isolation evidence remain external |
 | Account creation, login, sessions, invitations, tenancy, roles | Implemented against provider-neutral ports; development adapter only | `commercial/application`; production identity authority is required |
 | Server-side authorization and audit chain | Implemented and tested in application/services | Requires integration into the selected hosted gateway and operational audit retention |
@@ -25,7 +30,7 @@ adapter exists.
 | SCIM provisioning and group sync | Contract plus local test adapter; adapter-gated | Requires selected SCIM authority, sync jobs, deprovisioning policy, and E2E tests |
 | Domain verification | Local deterministic adapter; production DNS/HTTP adapter-gated | Requires DNS/HTTP verification service and operational replay/expiry handling |
 | CMK, private networking, residency, deployment channels | Configuration contracts and validation; infrastructure-gated | Requires KMS, network, regional/dedicated deployment, residency, backup, and isolation evidence |
-| Commercial REST/WebSocket routes | Fastify route and `ws` upgrade adapters implemented outside Open Core; fail-closed auth/capability behavior tested | Hosted gateway deployment, rate limiting, observability, durable event delivery, and production identity authority are not deployed here |
+| Commercial REST/WebSocket routes | Fastify route and `ws` upgrade adapters implemented outside Open Core; fail-closed auth/capability behavior tested, including license lifecycle routes | Hosted gateway deployment, rate limiting, observability, durable event delivery, and production identity authority are not deployed here |
 | Commercial SDK | Typed fetch transport plus server-controlled request-body/path contracts | Hosted endpoint and authentication authority are not deployed here |
 | Commercial MCP | Deny-by-default hosted tool registry | Not registered in Open Core MCP; hosted session/tool gateway is required |
 | Commercial CLI | Unavailable | Open Core CLI remains local-only; no hosted account/admin command surface is registered |
@@ -46,18 +51,17 @@ adapter exists.
 
 ## Verification evidence
 
-The following passed on 2026-08-11:
+The recorded pre-licensing baseline passed on 2026-08-11: all 13 then-existing
+`commercial/*` workspaces built and typechecked, and the 12 then-existing
+commercial test files passed (41 tests total). Phase 0 inventory, Open Core
+boundary, and the focused Open Core platform suites were also recorded as
+passing.
 
-- all 13 `commercial/*` workspaces build;
-- all 13 `commercial/*` workspaces typecheck;
-- 12 commercial test files pass, 41 tests total; `commercial/ports` has no
-  test files and uses an explicit pass-with-no-tests script;
-- Phase 0 inventory, Open Core boundary, and Phase 0 verifier pass;
-- the focused Open Core platform suites recorded in the Phase 0 audit remain
-  separate from the commercial suites.
-
-These results establish deterministic code and boundary behavior only. They do
-not establish hosted production readiness.
+The new `commercial/licensing` package and its dependent API/adapters have not
+yet been re-run in this checkout because the current dependency installation
+is incomplete (`zod@4.3.6` is absent from the available local store). Current
+Phase 5 build/test status is therefore **unverified**, not passed. Neither the
+baseline nor the pending Phase 5 checks establish hosted production readiness.
 
 ## External blockers and required inputs
 

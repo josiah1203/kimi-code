@@ -20,11 +20,19 @@ export interface WorkspaceExecutionArtifactInput {
 export interface WorkspaceExecutionRequest {
   readonly request_id: string;
   readonly run_id: string;
+  readonly attempt_id?: string;
+  readonly project_id?: string;
   readonly target_id: ExecutionTargetId;
   readonly lease_id?: string;
   readonly operation: WorkspaceExecutionOperation;
   readonly payload: Readonly<Record<string, unknown>>;
   readonly policy_decision_id?: string;
+  readonly policy_decision_ids?: readonly string[];
+  readonly approval_ids?: readonly string[];
+  readonly artifact_ids?: readonly string[];
+  readonly provider?: string;
+  readonly model?: string;
+  readonly user_id?: string;
 }
 
 export interface WorkspaceExecutionResult {

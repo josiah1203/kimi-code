@@ -115,6 +115,14 @@ describe('commercial directory application', () => {
       membership_id: membership.id,
       state: 'removed',
     })).rejects.toMatchObject({ code: CommercialApplicationCodes.LAST_OWNER_REQUIRED });
+    const memberRole = (await owner.store.list('roles')).find((candidate) => candidate.name === 'member')!;
+    await expect(owner.directory.changeMembershipRoles(principal, {
+      request_id: 'remove-owner-role-1',
+      actor: { kind: 'user', id: account.user.id },
+      organization_id: organization.id,
+      membership_id: membership.id,
+      role_ids: [memberRole.id],
+    })).rejects.toMatchObject({ code: CommercialApplicationCodes.LAST_OWNER_REQUIRED });
   });
 
   it('does not persist invitation tokens and prevents secret replay', async () => {

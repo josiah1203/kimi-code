@@ -1,6 +1,6 @@
 # Providers and models
 
-SpiderByte separates a provider connection from a model alias. A provider describes the wire adapter, endpoint, and BYOK credential; a model describes the upstream model name and its local capability metadata.
+SpiderByte separates a provider connection from a model alias. A provider describes the wire adapter, endpoint, and BYOK credential; a model describes the upstream model name and its local capability metadata. Persisted provider records contain an opaque `secret_ref`; raw key material is resolved only for an outbound request.
 
 ## Supported adapter types
 
@@ -22,13 +22,12 @@ The interactive provider command edits local provider and model records:
 spyderbyte provider --help
 ```
 
-For deterministic setup, edit `config.toml` directly:
+For deterministic setup without credentials, edit `config.toml` directly:
 
 ```toml
 [providers.local]
 type = "openai"
 base_url = "http://127.0.0.1:11434/v1"
-api_key = "local"
 
 [models.local]
 provider = "local"
@@ -37,7 +36,40 @@ max_context_size = 32768
 capabilities = ["tool_use"]
 ```
 
-For a BYOK gateway, replace the endpoint and keep the key in a local ignored file or an environment overlay. A missing key or endpoint returns a configuration error; it does not switch to another provider.
+## Provider CLI connections
+
+The platform runtime also accepts an explicit `provider-cli` connection through
+the REST/SDK platform contract. Its `metadata.provider_command` uses
+snake-case fields and must contain an argv-only `run_args` definition; set
+`metadata.model` to the model that policy will authorize:
+
+```json
+{
+  "provider": "provider-cli",
+  "secret_ref": "secret_none",
+  "metadata": {
+    "model": "your-model",
+    "provider_command": {
+      "executable": "/absolute/path/to/provider-cli",
+      "version_args": ["version", "--json"],
+      "models_args": ["models", "--json"],
+      "run_args": ["run", "--json", "--model", "{model}"],
+      "input": "jsonl",
+      "models_output": "json"
+    }
+  }
+}
+```
+
+The connection runs on the local SpiderByte process. If the provider CLI
+needs a stored credential, configure `provider_command.auth_env` and create
+the connection through the secret-bearing setup command; the value is
+injected only into the child process and is never stored in metadata. Provider
+CLI connections support text-only model requests. Tool calls and structured
+response formats are rejected explicitly because they are not represented by
+the common command contract.
+
+For a BYOK gateway, set `SPIDERBYTE_SECRET_STORE_KEY` and use `spyderbyte configure --api-key-env <name>` or the provider import command. Those commands accept the key transiently and persist only an encrypted secret plus its opaque reference. `SPIDERBYTE_MODEL_API_KEY` remains a process-local environment overlay; it is not written to `config.toml`. A missing key or endpoint returns a configuration error; it does not switch to another provider.
 
 ## Provider discovery
 

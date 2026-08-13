@@ -23,9 +23,10 @@ class TestSqlClient implements CommercialSqlClient {
     sql: string,
     parameters: readonly unknown[] = [],
   ): Promise<CommercialSqlQueryResult<Row>> {
+    if (sql.includes('SELECT pg_advisory_xact_lock')) return { rows: [] as Row[] };
     if (sql.includes('CREATE TABLE IF NOT EXISTS commercial_schema_migrations')) return { rows: [] as Row[] };
-    if (sql.includes('CREATE TABLE commercial_records') || sql.includes('CREATE TABLE commercial_ledger_entries') || sql.includes('CREATE TABLE commercial_idempotency')) return { rows: [] as Row[] };
-    if (sql.includes('DROP TABLE IF EXISTS') || sql.includes('CREATE TABLE commercial_audit_events')) return { rows: [] as Row[] };
+    if (sql.includes('CREATE TABLE commercial_records') || sql.includes('CREATE TABLE commercial_ledger_entries') || sql.includes('CREATE TABLE commercial_idempotency') || sql.includes('CREATE TABLE commercial_event_log')) return { rows: [] as Row[] };
+    if (sql.includes('DROP TABLE IF EXISTS') || sql.includes('CREATE TABLE commercial_audit_events') || sql.includes('CREATE INDEX commercial_license_')) return { rows: [] as Row[] };
     if (sql.includes('SELECT version FROM commercial_schema_migrations ORDER BY version ASC')) {
       return { rows: [...this.applied.keys()].toSorted((left, right) => left - right).map((version) => asRow<Row>({ version })) };
     }
@@ -90,7 +91,7 @@ describe('commercial persistence boundary', () => {
   it('has ordered, checksummed, reversible migrations', async () => {
     const port = new InMemoryMigrationPort();
     for (const migration of COMMERCIAL_MIGRATIONS) await port.apply(migration);
-    expect(await port.listApplied()).toEqual([1, 2, 3]);
+    expect(await port.listApplied()).toEqual([1, 2, 3, 4, 5]);
     for (const migration of [...COMMERCIAL_MIGRATIONS].toReversed()) await port.rollback(migration);
     expect(await port.listApplied()).toEqual([]);
     expect(new Set(COMMERCIAL_MIGRATIONS.map((migration) => migration.checksum)).size).toBe(COMMERCIAL_MIGRATIONS.length);
@@ -118,7 +119,7 @@ describe('commercial persistence boundary', () => {
       throw new Error('rollback');
     })).rejects.toThrow('rollback');
     expect(await store.get('accounts', 'acct_rollback')).toBeUndefined();
-    expect(await new SqlMigrationPort(client, { now: () => now }).listApplied()).toEqual([1, 2, 3]);
+    expect(await new SqlMigrationPort(client, { now: () => now }).listApplied()).toEqual([1, 2, 3, 4, 5]);
     await expect(store.put('accounts', 'acct_mismatch', { ...account, id: 'acct_other' })).rejects.toThrow('does not match store key');
   });
 });

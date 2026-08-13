@@ -1,5 +1,5 @@
 ---
-"@moonshot-ai/kimi-code-sdk": patch
+"@spiderbyte/sdk": patch
 ---
 
 Expose persisted MCP authorization status without starting an OAuth flow.

@@ -8,20 +8,22 @@ export type { SpiderByteConfigShape } from './config';
 /**
  * Identifies where a custom-registry-managed provider came from. The same
  * URL may produce multiple providers (one per top-level entry in the api.json
- * document). Refresh treats the URL as the stable registry identity and may try
- * more than one API key when existing provider records drift during key
- * rotation.
+ * document). Refresh treats the URL as the stable registry identity. The
+ * credential is represented only by an opaque reference; raw material is
+ * supplied transiently to `fetchCustomRegistry` by the host.
  */
 export interface CustomRegistrySource {
   readonly kind: 'apiJson';
   readonly url: string;
-  readonly apiKey: string;
+  readonly secretRef?: string | undefined;
 }
 
 export interface FetchCustomRegistryOptions {
   readonly signal?: AbortSignal;
   readonly fetchImpl?: typeof fetch;
   readonly userAgent?: string;
+  /** Resolved transient credential; never written into config or source. */
+  readonly apiKey?: string | undefined;
 }
 
 /**
@@ -203,15 +205,15 @@ export async function fetchCustomRegistry(
   source: CustomRegistrySource,
   options: FetchCustomRegistryOptions = {},
 ): Promise<Record<string, CustomRegistryProviderEntry>> {
-  const { signal, fetchImpl = fetch, userAgent } = options;
+  const { signal, fetchImpl = fetch, userAgent, apiKey } = options;
   const headers: Record<string, string> = {
     Accept: 'application/json',
   };
   if (userAgent !== undefined) {
     headers['User-Agent'] = userAgent;
   }
-  if (source.apiKey.length > 0) {
-    headers['Authorization'] = `Bearer ${source.apiKey}`;
+  if (apiKey !== undefined && apiKey.length > 0) {
+    headers['Authorization'] = `Bearer ${apiKey}`;
   }
 
   const init: RequestInit = { headers };
@@ -319,7 +321,7 @@ export function applyCustomRegistryProvider(
   config.providers[providerKey] = {
     type: entry.type,
     baseUrl: entry.api,
-    apiKey: source.apiKey,
+    secretRef: source.secretRef,
     source,
   };
 
@@ -409,9 +411,9 @@ export function removeCustomRegistryProvider(
  * but no longer present in `entries` are removed (along with their aliases and
  * any `defaultModel` pointing at them). Without this, deleting a provider
  * upstream and re-importing the registry leaves orphaned provider records and
- * model aliases behind. Matching is by `source.url` only — the apiKey commonly
- * rotates between imports, but the URL is the stable identity of "the same
- * registry".
+ * model aliases behind. Matching is by `source.url` only — the credential
+ * reference may remain stable while its material rotates, but the URL is the
+ * stable identity of "the same registry".
  */
 export function applyCustomRegistryEntries(
   config: SpiderByteConfigShape,

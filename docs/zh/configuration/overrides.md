@@ -12,11 +12,12 @@ SpiderByte 有三层配置：TOML 文件、命令行选项和显式环境变量�
 
 供应商凭证按以下顺序解析：
 
-1. `[providers.<name>].api_key` 或 `base_url`。
-2. `[providers.<name>.env]` 中对应的值。
-3. 稳定的凭证缺失或端点缺失错误。
+1. `[providers.<name>].secret_ref` 指向的加密材料，或仅限当前进程的 `SPIDERBYTE_MODEL_API_KEY` 覆盖。
+2. 旧版 `[providers.<name>].api_key` 或 `[providers.<name>.env]` 中的凭据会在启动时迁移（前提是 secret-store 密钥可用）。
+3. `[providers.<name>.env]` 中对应的非敏感端点值和 `base_url`。
+4. 稳定的凭证缺失或端点缺失错误。
 
-`[providers.<name>.env]` 仍然属于 `config.toml`，不会修改 shell 环境。
+`[providers.<name>.env]` 仍然属于 `config.toml`，不会修改 shell 环境。新的持久化凭据应使用 `spyderbyte configure` 或供应商导入命令。
 
 一次性的 `SPIDERBYTE_MODEL_*` 通道会为当前进程创建内存中的模型和供应商，适合冒烟测试和 BYOK，不会写入磁盘。
 

@@ -65,6 +65,10 @@ import { defineRoute } from '../middleware/defineRoute';
 import { ensureMainAgent } from '../transport/mainAgent';
 import { ErrorCode } from '../protocol/error-codes';
 import {
+  assertSessionAuthorization,
+  isWorkspaceAuthorized,
+} from '../services/platformAuthorization';
+import {
   listMcpServersResponseSchema,
   listToolsQuerySchema,
   listToolsResponseSchema,
@@ -111,7 +115,7 @@ export function registerToolsRoutes(app: ToolsRouteHost, core: Scope): void {
       tags: ['tools'],
     },
     async (req, reply) => {
-      const agent = await resolveEffectiveAgent(core, req.query.session_id);
+      const agent = await resolveEffectiveAgent(core, req.query.session_id, req.id, 'workspace.read');
       if (agent === undefined) {
         reply.send(okEnvelope({ tools: [] }, req.id));
         return;
@@ -140,7 +144,7 @@ export function registerToolsRoutes(app: ToolsRouteHost, core: Scope): void {
       tags: ['tools'],
     },
     async (req, reply) => {
-      const agent = await resolveEffectiveAgent(core, undefined);
+      const agent = await resolveEffectiveAgent(core, undefined, req.id, 'workspace.read');
       const servers =
         agent === undefined
           ? []
@@ -186,7 +190,7 @@ export function registerToolsRoutes(app: ToolsRouteHost, core: Scope): void {
         return;
       }
 
-      const agent = await resolveEffectiveAgent(core, undefined);
+      const agent = await resolveEffectiveAgent(core, undefined, req.id, 'run.execute');
       if (agent === undefined) {
         reply.send(mcpServerNotFound(parsed.id, req.id));
         return;
@@ -219,8 +223,20 @@ export function registerToolsRoutes(app: ToolsRouteHost, core: Scope): void {
 // callers translate that into an empty list (GETs) or 40408 (restart).
 // ---------------------------------------------------------------------------
 
-async function resolveEffectiveAgent(core: Scope, sessionId: string | undefined) {
-  const sid = sessionId ?? (await mostRecentSessionId(core));
+async function resolveEffectiveAgent(
+  core: Scope,
+  sessionId: string | undefined,
+  requestId: string,
+  capability: 'workspace.read' | 'run.execute',
+) {
+  if (sessionId !== undefined) {
+    await assertSessionAuthorization(core, {
+      sessionId,
+      requestId,
+      capability,
+    });
+  }
+  const sid = sessionId ?? (await mostRecentSessionId(core, requestId, capability));
   if (sid === undefined) return undefined;
   const session = getLiveSessionById(core.accessor, sid);
   if (session === undefined) return undefined;
@@ -228,15 +244,23 @@ async function resolveEffectiveAgent(core: Scope, sessionId: string | undefined)
 }
 
 /** Pick the most-recently-created session id, mirroring v1's fallback. */
-async function mostRecentSessionId(core: Scope): Promise<string | undefined> {
+async function mostRecentSessionId(
+  core: Scope,
+  requestId: string,
+  capability: 'workspace.read' | 'run.execute',
+): Promise<string | undefined> {
   const page = await core.accessor.get(ISessionIndex).listRecent({});
   const [first, ...rest] = page.items;
   if (first === undefined) return undefined;
-  let newest = first;
-  for (const item of rest) {
-    if (item.createdAt > newest.createdAt) newest = item;
+  const candidates = [first, ...rest].toSorted((a, b) => b.createdAt - a.createdAt);
+  for (const item of candidates) {
+    if (await isWorkspaceAuthorized(core, {
+      workspaceId: item.workspaceId,
+      requestId: `tool_session:${requestId}:${item.id}`,
+      capability,
+    })) return item.id;
   }
-  return newest.id;
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -334,6 +358,10 @@ function sendMappedError(
 ): void {
   if (err instanceof Error2 && err.code === ErrorCodes.MCP_SERVER_NOT_FOUND) {
     reply.send(errEnvelope(ErrorCode.MCP_SERVER_NOT_FOUND, err.message, requestId, err.stack));
+    return;
+  }
+  if (err instanceof Error2 && err.code === ErrorCodes.AUTHORIZATION_DENIED) {
+    reply.send(errEnvelope(ErrorCode.PLATFORM_POLICY_DENIED, 'platform policy denied the request', requestId));
     return;
   }
   throw err;

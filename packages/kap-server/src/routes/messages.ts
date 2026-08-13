@@ -16,7 +16,7 @@
  *   - invalid query     → `40001` (validation.failed, via defineRoute)
  */
 
-import { type Scope } from '@spiderbyte/agent-core';
+import { ErrorCodes, isError2, type Scope } from '@spiderbyte/agent-core';
 import { ErrorCode } from '../protocol/error-codes';
 import { messageRoleSchema } from '../protocol/message';
 import { getMessageResponseSchema, listMessagesResponseSchema } from '../protocol/rest-message';
@@ -25,6 +25,7 @@ import { z } from 'zod';
 import { errEnvelope, okEnvelope } from '../envelope';
 import { requestLog } from '../lib/requestLog';
 import { defineRoute } from '../middleware/defineRoute';
+import { assertSessionAuthorization } from '../services/platformAuthorization';
 import {
   getMessage,
   listMessages,
@@ -102,6 +103,11 @@ export function registerMessagesRoutes(app: MessageRouteHost, core: Scope): void
     async (req, reply) => {
       try {
         const { session_id } = req.params;
+        if (await assertSessionAuthorization(core, {
+          sessionId: session_id,
+          requestId: req.id,
+          capability: 'data.read',
+        }) === undefined) throw new SessionNotFoundError(`session ${session_id} does not exist`);
         const page = await listMessages(core, session_id, req.query);
         reply.send(okEnvelope(page, req.id));
       } catch (err) {
@@ -133,6 +139,11 @@ export function registerMessagesRoutes(app: MessageRouteHost, core: Scope): void
     async (req, reply) => {
       try {
         const { session_id, message_id } = req.params;
+        if (await assertSessionAuthorization(core, {
+          sessionId: session_id,
+          requestId: req.id,
+          capability: 'data.read',
+        }) === undefined) throw new SessionNotFoundError(`session ${session_id} does not exist`);
         const message = await getMessage(core, session_id, message_id);
         reply.send(okEnvelope(message, req.id));
       } catch (err) {
@@ -166,6 +177,10 @@ function sendMappedError(
   }
   if (err instanceof MessageNotFoundError) {
     reply.send(errEnvelope(ErrorCode.MESSAGE_NOT_FOUND, err.message, requestId, err.stack));
+    return;
+  }
+  if (isError2(err) && err.code === ErrorCodes.AUTHORIZATION_DENIED) {
+    reply.send(errEnvelope(ErrorCode.PLATFORM_POLICY_DENIED, 'platform policy denied the request', requestId));
     return;
   }
   log?.error({ err }, 'message request failed');

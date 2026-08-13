@@ -12,7 +12,7 @@ export SPIDERBYTE_HOME=/path/to/spiderbyte-home
 
 ## 本地/BYOK 示例
 
-下面的示例连接到本地 OpenAI-compatible 服务。请根据自己控制的服务或自己拥有 API 密钥的供应商，替换端点、密钥和模型。
+下面的示例连接到无需凭据的本地 OpenAI-compatible 服务。请根据自己控制的服务替换端点和模型。BYOK 密钥应通过 CLI 配置，以便与此文件分开加密存储。
 
 ```toml
 default_model = "local"
@@ -23,7 +23,6 @@ telemetry = false
 [providers.local]
 type = "openai"
 base_url = "http://127.0.0.1:11434/v1"
-api_key = "local"
 
 [models.local]
 provider = "local"
@@ -50,7 +49,7 @@ decision = "deny"
 pattern = "Bash(rm -rf*)"
 ```
 
-供应商类型选择线协议适配器。`base_url` 可以指向 localhost、自托管网关，或使用你自己密钥的供应商端点。SpiderByte 不提供托管密钥、托管身份、计费或使用额度服务。
+供应商类型选择线协议适配器。`base_url` 可以指向 localhost、自托管网关，或使用你自己密钥的供应商端点。需要持久化 BYOK 凭据时，请设置 `SPIDERBYTE_SECRET_STORE_KEY` 并使用 `spyderbyte configure --api-key-env <name>`。SpiderByte 不提供托管密钥、托管身份、计费或使用额度服务。
 
 ## 顶层字段
 
@@ -78,19 +77,19 @@ pattern = "Bash(rm -rf*)"
 
 ## 供应商
 
-每个 `[providers.<name>]` 记录描述一个供应商连接。凭据只从记录或显式的 `env` 表读取；CLI 不会静默获取 SpiderByte 托管令牌。
+每个 `[providers.<name>]` 记录描述一个供应商连接。持久化凭据由本地凭据命令生成的不透明 `secret_ref` 表示；原始密钥不会返回或存储在 `config.toml` 中。CLI 不会静默获取 SpiderByte 托管令牌。
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `type` | `string` | 线协议/供应商适配器，例如 `openai`、`openai_responses`、`anthropic`、`google-genai`、`vertexai` 或已安装的适配器。 |
-| `api_key` | `string` | 此连接使用的 API 密钥。不要提交到 Git。 |
+| `secret_ref` | `string` | 加密本地凭据材料的不透明引用。请通过 `spyderbyte configure` 或供应商导入命令生成，不要手写。 |
 | `base_url` | `string` | 端点覆盖值，可以是 localhost 或自托管端点。 |
 | `default_model` | `string` | 供应商级默认模型。 |
-| `env` | table of strings | `api_key` 和 `base_url` 的显式备用值。 |
+| `env` | table of strings | 供应商端点设置的显式备用值。此表中的原始凭据属于旧版输入，进程启动时会迁移。 |
 | `custom_headers` | table of strings | 发给该供应商的请求头。 |
 | `oauth` | table | 外部供应商适配器支持的令牌引用；这不是 SpiderByte 账号登录。 |
 
-BYOK 连接应放在被 Git 忽略的文件中，或使用 `SPIDERBYTE_MODEL_*` 环境覆盖。示例、测试和 issue 内容中不要放真实密钥。
+BYOK 连接应使用本地加密凭据流程，或使用仅限当前进程的 `SPIDERBYTE_MODEL_*` 环境覆盖。不要将真实密钥放入 `config.toml`、示例、测试或 issue 内容。
 
 ```toml
 [providers.gateway]
@@ -98,11 +97,10 @@ type = "openai"
 base_url = "https://api.example.test/v1"
 
 [providers.gateway.env]
-SPIDERBYTE_API_KEY = "YOUR_API_KEY"
 SPIDERBYTE_BASE_URL = "https://api.example.test/v1"
 ```
 
-`api_key` 的优先级高于供应商 `env` 表。缺少密钥或端点时，系统会返回稳定的供应商配置错误，不会静默切换到其他服务。
+供应商 `env` 表中的端点值会作为本地配置保留。`OPENAI_API_KEY` 等旧版凭据会在启动时迁移到加密存储；新凭据应使用 CLI 流程。缺少密钥或端点时，系统会返回稳定的供应商配置错误，不会静默切换到其他服务。
 
 ## 模型
 

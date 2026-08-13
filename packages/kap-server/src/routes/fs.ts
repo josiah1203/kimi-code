@@ -67,6 +67,10 @@ import { requestLog } from '../lib/requestLog';
 import { defineRoute } from '../middleware/defineRoute';
 import { ErrorCode } from '../protocol/error-codes';
 import {
+  assertSessionAuthorization,
+  assertWorkspaceAuthorization,
+} from '../services/platformAuthorization';
+import {
   fsOpenInRequestSchema,
   fsOpenRequestSchema,
   fsRevealRequestSchema,
@@ -151,7 +155,7 @@ function resolveFs(core: Scope, sessionId: string): IWorkspaceFsService {
 async function resolveWorkspaceFs(
   core: Scope,
   ref: string,
-): Promise<IWorkspaceFsService | undefined> {
+): Promise<{ readonly workspaceId: string; readonly fs: IWorkspaceFsService } | undefined> {
   const workspaces = core.accessor.get(IWorkspaceService);
   let ws = await workspaces.get(ref);
   if (ws === undefined) {
@@ -165,7 +169,10 @@ async function resolveWorkspaceFs(
   const handler = await core.accessor
     .get(IWorkspaceLifecycleService)
     .handlerFor({ workspaceId: ws.id, root: ws.root });
-  return handler.accessor.get(IWorkspaceFsService);
+  return {
+    workspaceId: ws.id,
+    fs: handler.accessor.get(IWorkspaceFsService),
+  };
 }
 
 export function registerFsRoutes(app: FsRouteHost, core: Scope): void {
@@ -229,6 +236,21 @@ export function registerFsRoutes(app: FsRouteHost, core: Scope): void {
         return;
       }
 
+      const capability = fsAction === 'mkdir' ? 'data.write' : 'data.read';
+      if (session !== undefined) {
+        await assertSessionAuthorization(core, {
+          sessionId: session_id,
+          requestId: req.id,
+          capability,
+        });
+      } else if (workspaceFs !== undefined) {
+        await assertWorkspaceAuthorization(core, {
+          workspaceId: workspaceFs.workspaceId,
+          requestId: req.id,
+          capability,
+        });
+      }
+
       try {
         switch (fsAction) {
           case 'list':
@@ -250,7 +272,7 @@ export function registerFsRoutes(app: FsRouteHost, core: Scope): void {
             await handleMkdir(core, session_id, req, reply);
             return;
           case 'search':
-            await handleSearch(workspaceFs ?? resolveFs(core, session_id), req, reply);
+            await handleSearch(workspaceFs?.fs ?? resolveFs(core, session_id), req, reply);
             return;
           case 'grep':
             await handleGrep(core, session_id, req, reply);
@@ -305,8 +327,8 @@ export function registerFsRoutes(app: FsRouteHost, core: Scope): void {
     },
     async (req, reply) => {
       const { workspace, ...searchRequest } = req.body;
-      const fs = await resolveWorkspaceFs(core, workspace);
-      if (fs === undefined) {
+      const resolved = await resolveWorkspaceFs(core, workspace);
+      if (resolved === undefined) {
         reply.send(
           errEnvelope(
             ErrorCode.WORKSPACE_NOT_FOUND,
@@ -316,8 +338,13 @@ export function registerFsRoutes(app: FsRouteHost, core: Scope): void {
         );
         return;
       }
+      await assertWorkspaceAuthorization(core, {
+        workspaceId: resolved.workspaceId,
+        requestId: req.id,
+        capability: 'data.read',
+      });
       try {
-        const data = await fs.search(searchRequest);
+        const data = await resolved.fs.search(searchRequest);
         reply.send(okEnvelope(data, req.id));
       } catch (err) {
         sendMappedError(reply, req, err);
@@ -373,6 +400,11 @@ export function registerFsRoutes(app: FsRouteHost, core: Scope): void {
         );
         return;
       }
+      await assertSessionAuthorization(core, {
+        sessionId: session_id,
+        requestId: req.id,
+        capability: 'data.read',
+      });
 
       let resolved: Awaited<ReturnType<IWorkspaceFsService['resolveDownload']>>;
       try {
@@ -645,6 +677,9 @@ function sendMappedError(reply: Reply, req: { id: string }, err: unknown): void 
         return;
       case ErrorCodes.SESSION_NOT_FOUND:
         reply.send(errEnvelope(ErrorCode.SESSION_NOT_FOUND, err.message, requestId, err.stack));
+        return;
+      case ErrorCodes.AUTHORIZATION_DENIED:
+        reply.send(errEnvelope(ErrorCode.PLATFORM_POLICY_DENIED, 'platform policy denied the request', requestId));
         return;
       // hostFs errors that escaped the workspaceFs layer keep their `os.fs.*`
       // code; map them onto the closest v1 wire code (ENOTDIR collapses into

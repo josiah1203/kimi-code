@@ -8,6 +8,7 @@ import {
   emailSchema,
   identityProviderTypeSchema,
   isoDateTimeSchema,
+  offlineLicenseSchema,
   type ActorRef,
   type Principal,
 } from '@spiderbyte/commercial-domain';
@@ -16,6 +17,7 @@ import type { CommercialDirectoryService } from '@spiderbyte/commercial-applicat
 import { CommercialApiApplication } from './application';
 import { CommercialAuthMiddleware } from './auth';
 import {
+  CommercialApiError,
   commercialApiStatusForCode,
   mapCommercialApiError,
 } from './errors';
@@ -75,6 +77,30 @@ const enterpriseConfigurationBodySchema = z.strictObject({
   deployment_mode: z.enum(['shared', 'regional', 'dedicated']),
   release_channel: z.enum(['stable', 'preview', 'pinned']),
 });
+const licenseDeploymentBodySchema = z.strictObject({
+  deployment_id: z.string().min(1).max(256).optional(),
+  host_fingerprint: z.string().min(16).max(256).regex(/^[A-Fa-f0-9:-]+$/).optional(),
+  domain: z.string().min(1).max(253).optional(),
+});
+const activateLicenseBodySchema = z.strictObject({
+  license: offlineLicenseSchema,
+  deployment: licenseDeploymentBodySchema.optional(),
+});
+const renewLicenseBodySchema = z.strictObject({
+  license: offlineLicenseSchema.optional(),
+  deployment: licenseDeploymentBodySchema.optional(),
+});
+const licenseSeatBodySchema = z.strictObject({ user_id: z.string().min(1).max(160) });
+const invitationBodySchema = z.strictObject({
+  email: emailSchema,
+  role_ids: z.array(z.string().min(1).max(160)).min(1).max(100),
+  workspace_id: z.string().min(1).max(160).optional(),
+  team_id: z.string().min(1).max(160).optional(),
+  expires_at: isoDateTimeSchema,
+});
+const membershipRolesBodySchema = z.strictObject({
+  role_ids: z.array(z.string().min(1).max(160)).min(1).max(100),
+});
 
 export interface CommercialFastifyRouteDependencies {
   readonly application: CommercialApiApplication;
@@ -90,6 +116,9 @@ type RequestWithWorkspaceScope = FastifyRequest<{ Params: { organizationId: stri
 type RequestWithExecution = FastifyRequest<{ Params: { organizationId: string; workspaceId: string; executionId: string } }>;
 type RequestWithArtifact = FastifyRequest<{ Params: { organizationId: string; workspaceId: string; artifactId: string }; Querystring: { expires_at?: string } }>;
 type RequestWithOrganization = FastifyRequest<{ Params: { organizationId: string } }>;
+type RequestWithLicenseSeat = FastifyRequest<{ Params: { organizationId: string; seatId: string } }>;
+type RequestWithLicense = FastifyRequest<{ Params: { organizationId: string; licenseId: string } }>;
+type RequestWithMembership = FastifyRequest<{ Params: { organizationId: string; membershipId: string } }>;
 
 export async function registerCommercialFastifyRoutes(
   app: FastifyInstance,
@@ -186,6 +215,26 @@ export async function registerCommercialFastifyRoutes(
     return dependencies.application.createTeam(headers, context.principal, { organization_id: params.organizationId, ...body });
   }));
 
+  app.post(`${prefix}/organizations/:organizationId/invitations`, async (request, reply) => respond(reply, request, async (headers) => {
+    const context = await dependencies.auth.authenticate({ request_id: headers.request_id, headers: request.headers });
+    const params = (request as RequestWithOrganization).params;
+    const body = invitationBodySchema.parse((request as RequestWithBody).body);
+    return dependencies.application.inviteMember(headers, context.principal, { organization_id: params.organizationId, ...body });
+  }));
+
+  app.delete(`${prefix}/organizations/:organizationId/memberships/:membershipId`, async (request, reply) => respond(reply, request, async (headers) => {
+    const context = await dependencies.auth.authenticate({ request_id: headers.request_id, headers: request.headers });
+    const params = (request as RequestWithMembership).params;
+    return dependencies.application.removeMember(headers, context.principal, params.organizationId, params.membershipId);
+  }));
+
+  app.post(`${prefix}/organizations/:organizationId/memberships/:membershipId/roles`, async (request, reply) => respond(reply, request, async (headers) => {
+    const context = await dependencies.auth.authenticate({ request_id: headers.request_id, headers: request.headers });
+    const params = (request as RequestWithMembership).params;
+    const body = membershipRolesBodySchema.parse((request as RequestWithBody).body);
+    return dependencies.application.changeMemberRoles(headers, context.principal, { organization_id: params.organizationId, membership_id: params.membershipId, ...body });
+  }));
+
   app.post(`${prefix}/organizations/:organizationId/roles`, async (request, reply) => respond(reply, request, async (headers) => {
     const context = await dependencies.auth.authenticate({ request_id: headers.request_id, headers: request.headers });
     const params = (request as RequestWithOrganization).params;
@@ -211,6 +260,53 @@ export async function registerCommercialFastifyRoutes(
     const context = await dependencies.auth.authenticate({ request_id: headers.request_id, headers: request.headers });
     const params = (request as RequestWithEntitlement).params;
     return dependencies.application.entitlement(headers, context.principal, params.organizationId, params.key);
+  }));
+
+  app.post(`${prefix}/organizations/:organizationId/license`, async (request, reply) => respond(reply, request, async (headers) => {
+    const context = await dependencies.auth.authenticate({ request_id: headers.request_id, headers: request.headers });
+    const params = (request as RequestWithOrganization).params;
+    const body = activateLicenseBodySchema.parse((request as RequestWithBody).body);
+    if (body.license.organization_id !== params.organizationId) throw new CommercialApiError(400, 'commercial.licensing.organization_mismatch', 'license organization does not match route organization');
+    return dependencies.application.activateLicense(headers, context.principal, body);
+  }));
+
+  app.get(`${prefix}/organizations/:organizationId/license`, async (request, reply) => respond(reply, request, async (headers) => {
+    const context = await dependencies.auth.authenticate({ request_id: headers.request_id, headers: request.headers });
+    const params = (request as RequestWithOrganization).params;
+    return dependencies.application.inspectLicense(headers, context.principal, params.organizationId);
+  }));
+
+  app.get(`${prefix}/organizations/:organizationId/license/entitlements/:key`, async (request, reply) => respond(reply, request, async (headers) => {
+    const context = await dependencies.auth.authenticate({ request_id: headers.request_id, headers: request.headers });
+    const params = (request as RequestWithEntitlement).params;
+    return dependencies.application.inspectLicenseEntitlement(headers, context.principal, params.organizationId, params.key);
+  }));
+
+  app.post(`${prefix}/organizations/:organizationId/license/renew`, async (request, reply) => respond(reply, request, async (headers) => {
+    const context = await dependencies.auth.authenticate({ request_id: headers.request_id, headers: request.headers });
+    const params = (request as RequestWithOrganization).params;
+    const body = renewLicenseBodySchema.parse((request as RequestWithBody).body);
+    if (body.license !== undefined && body.license.organization_id !== params.organizationId) throw new CommercialApiError(400, 'commercial.licensing.organization_mismatch', 'license organization does not match route organization');
+    return dependencies.application.renewLicense(headers, context.principal, { organization_id: params.organizationId, ...body });
+  }));
+
+  app.delete(`${prefix}/organizations/:organizationId/license/:licenseId`, async (request, reply) => respond(reply, request, async (headers) => {
+    const context = await dependencies.auth.authenticate({ request_id: headers.request_id, headers: request.headers });
+    const params = (request as RequestWithLicense).params;
+    return dependencies.application.revokeLicense(headers, context.principal, params.organizationId, params.licenseId);
+  }));
+
+  app.post(`${prefix}/organizations/:organizationId/license/seats`, async (request, reply) => respond(reply, request, async (headers) => {
+    const context = await dependencies.auth.authenticate({ request_id: headers.request_id, headers: request.headers });
+    const params = (request as RequestWithOrganization).params;
+    const body = licenseSeatBodySchema.parse((request as RequestWithBody).body);
+    return dependencies.application.assignLicenseSeat(headers, context.principal, { organization_id: params.organizationId, ...body });
+  }));
+
+  app.delete(`${prefix}/organizations/:organizationId/license/seats/:seatId`, async (request, reply) => respond(reply, request, async (headers) => {
+    const context = await dependencies.auth.authenticate({ request_id: headers.request_id, headers: request.headers });
+    const params = (request as RequestWithLicenseSeat).params;
+    return dependencies.application.revokeLicenseSeat(headers, context.principal, params.organizationId, params.seatId);
   }));
 
 }

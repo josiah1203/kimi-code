@@ -35,19 +35,44 @@ SpiderByte credential is required for local mode. The browser UI source is
 maintained outside this checkout; this repository provides the local server
 API and does not ship an unreproducible generated frontend bundle.
 
+Provider CLIs can be inspected or smoke-tested only when explicitly
+configured through `SPYDERBYTE_PROVIDER_CLI_CONFIG`; the CLI never guesses a
+provider command or scrapes terminal output:
+
+```sh
+spyderbyte providers
+spyderbyte provider detect
+spyderbyte provider test YOUR_PROVIDER_ID --model YOUR_MODEL
+spyderbyte capabilities
+```
+
+The variable contains a JSON array of command definitions with an executable,
+provider-specific argv arrays, and JSONL output settings. See
+[`SPIDERBYTE_PRODUCT_AUTHORITY.md`](docs/architecture/SPIDERBYTE_PRODUCT_AUTHORITY.md)
+and `spyderbyte provider --help` for the supported boundary.
+
 ## Development commands
 
 ```sh
+pnpm run bootstrap:clean-checkout
+pnpm run smoke:local
 pnpm typecheck
 pnpm test
 pnpm lint
 pnpm build
 pnpm run check:open-core
 pnpm run check:branding
+pnpm run check:package-consistency
+pnpm run check:docs-consistency
 pnpm run verify:open-core-local
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md), the [Open Core boundary](docs/architecture/OPEN_CORE_BOUNDARY.md), and the [release migration plan](docs/release/SPIDERBYTE_OPEN_CORE_MIGRATION_PLAN.md) for repository and release requirements.
+See [CONTRIBUTING.md](CONTRIBUTING.md), the [product authority](docs/architecture/SPIDERBYTE_PRODUCT_AUTHORITY.md), the [self-hosted operations guide](docs/release/SPIDERBYTE_SELF_HOSTED_OPERATIONS.md), the [Open Core boundary](docs/architecture/OPEN_CORE_BOUNDARY.md), the [release checklist](docs/release/SPIDERBYTE_OPEN_CORE_RELEASE_CHECKLIST.md), and the [release migration plan](docs/release/SPIDERBYTE_OPEN_CORE_MIGRATION_PLAN.md) for repository and release requirements.
+
+The accepted commercial direction is a seat-based, customer-owned
+self-hosted edition. Customers operate their own infrastructure and provider
+accounts; SpiderByte-hosted compute and model-usage billing are optional
+future products, not prerequisites for the local or self-hosted release.
 
 ## Packages
 

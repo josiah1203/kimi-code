@@ -349,6 +349,17 @@ export class HostedComputeControlPlane {
         updated_by: { kind: 'system', id: 'compute-reconciler' },
       }));
     }
+    if (reservation?.usage_event_id !== undefined && ['succeeded', 'failed', 'canceled', 'timed_out', 'reconciliation_required'].includes(checked.state)) {
+      const reported = await this.deps.adapter.usage?.(checked.id);
+      if (reported !== undefined) {
+        await this.deps.usage.reconcileUsage({
+          usage_event_id: reservation.usage_event_id,
+          actual_amount: reported.actual_amount,
+          actor: { kind: 'system', id: 'compute-reconciler' },
+          request_id: `${requestId}:usage:${checked.id}`,
+        });
+      }
+    }
     return checked;
   }
 
@@ -362,12 +373,15 @@ export class HostedComputeControlPlane {
     const canceled = computeExecutionSchema.parse(await this.deps.adapter.cancel({ execution_id: execution.id, request_id: input.request_id }));
     await this.deps.store.put('compute_executions', canceled.id, canceled);
     const reservation = await this.deps.store.get('compute_reservations', execution.reservation_id);
-    if (reservation?.usage_event_id !== undefined) await this.deps.usage.reconcileUsage({
-      usage_event_id: reservation.usage_event_id,
-      actual_amount: 0,
-      actor: input.actor,
-      request_id: `${input.request_id}:release`,
-    });
+    if (reservation?.usage_event_id !== undefined) {
+      const reported = await this.deps.adapter.usage?.(execution.id);
+      await this.deps.usage.reconcileUsage({
+        usage_event_id: reservation.usage_event_id,
+        actual_amount: reported?.actual_amount ?? 0,
+        actor: input.actor,
+        request_id: `${input.request_id}:release`,
+      });
+    }
     if (reservation !== undefined) await this.deps.store.put('compute_reservations', reservation.id, computeReservationSchema.parse({
       ...reservation,
       state: 'canceled',

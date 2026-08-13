@@ -56,6 +56,7 @@ import {
 import { requestLog } from '../lib/requestLog';
 import { defineRoute } from '../middleware/defineRoute';
 import { ensureMainAgent, MAIN_AGENT_ID } from '../transport/mainAgent';
+import { assertSessionAuthorization } from '../services/platformAuthorization';
 import { parseActionSuffix } from './action-suffix';
 
 interface PromptRouteHost {
@@ -177,6 +178,11 @@ export function registerPromptsRoutes(app: PromptRouteHost, core: Scope): void {
     async (req, reply) => {
       try {
         const { session_id } = req.params;
+        await assertSessionAuthorization(core, {
+          sessionId: session_id,
+          requestId: req.id,
+          capability: 'workspace.read',
+        });
         const result = projectPromptList((await resolvePrompt(core, session_id)).prompt.list());
         reply.send(okEnvelope(result, req.id));
       } catch (error) {
@@ -209,6 +215,11 @@ export function registerPromptsRoutes(app: PromptRouteHost, core: Scope): void {
     async (req, reply) => {
       const { session_id } = req.params;
       try {
+        await assertSessionAuthorization(core, {
+          sessionId: session_id,
+          requestId: req.id,
+          capability: 'run.execute',
+        });
         // Fail fast on stale file references before anything is resolved or
         // mutated: a bad `file_id` must not create the agent, register `main`
         // in session metadata, or touch the session's controls.
@@ -309,6 +320,11 @@ export function registerPromptsRoutes(app: PromptRouteHost, core: Scope): void {
     async (req, reply) => {
       try {
         const { session_id } = req.params;
+        await assertSessionAuthorization(core, {
+          sessionId: session_id,
+          requestId: req.id,
+          capability: 'run.execute',
+        });
         const resolved = await resolvePrompt(core, session_id);
         await resolved.prompt.steer(req.body.prompt_ids);
         reply.send(okEnvelope({ steered: true, prompt_ids: [...req.body.prompt_ids] }, req.id));
@@ -347,6 +363,11 @@ export function registerPromptsRoutes(app: PromptRouteHost, core: Scope): void {
           reply.send(errEnvelope(ErrorCode.VALIDATION_FAILED, message, req.id));
           return;
         }
+        await assertSessionAuthorization(core, {
+          sessionId: session_id,
+          requestId: req.id,
+          capability: 'run.execute',
+        });
         const resolved = await resolvePrompt(core, session_id);
         if (parsed.action === 'abort') {
           resolved.prompt.abort(parsed.id);
@@ -428,6 +449,9 @@ function sendMappedError(
       case 'session.not_found':
       case 'agent.not_found':
         reply.send(errEnvelope(ErrorCode.SESSION_NOT_FOUND, err.message, requestId, err.stack));
+        return;
+      case ErrorCodes.AUTHORIZATION_DENIED:
+        reply.send(errEnvelope(ErrorCode.PLATFORM_POLICY_DENIED, 'platform policy denied the request', requestId));
         return;
       case 'file.not_found':
         reply.send(errEnvelope(ErrorCode.FILE_NOT_FOUND, err.message, requestId, err.stack));

@@ -3,12 +3,25 @@
  * implementation.
  *
  * Reads the durable connection projection, resolves credentials through the
- * App-scoped platform secret store only at the provider boundary, and builds
- * provider `kosong` requesters from typed connection metadata. Bound at Workspace
- * scope; provider calls are not persisted here, while callers persist Run,
- * usage, artifact, and audit projections through their owning services.
+ * App-scoped platform secret store only at the provider boundary, and routes
+ * either direct API connections through `kosong` or explicitly configured
+ * provider-command connections through the bounded local adapter. Bound at
+ * Workspace scope; provider calls are not persisted here, while callers
+ * persist Run, usage, artifact, and audit projections through their owning services.
  */
 
+import { createHash } from 'node:crypto';
+
+import {
+  LocalKaos,
+  LocalProviderCommandAdapter,
+  ProviderCommandError,
+  type ProviderCommandAdapter,
+  type ModelInfo,
+  type ProviderEvent,
+  type ProviderRequest,
+  type UsageMetadata,
+} from '@spiderbyte/kaos';
 import { Disposable } from '#/_base/di/lifecycle';
 import { ulid } from 'ulid';
 import { LifecycleScope } from '#/app/scopes';
@@ -23,6 +36,7 @@ import { StaticAuthProvider, type Model } from '#/kosong/model/catalog';
 import { ModelRequesterImpl } from '#/kosong/model/modelRequesterImpl';
 import type { ModelRequestEvent } from '#/kosong/model/modelRequester';
 import type { Message, StreamedMessagePart } from '#/kosong/contract/message';
+import { UNKNOWN_CAPABILITY, type ModelCapability } from '#/kosong/contract/capability';
 import {
   explainProviderEndpoint,
   getProviderDefinition,
@@ -32,6 +46,8 @@ import { IWorkspacePolicyService } from '#/workspace/policy/policy';
 import { IWorkspaceUsageService } from '#/workspace/usage/usage';
 import { IWorkspaceBudgetService } from '#/workspace/budgets/budget';
 import { IWorkspacePlatformEventService } from '#/workspace/platformEvents/platformEvents';
+import { IWorkspaceContext } from '#/workspace/workspaceContext/workspaceContext';
+import { readResponseTextBounded } from '#/app/net/responseBody';
 import { IWorkspaceProviderConnectionService } from './providerConnection';
 import {
   IWorkspaceProviderRuntimeService,
@@ -47,7 +63,9 @@ import {
 } from './runtimeErrors';
 import {
   nowIsoDateTime,
+  invocationTraceContextSchema,
   PLATFORM_NO_CREDENTIAL_SECRET_REF,
+  providerCommandConfigSchema,
   providerModelDiscoverySchema,
   providerModelSchema,
   type ProviderConnection,
@@ -79,9 +97,12 @@ export class WorkspaceProviderRuntimeService
     @IWorkspaceUsageService private readonly usage: IWorkspaceUsageService,
     @IWorkspacePlatformEventService private readonly events: IWorkspacePlatformEventService,
     @IWorkspaceBudgetService private readonly budgets?: IWorkspaceBudgetService,
+    @IWorkspaceContext private readonly context?: IWorkspaceContext,
   ) {
     super();
   }
+
+  private localKaos: Promise<LocalKaos> | undefined;
 
   async createConnection(input: ProviderConnectionCreateWithSecretInput): Promise<ProviderConnection> {
     const secret = await this.secrets.put(input.secret);
@@ -152,22 +173,33 @@ export class WorkspaceProviderRuntimeService
       await this.traceProviderRequest(connection, resolved.model, options, 'requesting');
       let text = '';
       let usage: TokenUsage | undefined;
-      const requester = this.requester(resolved);
-      for await (const event of requester.request({
+      const input = {
         systemPrompt: 'You are a connectivity probe. Answer with the single word "pong".',
         tools: [],
         messages: [{ role: 'user', content: [{ type: 'text', text: 'ping' }], toolCalls: [] }],
-      }, options.signal, { maxCompletionTokens: 32 })) {
+      } satisfies ProviderRuntimeRequest['input'];
+      const request: ProviderRuntimeRequest = {
+        ...options,
+        request_id: options.request_id ?? `provider_validate_${ulid()}`,
+        model: resolved.model,
+        input,
+        params: resolved.commandAdapter === undefined ? { maxCompletionTokens: 32 } : undefined,
+      };
+      const stream = resolved.commandAdapter === undefined
+        ? this.requester(resolved).request(input, options.signal, { maxCompletionTokens: 32 })
+        : this.requestProviderCommand(resolved, request);
+      for await (const event of stream) {
         if (event.type === 'part' && event.part.type === 'text') text += event.part.text;
         if (event.type === 'usage') usage = event.usage;
       }
-      await this.recordUsage(connection, resolved.model, usage, options);
+      const usageRecordId = await this.recordUsage(connection, resolved.model, usage, options);
       await this.traceProviderRequest(connection, resolved.model, {
         ...options,
         policy_decision_id: policyDecision.id,
       }, 'completed', undefined, {
         duration_ms: Math.max(0, Date.now() - startedAt),
         usage,
+        usage_record_ids: usageRecordId === undefined ? [] : [usageRecordId],
       });
       return {
         connection_id: connection.id,
@@ -213,6 +245,24 @@ export class WorkspaceProviderRuntimeService
       });
     }
 
+    if (connection.provider === 'provider-cli') {
+      const resolved = await this.resolveProviderCommand(connection, configured[0]?.id);
+      try {
+        const commandModels = await resolved.commandAdapter!.models();
+        return providerModelDiscoverySchema.parse({
+          connection_id: connection.id,
+          models: commandModels.map(providerModelFromCommand),
+          discovered_at: nowIsoDateTime(),
+        });
+      } catch (error) {
+        throw new ProviderRuntimeError(
+          ProviderRuntimeErrors.codes.PROVIDER_RUNTIME_DISCOVERY_FAILED,
+          `failed to discover models for provider connection ${connection.id}: ${redactError(error, resolved.secret)}`,
+          { connectionId: connection.id },
+        );
+      }
+    }
+
     const resolved = await this.resolve(connection, configured[0]?.id);
     const secret = resolved.secret;
     if (secret === undefined && !allowsUnauthenticated(connection)) {
@@ -247,7 +297,9 @@ export class WorkspaceProviderRuntimeService
       }
       const length = Number(response.headers.get('content-length') ?? 0);
       if (length > MAX_DISCOVERY_BYTES) throw new Error('provider model catalog is too large');
-      const payload = (await response.json()) as unknown;
+      const text = await readResponseTextBounded(response, MAX_DISCOVERY_BYTES);
+      if (text === undefined) throw new Error('provider model catalog is too large');
+      const payload = JSON.parse(text) as unknown;
       const models = parseDiscoveredModels(
         payload,
         resolved.protocol,
@@ -270,6 +322,10 @@ export class WorkspaceProviderRuntimeService
 
   async describe(connectionId: string, model?: string): Promise<ProviderRuntimeModel> {
     const connection = await this.requireConnection(connectionId);
+    if (connection.provider === 'provider-cli') {
+      const resolved = await this.resolveProviderCommand(connection, model);
+      return providerRuntimeModelFromResolved(resolved, 'provider-command');
+    }
     const descriptor = this.describeConnection(connection, model);
     return {
       connection_id: connection.id,
@@ -286,6 +342,7 @@ export class WorkspaceProviderRuntimeService
       support_efforts: descriptor.modelDefinition.supportEfforts,
       default_effort: descriptor.modelDefinition.defaultEffort,
       provider_options: descriptor.modelDefinition.providerOptions,
+      transport: 'api',
     };
   }
 
@@ -294,7 +351,10 @@ export class WorkspaceProviderRuntimeService
     request: ProviderRuntimeRequest,
   ): Promise<AsyncIterable<ModelRequestEvent>> {
     const connectionIds = [...new Set([connectionId, ...(request.fallback_connection_ids ?? [])])];
-    return this.requestWithFallback(connectionIds, request);
+    const normalizedRequest = request.request_id === undefined
+      ? { ...request, request_id: `provider_request_${ulid()}` }
+      : request;
+    return this.requestWithFallback(connectionIds, normalizedRequest);
   }
 
   private async requestWithFallback(
@@ -313,6 +373,7 @@ export class WorkspaceProviderRuntimeService
     const first = await this.prepareRequest(connectionIds[0]!, request, 0);
     await this.traceProviderRequest(first.connection, first.resolved.model, {
       ...request,
+      invocation_id: providerInvocationAttemptId(request, 0, 0),
       policy_decision_id: first.policyDecision.id,
     }, 'requesting');
     return this.fallbackStream(connectionIds, request, first);
@@ -334,12 +395,15 @@ export class WorkspaceProviderRuntimeService
     });
     const resolved = await this.resolve(connection, selectedModel);
     const budgetReservation = await this.reserveBudget(connection, selectedModel, request);
+    const stream = resolved.commandAdapter === undefined
+      ? this.requester(resolved).request(request.input, request.signal, request.params)
+      : this.requestProviderCommand(resolved, request);
     return {
       connection,
       resolved,
       policyDecision,
       budgetReservation,
-      stream: this.requester(resolved).request(request.input, request.signal, request.params),
+      stream,
     };
   }
 
@@ -357,6 +421,7 @@ export class WorkspaceProviderRuntimeService
         let prepared: PreparedProviderRequest | undefined;
         const attemptStartedAt = Date.now();
         let usage: TokenUsage | undefined;
+        const usageRecordIds: string[] = [];
         try {
           // Policy decisions are scoped to the provider/model action that was
           // authorized. A fallback may resolve to a different provider or model,
@@ -371,6 +436,7 @@ export class WorkspaceProviderRuntimeService
           if (index > 0 || attempt > 0) {
             await this.traceProviderRequest(prepared.connection, prepared.resolved.model, {
               ...request,
+              invocation_id: providerInvocationAttemptId(request, index, attempt),
               policy_decision_id: prepared.policyDecision.id,
             }, 'requesting');
           }
@@ -379,16 +445,20 @@ export class WorkspaceProviderRuntimeService
             policy_decision_id: prepared.policyDecision.id,
           }, (nextUsage) => {
             usage = nextUsage;
+          }, (usageRecordId) => {
+            if (usageRecordId !== undefined) usageRecordIds.push(usageRecordId);
           })) {
             emitted = true;
             yield event;
           }
           await this.traceProviderRequest(prepared.connection, prepared.resolved.model, {
             ...request,
+            invocation_id: providerInvocationAttemptId(request, index, attempt),
             policy_decision_id: prepared.policyDecision.id,
           }, 'completed', undefined, {
             duration_ms: Math.max(0, Date.now() - attemptStartedAt),
             usage,
+            usage_record_ids: usageRecordIds,
           });
           await this.reconcileBudget(prepared.budgetReservation, request, usage);
           return;
@@ -400,10 +470,18 @@ export class WorkspaceProviderRuntimeService
             await this.traceProviderRequest(
               prepared.connection,
               prepared.resolved.model,
-              { ...request, policy_decision_id: prepared.policyDecision.id },
+              {
+                ...request,
+                invocation_id: providerInvocationAttemptId(request, index, attempt),
+                policy_decision_id: prepared.policyDecision.id,
+              },
               'failed',
               safeError.message,
-              { duration_ms: Math.max(0, Date.now() - attemptStartedAt), usage },
+              {
+                duration_ms: Math.max(0, Date.now() - attemptStartedAt),
+                usage,
+                usage_record_ids: usageRecordIds,
+              },
             );
           }
           // Never bypass governance or configuration failures with a fallback
@@ -501,14 +579,15 @@ export class WorkspaceProviderRuntimeService
     model: string,
     usage: TokenUsage | undefined,
     options: ProviderRuntimeOperationOptions,
-  ): Promise<void> {
-    if (options.run_id === undefined || usage === undefined) return;
+  ): Promise<string | undefined> {
+    if (options.run_id === undefined || usage === undefined) return undefined;
     const tokens = grandTotal(usage);
     const amount = tokens === 0 ? 0 : Math.max(0.01, tokens / 100_000);
-    await this.usage.recordUsage({
+    const record = await this.usage.recordUsage({
       request_id: `${options.request_id ?? `provider_usage_${ulid()}`}:usage`,
       actor_id: options.actor ?? 'agent',
       run_id: options.run_id,
+      attempt_id: options.attempt_id,
       meter: 'model',
       unit: 'units',
       amount,
@@ -522,6 +601,7 @@ export class WorkspaceProviderRuntimeService
         output_tokens: usage.output,
       },
     });
+    return record.id;
   }
 
   private async reserveBudget(
@@ -605,7 +685,11 @@ export class WorkspaceProviderRuntimeService
     options: ProviderRuntimeOperationOptions,
     state: 'requesting' | 'completed' | 'failed',
     error?: string,
-    details?: { readonly duration_ms?: number; readonly usage?: TokenUsage },
+    details?: {
+      readonly duration_ms?: number;
+      readonly usage?: TokenUsage;
+      readonly usage_record_ids?: readonly string[];
+    },
   ): Promise<void> {
     await this.events.append({
       event_type: `provider_connection.state_changed`,
@@ -628,6 +712,48 @@ export class WorkspaceProviderRuntimeService
         }),
       },
     }).catch(() => undefined);
+    const workspaceId = this.context?.workspaceId;
+    if (options.run_id === undefined || options.attempt_id === undefined || workspaceId === undefined) return;
+    const trace = invocationTraceContextSchema.safeParse({
+      run_id: options.run_id,
+      attempt_id: options.attempt_id,
+      workspace_id: workspaceId,
+      project_id: options.project_id,
+      execution_target_id: options.execution_target_id,
+      provider: connection.provider,
+      model,
+      user_id: options.user_id,
+      policy_decision_ids: [...new Set([
+        ...(options.policy_decision_ids ?? []),
+        ...(options.policy_decision_id === undefined ? [] : [options.policy_decision_id]),
+      ])],
+      approval_ids: options.approval_ids ?? [],
+      artifact_ids: options.artifact_ids ?? [],
+      usage_record_ids: details?.usage_record_ids ?? [],
+    });
+    if (!trace.success) return;
+    const invocationState = state === 'requesting' ? 'state_changed' : state;
+    await this.events.append({
+      event_type: `provider_invocation.${invocationState}`,
+      entity_type: 'provider_invocation',
+      entity_id: providerInvocationEntityId(options, connection, model),
+      request_id: options.request_id,
+      actor: options.actor ?? 'agent',
+      state: `runtime_${state}`,
+      payload: {
+        ...trace.data,
+        invocation_id: options.invocation_id ?? options.request_id,
+        ...(options.policy_decision_id === undefined ? {} : { policy_decision_id: options.policy_decision_id }),
+        ...(error === undefined ? {} : { error: error.slice(0, 2_000) }),
+        ...(details?.duration_ms === undefined ? {} : { duration_ms: details.duration_ms }),
+        ...(details?.usage === undefined ? {} : {
+          usage: {
+            input_tokens: details.usage.inputOther + details.usage.inputCacheRead + details.usage.inputCacheCreation,
+            output_tokens: details.usage.output,
+          },
+        }),
+      },
+    }).catch(() => undefined);
   }
 
   private async *observeRequest(
@@ -637,6 +763,7 @@ export class WorkspaceProviderRuntimeService
     secret: string | undefined,
     options: ProviderRuntimeOperationOptions,
     onUsage?: (usage: TokenUsage) => void,
+    onUsageRecord?: (usageRecordId: string | undefined) => void,
   ): AsyncIterable<ModelRequestEvent> {
     let usage: TokenUsage | undefined;
     for await (const event of stream) {
@@ -644,14 +771,146 @@ export class WorkspaceProviderRuntimeService
       yield redactProviderEvent(event, secret);
     }
     if (usage !== undefined) onUsage?.(usage);
-    await this.recordUsage(connection, model, usage, options);
+    const recordId = await this.recordUsage(connection, model, usage, options);
+    onUsageRecord?.(recordId);
   }
 
-  private async resolve(connection: ProviderConnection, requestedModel?: string): Promise<ResolvedProvider> {
-    const descriptor = this.describeConnection(connection, requestedModel);
-    const secret = connection.secret_ref === PLATFORM_NO_CREDENTIAL_SECRET_REF
+  private async *requestProviderCommand(
+    resolved: ResolvedProvider,
+    request: ProviderRuntimeRequest,
+  ): AsyncIterable<ModelRequestEvent> {
+    const adapter = resolved.commandAdapter;
+    if (adapter === undefined) {
+      throw new ProviderRuntimeError(
+        ProviderRuntimeErrors.codes.PROVIDER_RUNTIME_INVALID_CONFIGURATION,
+        `provider connection ${resolved.connection.id} is not configured as a provider command`,
+        { connectionId: resolved.connection.id },
+      );
+    }
+    assertProviderCommandParams(request.params);
+    const requestId = request.request_id ?? `provider_command_${ulid()}`;
+    const prompt = providerCommandPrompt(request.input);
+    let output = '';
+    let usageEmitted = false;
+    const commandRequest: ProviderRequest = {
+      requestId,
+      trace: providerCommandTrace(this.context, resolved.connection, resolved.model, request),
+      prompt,
+      model: resolved.model,
+      signal: request.signal,
+    };
+    for await (const event of adapter.run(commandRequest)) {
+      if (event.kind === 'text') {
+        output += event.text;
+        yield { type: 'part', part: { type: 'text', text: event.text } };
+      } else if (event.kind === 'usage') {
+        usageEmitted = true;
+        yield { type: 'usage', usage: providerCommandUsage(event), model: resolved.model };
+      } else if (event.kind === 'completed' && event.usage !== undefined && !usageEmitted) {
+        usageEmitted = true;
+        yield { type: 'usage', usage: providerCommandUsage(event), model: resolved.model };
+      }
+    }
+    request.params?.onTraceId?.(null);
+    yield {
+      type: 'finish',
+      message: {
+        role: 'assistant',
+        content: [{ type: 'text', text: output }],
+        toolCalls: [],
+      },
+      rawFinishReason: 'stop',
+    };
+  }
+
+  private async resolveProviderCommand(
+    connection: ProviderConnection,
+    requestedModel?: string,
+  ): Promise<ResolvedProvider> {
+    const secret = await this.resolveSecret(connection);
+    const adapter = await this.providerCommandAdapter(connection, secret);
+    const status = await adapter.detect();
+    if (!status.available) {
+      throw new ProviderRuntimeError(
+        ProviderRuntimeErrors.codes.PROVIDER_RUNTIME_UNSUPPORTED,
+        `provider command ${connection.name} is unavailable: ${status.code}${status.message === undefined ? '' : ` (${status.message})`}`,
+        { connectionId: connection.id, providerCommandCode: status.code },
+      );
+    }
+    const capabilities = await adapter.capabilities();
+    if (!capabilities.available) {
+      throw new ProviderRuntimeError(
+        ProviderRuntimeErrors.codes.PROVIDER_RUNTIME_UNSUPPORTED,
+        `provider command ${connection.name} is unavailable: ${capabilities.code}`,
+        { connectionId: connection.id, providerCommandCode: capabilities.code },
+      );
+    }
+    const model = await selectProviderCommandModel(connection, requestedModel, adapter, capabilities);
+    const modelInfo = configuredModels(connection).find((candidate) => candidate.id === model);
+    return {
+      connection,
+      model,
+      protocol: 'openai',
+      providerType: 'provider-command',
+      secret,
+      commandAdapter: adapter,
+      modelDefinition: providerCommandModelDefinition(connection, model, modelInfo),
+    };
+  }
+
+  private async providerCommandAdapter(
+    connection: ProviderConnection,
+    secret: string | undefined,
+  ): Promise<ProviderCommandAdapter> {
+    const parsed = providerCommandConfigSchema.safeParse(connection.metadata?.['provider_command']);
+    if (!parsed.success) {
+      throw new ProviderRuntimeError(
+        ProviderRuntimeErrors.codes.PROVIDER_RUNTIME_INVALID_CONFIGURATION,
+        `provider CLI connection ${connection.id} has invalid provider_command metadata`,
+        { connectionId: connection.id },
+      );
+    }
+    if (secret !== undefined && parsed.data.auth_env === undefined) {
+      throw new ProviderRuntimeError(
+        ProviderRuntimeErrors.codes.PROVIDER_RUNTIME_INVALID_CONFIGURATION,
+        `provider CLI connection ${connection.id} must declare provider_command.auth_env when a credential is configured`,
+        { connectionId: connection.id },
+      );
+    }
+    const baseKaos = this.localKaos ?? (this.localKaos = LocalKaos.create());
+    const environment = secret === undefined || parsed.data.auth_env === undefined
       ? undefined
-      : await this.secrets.get(connection.secret_ref);
+      : { [parsed.data.auth_env]: secret };
+    const kaos = environment === undefined
+      ? await baseKaos
+      : (await baseKaos).withEnv(environment);
+    const config = parsed.data;
+    return new LocalProviderCommandAdapter(kaos, {
+      id: connection.id,
+      displayName: connection.name,
+      executable: config.executable,
+      versionArgs: config.version_args,
+      modelsArgs: config.models_args,
+      runArgs: config.run_args,
+      input: config.input,
+      modelsOutput: config.models_output,
+      supportedVersionRange: config.supported_version_range,
+      capabilities: {
+        streaming: config.capabilities?.streaming,
+        cancellation: config.capabilities?.cancellation,
+        modelSelection: config.capabilities?.model_selection,
+        modelListing: config.capabilities?.model_listing,
+        usageMetadata: config.capabilities?.usage_metadata,
+      },
+      maxOutputBytes: config.max_output_bytes,
+      environment,
+      redactionSecrets: secret === undefined ? undefined : [secret],
+    });
+  }
+
+  private async resolveSecret(connection: ProviderConnection): Promise<string | undefined> {
+    if (connection.secret_ref === PLATFORM_NO_CREDENTIAL_SECRET_REF) return undefined;
+    const secret = await this.secrets.get(connection.secret_ref);
     if (secret === undefined && !allowsUnauthenticated(connection)) {
       throw new ProviderRuntimeError(
         ProviderRuntimeErrors.codes.PROVIDER_RUNTIME_SECRET_MISSING,
@@ -659,6 +918,15 @@ export class WorkspaceProviderRuntimeService
         { connectionId: connection.id },
       );
     }
+    return secret;
+  }
+
+  private async resolve(connection: ProviderConnection, requestedModel?: string): Promise<ResolvedProvider> {
+    if (connection.provider === 'provider-cli') {
+      return this.resolveProviderCommand(connection, requestedModel);
+    }
+    const descriptor = this.describeConnection(connection, requestedModel);
+    const secret = await this.resolveSecret(connection);
     return {
       ...descriptor,
       secret,
@@ -738,6 +1006,7 @@ interface ResolvedProvider {
   readonly providerType: string;
   readonly baseUrl?: string;
   readonly secret?: string;
+  readonly commandAdapter?: ProviderCommandAdapter;
   readonly modelDefinition: Model;
 }
 
@@ -747,6 +1016,189 @@ interface PreparedProviderRequest {
   readonly policyDecision: PolicyDecision;
   readonly budgetReservation?: BudgetReservation;
   readonly stream: AsyncIterable<ModelRequestEvent>;
+}
+
+function providerRuntimeModelFromResolved(
+  resolved: ResolvedProvider,
+  transport: 'api' | 'provider-command',
+): ProviderRuntimeModel {
+  return {
+    connection_id: resolved.connection.id,
+    provider: resolved.connection.provider,
+    model: resolved.model,
+    protocol: resolved.protocol,
+    provider_type: resolved.providerType,
+    base_url: resolved.baseUrl,
+    headers: resolved.modelDefinition.headers,
+    capabilities: resolved.modelDefinition.capabilities,
+    max_context_size: resolved.modelDefinition.maxContextSize,
+    max_input_size: resolved.modelDefinition.maxInputSize,
+    max_output_size: resolved.modelDefinition.maxOutputSize,
+    support_efforts: resolved.modelDefinition.supportEfforts,
+    default_effort: resolved.modelDefinition.defaultEffort,
+    provider_options: resolved.modelDefinition.providerOptions,
+    transport,
+  };
+}
+
+function providerModelFromCommand(model: ModelInfo): ProviderModel {
+  return providerModelSchema.parse({
+    id: model.id,
+    name: model.displayName,
+    capabilities: model.capabilities === undefined ? [] : [...model.capabilities],
+    metadata: model.metadata,
+  });
+}
+
+async function selectProviderCommandModel(
+  connection: ProviderConnection,
+  requestedModel: string | undefined,
+  adapter: ProviderCommandAdapter,
+  capabilities: Awaited<ReturnType<ProviderCommandAdapter['capabilities']>>,
+): Promise<string> {
+  const configured = configuredModels(connection);
+  const selected = requestedModel?.trim()
+    || stringMetadata(connection.metadata ?? {}, 'default_model')
+    || stringMetadata(connection.metadata ?? {}, 'model')
+    || configured[0]?.id;
+  if (selected !== undefined) return selected;
+  if (!capabilities.modelListing) {
+    throw new ProviderRuntimeError(
+      ProviderRuntimeErrors.codes.PROVIDER_RUNTIME_INVALID_CONFIGURATION,
+      `provider CLI connection ${connection.id} must define a model or support model listing`,
+      { connectionId: connection.id },
+    );
+  }
+  const models = await adapter.models();
+  const first = models[0]?.id;
+  if (first === undefined || first.trim().length === 0) {
+    throw new ProviderRuntimeError(
+      ProviderRuntimeErrors.codes.PROVIDER_RUNTIME_INVALID_CONFIGURATION,
+      `provider CLI connection ${connection.id} did not return a usable model`,
+      { connectionId: connection.id },
+    );
+  }
+  return first;
+}
+
+function providerCommandModelDefinition(
+  connection: ProviderConnection,
+  model: string,
+  modelInfo: ProviderModel | undefined,
+): Model {
+  const metadata = connection.metadata ?? {};
+  const maxContextSize = positiveNumberMetadata(metadata, 'max_context_size')
+    ?? positiveNumberMetadata(modelInfo?.metadata ?? {}, 'context_window')
+    ?? 0;
+  const capabilities: ModelCapability = {
+    ...UNKNOWN_CAPABILITY,
+    max_context_tokens: maxContextSize,
+  };
+  return {
+    id: `${connection.id}:${model}`,
+    name: model,
+    aliases: [],
+    protocol: 'openai',
+    headers: {},
+    capabilities,
+    maxContextSize,
+    maxInputSize: positiveNumberMetadata(metadata, 'max_input_size'),
+    maxOutputSize: positiveNumberMetadata(metadata, 'max_output_size'),
+    supportEfforts: undefined,
+    defaultEffort: undefined,
+    alwaysThinking: false,
+    providerType: 'provider-command',
+    providerName: connection.provider,
+    authProvider: new StaticAuthProvider(undefined),
+    providerOptions: { metadata: { transport: 'provider-command' } },
+  };
+}
+
+function providerCommandPrompt(input: ProviderRuntimeRequest['input']): string {
+  if (input.tools.length > 0) {
+    throw new ProviderRuntimeError(
+      ProviderRuntimeErrors.codes.PROVIDER_RUNTIME_UNSUPPORTED,
+      'provider CLI connections do not support governed tool calls',
+    );
+  }
+  if (input.responseFormat !== undefined) {
+    throw new ProviderRuntimeError(
+      ProviderRuntimeErrors.codes.PROVIDER_RUNTIME_UNSUPPORTED,
+      'provider CLI connections do not support structured response formats',
+    );
+  }
+  const sections: string[] = [];
+  if (input.systemPrompt.trim().length > 0) sections.push(`system:\n${input.systemPrompt}`);
+  for (const message of input.messages) {
+    if (message.toolCalls.length > 0 || message.content.some((part) => part.type !== 'text')) {
+      throw new ProviderRuntimeError(
+        ProviderRuntimeErrors.codes.PROVIDER_RUNTIME_UNSUPPORTED,
+        'provider CLI connections support text-only message history without tool calls',
+      );
+    }
+    sections.push(`${message.role}:\n${message.content.map((part) => part.type === 'text' ? part.text : '').join('')}`);
+  }
+  const prompt = sections.join('\n\n');
+  if (Buffer.byteLength(prompt, 'utf8') > 2 * 1024 * 1024) {
+    throw new ProviderRuntimeError(
+      ProviderRuntimeErrors.codes.PROVIDER_RUNTIME_INVALID_CONFIGURATION,
+      'provider CLI request input exceeds the 2 MiB safety limit',
+    );
+  }
+  return prompt;
+}
+
+function assertProviderCommandParams(params: ProviderRuntimeRequest['params']): void {
+  if (
+    params?.cacheKey !== undefined ||
+    params?.sampling !== undefined ||
+    params?.thinkingEffort !== undefined ||
+    params?.thinkingKeep !== undefined ||
+    params?.maxCompletionTokens !== undefined
+  ) {
+    throw new ProviderRuntimeError(
+      ProviderRuntimeErrors.codes.PROVIDER_RUNTIME_UNSUPPORTED,
+      'provider CLI connections do not support model-generation parameter overrides',
+    );
+  }
+}
+
+function providerCommandTrace(
+  context: IWorkspaceContext | undefined,
+  connection: ProviderConnection,
+  model: string,
+  request: ProviderRuntimeRequest,
+): ProviderRequest['trace'] {
+  if (context?.workspaceId === undefined || request.run_id === undefined || request.attempt_id === undefined) {
+    return undefined;
+  }
+  return {
+    runId: request.run_id,
+    attemptId: request.attempt_id,
+    workspaceId: context.workspaceId,
+    projectId: request.project_id,
+    executionTargetId: request.execution_target_id,
+    provider: connection.provider,
+    model,
+    userId: request.user_id,
+    policyDecisionIds: request.policy_decision_ids,
+    approvalIds: request.approval_ids,
+    artifactIds: request.artifact_ids,
+  };
+}
+
+function providerCommandUsage(usage: UsageMetadata): TokenUsage {
+  const input = usage.inputTokens === undefined ? 0 : Math.max(0, Math.trunc(usage.inputTokens));
+  const output = usage.outputTokens === undefined ? 0 : Math.max(0, Math.trunc(usage.outputTokens));
+  const total = usage.totalTokens === undefined
+    ? input + output
+    : Math.max(0, Math.trunc(usage.totalTokens));
+  return {
+    inputOther: input === 0 ? Math.max(0, total - output) : input,
+    output,
+    inputCacheRead: 0,
+    inputCacheCreation: 0,
+  };
 }
 
 function resolveProtocol(connection: ProviderConnection, metadata: Readonly<Record<string, unknown>>): Protocol {
@@ -913,12 +1365,36 @@ function selectedModelFor(connection: ProviderConnection, requestedModel?: strin
 }
 
 function allowsUnauthenticated(connection: ProviderConnection): boolean {
-  return connection.provider === 'local' && connection.secret_ref === PLATFORM_NO_CREDENTIAL_SECRET_REF;
+  return (connection.provider === 'local' || connection.provider === 'provider-cli')
+    && connection.secret_ref === PLATFORM_NO_CREDENTIAL_SECRET_REF;
 }
 
 function providerUsageSource(connection: ProviderConnection): 'byok' | 'local' {
-  if (connection.provider === 'local') return 'local';
+  if (connection.provider === 'local' || connection.provider === 'provider-cli') return 'local';
   return 'byok';
+}
+
+function providerInvocationAttemptId(
+  request: ProviderRuntimeRequest,
+  connectionIndex: number,
+  retryIndex: number,
+): string {
+  return `${request.request_id ?? `provider_${ulid()}`}:provider:${connectionIndex}:${retryIndex}`;
+}
+
+function providerInvocationEntityId(
+  options: ProviderRuntimeOperationOptions,
+  connection: ProviderConnection,
+  model: string,
+): string {
+  const input = [
+    options.invocation_id ?? options.request_id ?? 'provider',
+    options.run_id ?? '',
+    options.attempt_id ?? '',
+    connection.id,
+    model,
+  ].join('\u0000');
+  return `provider_invocation_${createHash('sha256').update(input).digest('hex').slice(0, 48)}`;
 }
 
 function estimatedProviderUnits(connection: ProviderConnection): number {
@@ -937,6 +1413,25 @@ function safeProviderRequestError(error: unknown, secret?: string): ProviderRunt
   const message = redactError(error, secret);
   if (error instanceof ProviderRuntimeError) {
     return new ProviderRuntimeError(error.code as ProviderRuntimeErrorCode, message);
+  }
+  if (error instanceof ProviderCommandError) {
+    const nonRetryable = new Set([
+      'executable_missing',
+      'unsupported_version',
+      'authentication_failure',
+      'model_unavailable',
+      'permission_denied',
+      'malformed_output',
+      'unsupported_capability',
+      'duplicate_request',
+    ]);
+    return new ProviderRuntimeError(
+      nonRetryable.has(error.code)
+        ? ProviderRuntimeErrors.codes.PROVIDER_RUNTIME_INVALID_CONFIGURATION
+        : ProviderRuntimeErrors.codes.PROVIDER_RUNTIME_REQUEST_FAILED,
+      `provider command ${error.code}: ${message}`,
+      { providerCommandCode: error.code },
+    );
   }
   return new ProviderRuntimeError(
     ProviderRuntimeErrors.codes.PROVIDER_RUNTIME_REQUEST_FAILED,

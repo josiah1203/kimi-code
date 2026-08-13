@@ -12,9 +12,9 @@ lookups, reproducibility, or bounded export requests.
 
 ## Required tools
 
-`spiderbyte_list_artifacts`, `spiderbyte_get_artifact`,
-`spiderbyte_get_artifact_lineage`, `spiderbyte_get_artifact_content`,
-`spiderbyte_get_run`, `spiderbyte_list_events`, `search`, and `fetch`.
+`list_artifacts`, `get_artifact`, and `get_run`.
+The curated surface returns bounded metadata and stable IDs; raw content,
+lineage, search, and fetch remain local/full-profile capabilities.
 
 ## Workflow
 

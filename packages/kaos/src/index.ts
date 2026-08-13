@@ -16,6 +16,27 @@ export {
 } from './errors';
 export { LocalKaos } from './local';
 export {
+  extractVersion,
+  isVersionSupported,
+  LocalProviderCommandAdapter,
+  parseProviderCommandSpec,
+  ProviderCommandError,
+  redactSecrets,
+} from './provider-command';
+export type {
+  ModelInfo,
+  ProviderCapabilities,
+  ProviderCommandAdapter,
+  ProviderCommandErrorCode,
+  ProviderCommandSpec,
+  ProviderEvent,
+  ProviderInvocationTrace,
+  ProviderRequest,
+  ProviderStatus,
+  ProviderStatusCode,
+  UsageMetadata,
+} from './provider-command';
+export {
   chdir,
   exec,
   execWithEnv,

@@ -241,7 +241,7 @@ export class WorkspaceServingService extends Disposable implements IWorkspaceSer
         await this.emitEndpoint(endpoint, command.request_id);
         return endpoint;
       }
-      const deployed = await this.executeDeployment(endpoint, command.request_id);
+      const deployed = await this.executeDeployment(endpoint, command.request_id, command.attempt_id);
       await this.replace({
         packages: this.packages,
         endpoints: this.endpoints.map((candidate) => candidate.id === deployed.id ? deployed : candidate),
@@ -280,7 +280,7 @@ export class WorkspaceServingService extends Disposable implements IWorkspaceSer
         const remoteTarget = await this.isRemoteTarget(current.execution_target_id);
         if ((action === 'pause' || action === 'archive') && leaseId !== undefined && current.execution_target_id !== undefined) {
           if (remoteTarget) {
-            const worker = await this.executeWorkerAction(current, command.request_id, action);
+            const worker = await this.executeWorkerAction(current, command.request_id, action, command.attempt_id);
             workerMetadata = worker.metadata;
             workerEndpointUrl = worker.endpoint_url;
           }
@@ -306,6 +306,7 @@ export class WorkspaceServingService extends Disposable implements IWorkspaceSer
                 { ...current, lease_id: lease.id },
                 command.request_id,
                 action,
+                command.attempt_id,
               );
               workerMetadata = worker.metadata;
               workerEndpointUrl = worker.endpoint_url;
@@ -388,7 +389,7 @@ export class WorkspaceServingService extends Disposable implements IWorkspaceSer
         error: undefined,
         metadata: command.metadata ?? current.metadata,
       });
-      const deployed = await this.executeDeployment(next, command.request_id);
+      const deployed = await this.executeDeployment(next, command.request_id, command.attempt_id);
       await this.replace({
         packages: this.packages,
         endpoints: this.endpoints.map((candidate) => candidate.id === id ? deployed : candidate),
@@ -504,7 +505,11 @@ export class WorkspaceServingService extends Disposable implements IWorkspaceSer
     });
   }
 
-  private async executeDeployment(endpoint: ServingEndpoint, requestId: string): Promise<ServingEndpoint> {
+  private async executeDeployment(
+    endpoint: ServingEndpoint,
+    requestId: string,
+    attemptId?: string,
+  ): Promise<ServingEndpoint> {
     if (endpoint.execution_target_id === undefined) {
       return servingEndpointSchema.parse({
         ...endpoint,
@@ -524,7 +529,7 @@ export class WorkspaceServingService extends Disposable implements IWorkspaceSer
       });
     }
     try {
-      const result = await this.executeWorkerAction(endpoint, requestId, 'deploy');
+      const result = await this.executeWorkerAction(endpoint, requestId, 'deploy', attemptId);
       return servingEndpointSchema.parse({
         ...endpoint,
         state: 'ready',
@@ -555,6 +560,7 @@ export class WorkspaceServingService extends Disposable implements IWorkspaceSer
     endpoint: ServingEndpoint,
     requestId: string,
     action: 'deploy' | 'pause' | 'resume' | 'archive',
+    attemptId?: string,
   ): Promise<{ readonly endpoint_url?: string; readonly metadata?: Readonly<Record<string, unknown>> }> {
     if (endpoint.execution_target_id === undefined || endpoint.lease_id === undefined) {
       throw new ServingServiceError(
@@ -565,6 +571,7 @@ export class WorkspaceServingService extends Disposable implements IWorkspaceSer
     const result = await this.execution.execute({
       request_id: `${requestId}:worker:${action}`,
       run_id: endpoint.deployment_run_id,
+      attempt_id: attemptId,
       target_id: endpoint.execution_target_id,
       lease_id: endpoint.lease_id,
       operation: 'serving',

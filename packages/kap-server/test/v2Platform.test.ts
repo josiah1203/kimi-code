@@ -61,6 +61,9 @@ describe('server /api/v2 platform surface', () => {
 
   beforeEach(async () => {
     vi.stubEnv('SPIDERBYTE_EXPERIMENTAL_PLATFORM_SERVICES', '1');
+    // The server derives the local principal from host configuration; request
+    // bodies cannot impersonate `actor_id` anymore.
+    vi.stubEnv('SPIDERBYTE_LOCAL_ACTOR_ID', 'local-admin');
     home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-platform-'));
     server = await startServer({
       hostIdentity: TEST_HOST_IDENTITY,
@@ -138,6 +141,69 @@ describe('server /api/v2 platform surface', () => {
     expect(connection.data).toMatchObject({ state: 'configured', secret_ref: 'secret_customer_openai' });
     expect(connection.data).not.toHaveProperty('api_key');
 
+    const targetsResponse = await authedFetch(
+      server as RunningServer,
+      base,
+      `/api/v2/workspaces/${workspaceId}/platform/execution-targets`,
+    );
+    expect(await targetsResponse.json()).toMatchObject({ code: 0, data: [] });
+    const targetCreateResponse = await authedFetch(
+      server as RunningServer,
+      base,
+      `/api/v2/workspaces/${workspaceId}/platform/execution-targets`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          request_id: 'target_create',
+          name: 'local-target',
+          type: 'local',
+          locality: 'local',
+          capabilities: ['analysis'],
+        }),
+      },
+    );
+    const target = (await targetCreateResponse.json()) as Envelope<{
+      id: string;
+      workspace_id: string;
+      health_status: string;
+      authentication_method: string;
+    }>;
+    expect(target).toMatchObject({
+      code: 0,
+      data: {
+        workspace_id: workspaceId,
+        health_status: 'unknown',
+        authentication_method: 'none',
+      },
+    });
+    const targetId = target.data?.id as string;
+    const targetTestResponse = await authedFetch(
+      server as RunningServer,
+      base,
+      `/api/v2/workspaces/${workspaceId}/platform/execution-targets/${targetId}/test`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ request_id: 'target_test' }),
+      },
+    );
+    expect(await targetTestResponse.json()).toMatchObject({
+      code: 0,
+      data: { target_id: targetId, workspace_id: workspaceId, status: 'healthy' },
+    });
+    const targetRevokeResponse = await authedFetch(
+      server as RunningServer,
+      base,
+      `/api/v2/workspaces/${workspaceId}/platform/execution-targets/${targetId}/revoke`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ request_id: 'target_revoke' }),
+      },
+    );
+    expect(await targetRevokeResponse.json()).toMatchObject({ code: 0, data: { state: 'disabled' } });
+
     const policyResponse = await authedFetch(
       server as RunningServer,
       base,
@@ -206,7 +272,7 @@ describe('server /api/v2 platform surface', () => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         request_id: 'governance_project_create',
-        actor_id: 'local-admin',
+        actor_id: 'request-body-attacker',
         organization_id: organization.data?.id,
         name: 'Governance test',
       }),
@@ -297,7 +363,7 @@ describe('server /api/v2 platform surface', () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           request_id: 'governance_authorization_evaluate',
-          actor_id: 'local-admin',
+          actor_id: 'request-body-attacker',
           project_id: project.data?.id,
           workspace_id: workspaceId,
           capability: 'run.execute',
@@ -361,6 +427,62 @@ describe('server /api/v2 platform surface', () => {
       `/api/v2/workspaces/${workspaceId}/platform/project`,
     );
     expect(await projectLookup.json()).toMatchObject({ code: 0, data: { id: project.data?.id } });
+
+    vi.stubEnv('SPIDERBYTE_LOCAL_ACTOR_ID', 'other-actor');
+    expect(await (await authedFetch(server as RunningServer, base, '/api/v2/organizations')).json()).toMatchObject({
+      code: 0,
+      data: [],
+    });
+    expect(await (await authedFetch(server as RunningServer, base, '/api/v2/projects')).json()).toMatchObject({
+      code: 0,
+      data: [],
+    });
+    expect(await (await authedFetch(server as RunningServer, base, '/api/v2/plugins')).json()).toMatchObject({
+      code: 0,
+      data: [],
+    });
+    expect(await (await authedFetch(server as RunningServer, base, '/api/v1/workspaces')).json()).toMatchObject({
+      code: 0,
+      data: { items: [] },
+    });
+    expect(await (await authedFetch(server as RunningServer, base, `/api/v1/workspaces/${workspaceId}/skills`)).json()).toMatchObject({
+      code: 40302,
+      data: null,
+    });
+    expect(await (await authedFetch(server as RunningServer, base, `/api/v2/projects/${project.data?.id}`)).json()).toMatchObject({
+      code: 40302,
+      data: null,
+    });
+    expect(await (await authedFetch(server as RunningServer, base, `/api/v2/plugins/${plugin.data?.id}`)).json()).toMatchObject({
+      code: 40302,
+      data: null,
+    });
+    expect(await (await authedFetch(server as RunningServer, base, `/api/v2/workspaces/${workspaceId}/platform/connections`)).json()).toMatchObject({
+      code: 40302,
+      data: null,
+    });
+
+    const token = (server as RunningServer).authTokenService.getToken();
+    const socket = new WebSocket(`ws://127.0.0.1:${server?.port}/api/v2/platform/ws`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    sockets.push(socket);
+    await new Promise<void>((resolve, reject) => {
+      socket.once('open', () => { resolve(); });
+      socket.once('error', reject);
+    });
+    const nextMessage = createMessageReader(socket);
+    socket.send(JSON.stringify({
+      type: 'subscribe',
+      request_id: 'ws_cross_workspace_denied',
+      workspace_id: workspaceId,
+    }));
+    expect(await nextMessage()).toMatchObject({
+      type: 'ack',
+      request_id: 'ws_cross_workspace_denied',
+      code: 40302,
+      data: null,
+    });
   });
 
   it('keeps the platform routes disabled unless the experimental flag is enabled', async () => {

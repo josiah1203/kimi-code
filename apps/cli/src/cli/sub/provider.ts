@@ -5,11 +5,11 @@
  * for the custom-registry path so users can import an api.json document, drop
  * a provider, or inspect what is configured without launching the TUI.
  *
- * `add` writes the same `source = { kind: 'apiJson', url, apiKey }` blob the
+ * `add` writes the same `source = { kind: 'apiJson', url, secretRef }` blob the
  * TUI does; the next launch's `refreshAllProviderModels`
- * (apps/cli/src/tui/utils/refresh-providers.ts) groups by URL, retries
- * available API-key candidates, and re-fetches the model list, so periodic
- * refresh is automatic.
+ * (apps/cli/src/tui/utils/refresh-providers.ts) resolves that reference only
+ * for the outbound request, so periodic refresh is automatic without putting
+ * raw credentials back into config.toml.
  */
 
 import {
@@ -31,10 +31,21 @@ import {
   type SpiderByteConfig,
   type SpiderByteHarness,
 } from '@spiderbyte/sdk';
+import { providerSecretRefSchema, type ProviderSecretRef } from '@spiderbyte/protocol';
+import type { ProviderCommandAdapter } from '@spiderbyte/kaos';
 import type { Command } from 'commander';
 
 import { createSpiderByteHostIdentity, createSpiderByteUserAgent } from '#/cli/version';
 import { fetchCatalogOrBuiltIn } from '#/utils/catalog-fetch';
+import {
+  createConfiguredProviderCommandAdapters,
+  handleProviderCommandCapabilities,
+  handleProviderCommandDetect,
+  handleProviderCommandList,
+  handleProviderCommandTest,
+  PROVIDER_CLI_CONFIG_ENV,
+  type ProviderCommandDeps,
+} from './provider-command';
 
 
 interface WritableLike {
@@ -47,6 +58,7 @@ export interface ProviderDeps {
   readonly stderr: WritableLike;
   readonly env: NodeJS.ProcessEnv;
   readonly exit: (code: number) => never;
+  readonly getProviderCommandAdapters?: () => Promise<readonly ProviderCommandAdapter[]>;
 }
 
 interface AddOptions {
@@ -93,10 +105,9 @@ export async function handleProviderAdd(
     deps.exit(1);
   }
 
-  const source: CustomRegistrySource = {
+  const sourceForFetch: CustomRegistrySource = {
     kind: 'apiJson',
     url: trimmedUrl,
-    apiKey,
   };
 
   const harness = deps.getHarness();
@@ -104,7 +115,10 @@ export async function handleProviderAdd(
 
   let entries: Awaited<ReturnType<typeof fetchCustomRegistry>>;
   try {
-    entries = await fetchCustomRegistry(source, { userAgent: createSpiderByteUserAgent() });
+    entries = await fetchCustomRegistry(sourceForFetch, {
+      userAgent: createSpiderByteUserAgent(),
+      apiKey,
+    });
   } catch (error) {
     const suffix = error instanceof CustomRegistryApiError ? ` (HTTP ${String(error.status)})` : '';
     deps.stderr.write(`Failed to fetch registry${suffix}: ${errorMessage(error)}\n`);
@@ -123,6 +137,9 @@ export async function handleProviderAdd(
   // persisted. Drop every stale id up front in a single batch instead, then
   // apply against the resulting fresh config.
   let config = (await harness.getConfig()) as WritableSpiderByteConfig;
+  const existingRef = registrySecretRefForUrl(config, trimmedUrl);
+  const secretRef = await harness.storeProviderSecret(apiKey, existingRef);
+  const source: CustomRegistrySource = { kind: 'apiJson', url: trimmedUrl, secretRef };
   const staleIds = entryList
     .filter((entry) => config.providers[entry.id] !== undefined)
     .map((entry) => entry.id);
@@ -378,6 +395,8 @@ export async function handleCatalogAdd(
   // even when `--default-model` is not supplied.
   const previousDefaultModel = config.defaultModel;
   const previousThinking = config.thinking;
+  const existingSecretRef = config.providers[providerId]?.secretRef;
+  const secretRef = await harness.storeProviderSecret(apiKey, existingSecretRef);
 
   if (config.providers[providerId] !== undefined) {
     config = (await harness.removeProvider(providerId)) as WritableSpiderByteConfig;
@@ -391,6 +410,7 @@ export async function handleCatalogAdd(
     wire,
     ...(baseUrl === undefined ? {} : { baseUrl }),
     apiKey,
+    secretRef,
     models,
     selectedModelId: opts.defaultModel ?? '',
     thinking: false,
@@ -502,6 +522,56 @@ export function registerProviderCommand(parent: Command, deps?: Partial<Provider
       await runAction(resolved, () => handleProviderList(resolved, { json: options.json === true }));
     });
 
+  provider
+    .command('detect [providerId]')
+    .description(`Detect configured provider CLI commands. Uses ${PROVIDER_CLI_CONFIG_ENV}.`)
+    .option('--json', 'Emit machine-readable detection results.', false)
+    .action(async (providerId: string | undefined, options: { json?: boolean }) => {
+      const resolved = resolveDeps(deps);
+      await runAction(resolved, () =>
+        handleProviderCommandDetect(providerCommandDeps(resolved), providerId, {
+          json: options.json === true,
+        }),
+      );
+    });
+
+  provider
+    .command('capabilities [providerId]')
+    .description('Report the verified capabilities of configured provider CLI commands.')
+    .option('--json', 'Emit machine-readable capability results.', false)
+    .action(async (providerId: string | undefined, options: { json?: boolean }) => {
+      const resolved = resolveDeps(deps);
+      await runAction(resolved, () =>
+        handleProviderCommandCapabilities(providerCommandDeps(resolved), providerId, {
+          json: options.json === true,
+        }),
+      );
+    });
+
+  provider
+    .command('test <providerId>')
+    .description('Run a non-interactive smoke request through a configured provider CLI command.')
+    .option('--model <model>', 'Provider model identifier.')
+    .option('--prompt <prompt>', 'Prompt sent through stdin.', 'Respond with a short health check.')
+    .option('--timeout <milliseconds>', 'Request timeout in milliseconds.')
+    .option('--json', 'Emit the structured event stream as JSON.', false)
+    .action(
+      async (
+        providerId: string,
+        options: { model?: string; prompt: string; timeout?: string; json?: boolean },
+      ) => {
+        const resolved = resolveDeps(deps);
+        await runAction(resolved, () =>
+          handleProviderCommandTest(providerCommandDeps(resolved), providerId, {
+            ...(options.model === undefined ? {} : { model: options.model }),
+            prompt: options.prompt,
+            ...(options.timeout === undefined ? {} : { timeoutMs: parseTimeout(options.timeout) }),
+            json: options.json === true,
+          }),
+        );
+      },
+    );
+
   const catalog = provider
     .command('catalog')
     .description('Discover and import providers from the public models.dev catalog.');
@@ -554,6 +624,30 @@ export function registerProviderCommand(parent: Command, deps?: Partial<Provider
         );
       },
     );
+
+  const providerList = parent
+    .command('providers')
+    .description(`Report configured provider CLI commands. Uses ${PROVIDER_CLI_CONFIG_ENV}.`)
+    .option('--json', 'Emit machine-readable provider, version, model, and capability data.', false);
+  providerList.action(async (options: { json?: boolean }) => {
+    const resolved = resolveDeps(deps);
+    await runAction(resolved, () =>
+      handleProviderCommandList(providerCommandDeps(resolved), { json: options.json === true }),
+    );
+  });
+
+  const capabilities = parent
+    .command('capabilities [providerId]')
+    .description('Report capabilities verified from configured provider CLI commands.')
+    .option('--json', 'Emit machine-readable capability data.', false);
+  capabilities.action(async (providerId: string | undefined, options: { json?: boolean }) => {
+    const resolved = resolveDeps(deps);
+    await runAction(resolved, () =>
+      handleProviderCommandCapabilities(providerCommandDeps(resolved), providerId, {
+        json: options.json === true,
+      }),
+    );
+  });
 }
 
 type ResolvedProviderDeps = ProviderDeps & { readonly close: () => Promise<void> };
@@ -561,6 +655,7 @@ type ResolvedProviderDeps = ProviderDeps & { readonly close: () => Promise<void>
 function resolveDeps(overrides: Partial<ProviderDeps> = {}): ResolvedProviderDeps {
   let harness: SpiderByteHarness | undefined;
   const identity = createSpiderByteHostIdentity();
+  const env = overrides.env ?? process.env;
   return {
     getHarness:
       overrides.getHarness ??
@@ -570,14 +665,49 @@ function resolveDeps(overrides: Partial<ProviderDeps> = {}): ResolvedProviderDep
       }),
     stdout: overrides.stdout ?? process.stdout,
     stderr: overrides.stderr ?? process.stderr,
-    env: overrides.env ?? process.env,
+    env,
     exit: overrides.exit ?? ((code: number) => process.exit(code)),
+    getProviderCommandAdapters:
+      overrides.getProviderCommandAdapters ?? (() => createConfiguredProviderCommandAdapters(env)),
     // The v2 harness boots an engine whose watchers hold the event loop open;
     // close it so a one-shot command can exit. No-op for injected harnesses.
     close: async () => {
       await harness?.close();
     },
   };
+}
+
+function providerCommandDeps(deps: ResolvedProviderDeps): ProviderCommandDeps {
+  return {
+    stdout: deps.stdout,
+    stderr: deps.stderr,
+    env: deps.env,
+    exit: deps.exit,
+    getProviderCommandAdapters:
+      deps.getProviderCommandAdapters ?? (() => createConfiguredProviderCommandAdapters(deps.env)),
+  };
+}
+
+function parseTimeout(value: string): number {
+  const timeoutMs = Number(value);
+  if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new Error('--timeout must be a positive integer in milliseconds.');
+  }
+  return timeoutMs;
+}
+
+function registrySecretRefForUrl(
+  config: SpiderByteConfig,
+  url: string,
+): ProviderSecretRef | undefined {
+  for (const provider of Object.values(config.providers)) {
+    const source = provider.source;
+    if (typeof source !== 'object' || source === null || Array.isArray(source)) continue;
+    if (source['kind'] !== 'apiJson' || source['url'] !== url) continue;
+    const parsed = providerSecretRefSchema.safeParse(source['secretRef']);
+    if (parsed.success) return parsed.data;
+  }
+  return undefined;
 }
 
 function resolveApiKey(flag: string | undefined, env: NodeJS.ProcessEnv): string | undefined {

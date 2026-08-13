@@ -6,23 +6,23 @@ does not turn a planned hosted service into an implementation.
 
 ## Product and package identity
 
-The requested public product spelling is **Spyderbyte**. The existing
-repository code and release authority use **SpiderByte**, while the executable
-and package namespace already use the lower-case-compatible `spyderbyte` and
-`@spiderbyte/*` forms. This implementation records that compatibility boundary
-explicitly; it does not silently rename the established package graph. The
-user-facing OpenAI plugin is named **Otis**.
+The canonical public product spelling is **SpiderByte**. The executable and
+package namespace use the lower-case-compatible `spyderbyte` and
+`@spiderbyte/*` forms. The alternate capitalized spelling is not adopted as
+product branding; existing internal identifiers that use it remain only for
+compatibility and are not a pattern for new APIs. The user-facing OpenAI
+plugin is named **Otis**.
 
 | Concern | Canonical value | Status |
 | --- | --- | --- |
-| Requested public product name | Spyderbyte | documented; full repository rename remains a migration decision |
-| Existing code/release product authority | SpiderByte | implemented in the repository |
+| Public product name | SpiderByte | canonical repository and release authority |
+| Alternate capitalized spelling | Not adopted | retained only where existing code/API compatibility requires it |
 | CLI executable | `spyderbyte` | implemented |
 | Public npm packages | `@spiderbyte/*` | implemented |
 | MCP server name | `spiderbyte` | implemented |
 | OpenAI/Codex plugin | `otis` / Otis | implemented locally |
-| Local stdio command | `spyderbyte mcp` | implemented |
-| HTTP MCP endpoint | `/mcp` | implemented; stateless MCP 2026-07-28 |
+| Local stdio command | `spyderbyte mcp --profile curated` | implemented; curated Otis surface |
+| HTTP MCP endpoint | `/mcp` | implemented; stateless MCP 2026-07-28; profile selected by `SPIDERBYTE_MCP_PROFILE` |
 | Default Codex model | `gpt-5.3-codex` in the repository `.codex/config.toml` | configured |
 
 No package rename is performed as part of the plugin work. Existing legacy
@@ -46,7 +46,7 @@ Supported paths:
 
 | Client | Transport | Current status |
 | --- | --- | --- |
-| Codex CLI | local stdio through `spyderbyte mcp` | implemented/local-only |
+| Codex CLI | local stdio through `spyderbyte mcp --profile curated` | implemented/local-only |
 | Codex IDE extension | the shared Codex MCP configuration | supported by configuration; local-only |
 | ChatGPT Developer Mode / MCP surfaces | authenticated Streamable HTTP at `/mcp` | implemented in the server; requires a reachable HTTPS deployment or development tunnel |
 | Future MCP-compatible clients | Streamable HTTP or stdio | protocol adapter implemented; client-specific setup is not claimed |
@@ -103,6 +103,25 @@ descriptions begin with “Use when”, and every tool declares `readOnlyHint`,
 `openWorldHint`, and `destructiveHint`, plus `idempotentHint` for the
 operations where it is meaningful.
 
+### Curated Otis profile
+
+The plugin passes `--profile curated`, which exposes exactly these semantic
+tool names: `list_workspaces`, `list_projects`, `list_execution_targets`,
+`create_run`, `get_run`, `cancel_run`, `list_artifacts`, `get_artifact`,
+`profile_dataset`, `run_sql_analysis`, `train_baseline_model`,
+`get_capabilities`, and `request_approval`. Each is backed by the existing
+App/Workspace/Session services; the curated profile does not expose internal
+REST routes or the broader `spiderbyte_*` inventory. Curated structured
+results are bounded to 64 KiB and text summaries to 8,000 characters.
+
+`train_baseline_model` composes the canonical Agent Core baseline workflow,
+creates an idempotent durable Run, records success/failure transitions, and
+returns stable Run and artifact IDs. It requires `confirmed: true` and remains
+subject to workspace authorization, policy, budget, and execution-target
+checks. Concurrent retries in one daemon process coalesce on an in-flight
+claim; restart recovery for a Run left `running` is deferred to the unified
+Run/Attempt phase.
+
 ### Implemented local families
 
 - capabilities, account/connection status, workspaces, sessions;
@@ -115,7 +134,9 @@ operations where it is meaningful.
 - policies, explanations, approvals, budgets, usage, and event replay;
 - standard `search` and `fetch` over stable `spiderbyte://` resource URIs.
 
-Run planning and starting are represented by the canonical Run lifecycle:
+The full developer profile retains the broader local families for repository
+inspection and administrative workflows. Run planning and starting are
+represented by the canonical Run lifecycle:
 `spiderbyte_create_run` creates a queued plan envelope and
 `spiderbyte_transition_run` records planning, approval, running, completion, or
 failure. The underlying Run contract has no separate durable attempt entity;
@@ -215,5 +236,5 @@ Current release status is:
   metadata, final security/dependency/SBOM gates, and organization review are
   complete.
 
-The exact evidence and remaining blockers are tracked in
-[`plugins/otis/submission/REVIEW_ARTIFACTS.md`](../../plugins/otis/submission/REVIEW_ARTIFACTS.md).
+The exact evidence and remaining blockers are tracked in the repository’s
+[`REVIEW_ARTIFACTS.md`](https://github.com/SpiderByte/spiderbyte/blob/main/plugins/otis/submission/REVIEW_ARTIFACTS.md).

@@ -2,7 +2,7 @@
   "name": "Otis",
   "slug": "otis",
   "category": "Data & ML",
-  "description": "Repo-aware SpiderByte tools, runtime, ML, and data workflows for Codex and MCP-compatible clients.",
+  "description": "Curated SpiderByte Runs, datasets, artifacts, local ML, and approvals for Codex and MCP-compatible clients.",
   "architecture": "skills-plus-headless-mcp-server",
   "mcp_endpoint": {
     "path": "/mcp",

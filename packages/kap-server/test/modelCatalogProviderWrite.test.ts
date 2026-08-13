@@ -218,7 +218,7 @@ describe('server-v2 /api/v1 provider write endpoints', () => {
     expect(onDisk['providers']).toEqual({
       'my-openai': {
         type: 'openai',
-        api_key: 'sk-test-openai',
+        secret_ref: expect.stringMatching(/^secret_/),
         base_url: 'https://api.openai.example/v1',
         default_model: 'my-openai/gpt-4.1',
       },
@@ -424,7 +424,9 @@ describe('server-v2 /api/v1 provider write endpoints', () => {
     expect(text).toBe('');
 
     const onDisk = await readConfigToml();
-    expect(onDisk['providers']).toEqual({ kimi: { type: 'kimi', api_key: 'sk-test' } });
+    expect(onDisk['providers']).toEqual({
+      kimi: { type: 'kimi', secret_ref: expect.stringMatching(/^secret_/) },
+    });
     expect(onDisk['models']).toEqual({
       k2: { provider: 'kimi', model: 'kimi-k2', max_context_size: 131072 },
     });
@@ -447,7 +449,9 @@ describe('server-v2 /api/v1 provider write endpoints', () => {
     // provider/aliases they reference are gone.
     expect(onDisk['default_provider']).toBe('openai');
     expect(onDisk['default_model']).toBe('gpt4o');
-    expect(onDisk['providers']).toEqual({ kimi: { type: 'kimi', api_key: 'sk-test' } });
+    expect(onDisk['providers']).toEqual({
+      kimi: { type: 'kimi', secret_ref: expect.stringMatching(/^secret_/) },
+    });
     expect(onDisk['models']).toEqual({
       k2: { provider: 'kimi', model: 'kimi-k2', max_context_size: 131072 },
     });
@@ -493,7 +497,7 @@ describe('server-v2 /api/v1 provider write endpoints', () => {
   // PUT /providers/{provider_id}
   // -------------------------------------------------------------------------
 
-  it('replaces a provider, keeping the stored api_key and rebuilding its aliases', async () => {
+  it('replaces a provider, keeping the stored secret reference and rebuilding its aliases', async () => {
     await boot(KEEP_DEFAULT_TOML);
     const { status, body } = await putJson<{
       provider: Record<string, unknown>;
@@ -514,10 +518,10 @@ describe('server-v2 /api/v1 provider write endpoints', () => {
     // The removed alias (`gpt4o`) is really gone from config.toml; the other
     // provider's alias (`k2`) and its global default pointer are untouched.
     expect(onDisk['providers']).toEqual({
-      kimi: { type: 'kimi', api_key: 'sk-test' },
+      kimi: { type: 'kimi', secret_ref: expect.stringMatching(/^secret_/) },
       openai: {
         type: 'openai',
-        api_key: 'sk-openai',
+        secret_ref: expect.stringMatching(/^secret_/),
         base_url: 'https://api.openai.example/v1',
         default_model: 'openai/gpt-4.1',
       },
@@ -557,17 +561,17 @@ describe('server-v2 /api/v1 provider write endpoints', () => {
 
     const onDisk = await readConfigToml();
     expect(onDisk['providers']).toEqual({
-      kimi: { type: 'kimi', api_key: 'sk-test' },
+      kimi: { type: 'kimi', secret_ref: expect.stringMatching(/^secret_/) },
       openai: {
         type: 'openai',
-        api_key: 'sk-new-openai',
+        secret_ref: expect.stringMatching(/^secret_/),
         base_url: 'https://api.openai.example/v1',
         default_model: 'openai/gpt-4.1',
       },
     });
   });
 
-  it('clears the stored api_key when an empty string is sent', async () => {
+  it('clears the stored secret reference when an empty string is sent', async () => {
     await boot(KEEP_DEFAULT_TOML);
     const { status, body } = await putJson<{
       provider: { has_api_key: boolean; status: string };
@@ -576,14 +580,13 @@ describe('server-v2 /api/v1 provider write endpoints', () => {
     expect(body.data.provider.has_api_key).toBe(false);
     expect(body.data.provider.status).toBe('unconfigured');
 
-    // Cleared persists as `api_key = ""` — the same form authService writes
-    // for keyless providers; runtime credential resolution treats it as no key.
+    // Clearing removes the encrypted reference; raw key material is never
+    // written to config.toml.
     const onDisk = await readConfigToml();
     expect(onDisk['providers']).toEqual({
-      kimi: { type: 'kimi', api_key: 'sk-test' },
+      kimi: { type: 'kimi', secret_ref: expect.stringMatching(/^secret_/) },
       openai: {
         type: 'openai',
-        api_key: '',
         base_url: 'https://api.openai.example/v1',
         default_model: 'openai/gpt-4.1',
       },
@@ -652,10 +655,10 @@ describe('server-v2 /api/v1 provider write endpoints', () => {
     expect(onDisk['default_model']).toBe('gpt4o');
     expect(onDisk['default_provider']).toBe('openai');
     expect(onDisk['providers']).toEqual({
-      kimi: { type: 'kimi', api_key: 'sk-test' },
+      kimi: { type: 'kimi', secret_ref: expect.stringMatching(/^secret_/) },
       openai: {
         type: 'openai_responses',
-        api_key: 'sk-openai',
+        secret_ref: expect.stringMatching(/^secret_/),
         base_url: 'https://api.openai.example/v1',
         default_model: 'openai/gpt-4.1',
       },
@@ -680,10 +683,10 @@ describe('server-v2 /api/v1 provider write endpoints', () => {
 
     const onDisk2 = await readConfigToml();
     expect(onDisk2['providers']).toEqual({
-      kimi: { type: 'kimi', api_key: 'sk-test' },
+      kimi: { type: 'kimi', secret_ref: expect.stringMatching(/^secret_/) },
       'my-openai': {
         type: 'openai',
-        api_key: 'sk-openai',
+        secret_ref: expect.stringMatching(/^secret_/),
         base_url: 'https://api.openai.example/v1',
         default_model: 'my-openai/gpt-4.1',
       },
@@ -726,8 +729,8 @@ describe('server-v2 /api/v1 provider write endpoints', () => {
 
     const onDisk = await readConfigToml();
     expect(onDisk['providers']).toEqual({
-      kimi: { type: 'kimi', api_key: 'sk-test' },
-      openai: { type: 'openai', api_key: 'sk-openai' },
+      kimi: { type: 'kimi', secret_ref: expect.stringMatching(/^secret_/) },
+      openai: { type: 'openai', secret_ref: expect.stringMatching(/^secret_/) },
     });
   });
 
@@ -778,7 +781,7 @@ describe('server-v2 /api/v1 provider write endpoints', () => {
     expect(body.data).toBeNull();
   });
 
-  // Field-level clears must reach the disk: the TOML transform overlays each
+    // Field-level clears must reach the disk: the TOML transform overlays each
   // kept entry onto its old on-disk raw, so a field absent from the body
   // would silently survive (and resurrect on the next boot) unless the route
   // assigns an explicit undefined. These cases lock the disk state, not just
@@ -813,7 +816,7 @@ describe('server-v2 /api/v1 provider write endpoints', () => {
     expect(onDisk['providers']).toEqual({
       openai: {
         type: 'openai',
-        api_key: 'sk-openai',
+        secret_ref: expect.stringMatching(/^secret_/),
         custom_headers: { 'X-Org': 'acme' },
       },
     });
@@ -834,7 +837,7 @@ describe('server-v2 /api/v1 provider write endpoints', () => {
 
   it('does not reveal an empty-string api_key on the single GET', async () => {
     await boot(KEEP_DEFAULT_TOML);
-    // Clear the key first (persists as api_key = "")…
+    // Clear the credential reference first…
     await putJson<unknown>('/api/v1/providers/openai', { ...REPLACE_BODY, api_key: '' });
     // …then the single GET must not surface the empty sentinel as a real key.
     const { body } = await getJson<Record<string, unknown>>('/api/v1/providers/openai');
@@ -919,8 +922,8 @@ describe('server-v2 /api/v1 provider write endpoints', () => {
     // No partial write: both providers and the foreign alias are untouched.
     const onDisk = await readConfigToml();
     expect(onDisk['providers']).toEqual({
-      openai: { type: 'openai', api_key: 'sk-openai' },
-      other: { type: 'anthropic', api_key: 'sk-other' },
+      openai: { type: 'openai', secret_ref: expect.stringMatching(/^secret_/) },
+      other: { type: 'anthropic', secret_ref: expect.stringMatching(/^secret_/) },
     });
     const models = onDisk['models'] as Record<string, Record<string, unknown>>;
     expect(models['openai/gpt-4.1']).toEqual({

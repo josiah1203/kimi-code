@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { artifactIdSchema, platformIdentifierSchema, platformMetadataSchema, runIdSchema } from './platform';
+import { artifactIdSchema, attemptIdSchema, platformIdentifierSchema, platformMetadataSchema, runIdSchema } from './platform';
 import { workspaceIdSchema } from './workspace';
 import { isoDateTimeSchema } from './time';
 
@@ -76,6 +76,7 @@ export type DatasetProfile = z.infer<typeof datasetProfileSchema>;
 export const datasetProfileInputSchema = z.strictObject({
   request_id: platformIdentifierSchema,
   run_id: runIdSchema.optional(),
+  attempt_id: attemptIdSchema.optional(),
   version: z.number().int().positive().optional(),
   policy_decision_id: platformIdentifierSchema.optional(),
 });

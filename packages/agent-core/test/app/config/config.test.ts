@@ -110,6 +110,8 @@ import {
   type McpSection,
 } from '#/app/mcpConfig/configSection';
 import { ILogService } from '#/_base/log/log';
+import { IPlatformSecretStore } from '#/app/secrets/platformSecretStore';
+import type { ProviderSecretRef } from '@spiderbyte/protocol';
 import { InMemoryStorageService } from '#/persistence/backends/memory/inMemoryStorageService';
 import { IFileSystemStorageService } from '#/persistence/interface/storage';
 import { IAtomicTomlDocumentStore } from '#/persistence/interface/atomicDocumentStore';
@@ -128,6 +130,29 @@ const TEST_OS_ENV = {
 
 function secondaryModelFlags(enabled = true) {
   return stubFlag((id) => enabled && id === SECONDARY_MODEL_FLAG_ID);
+}
+
+function stubSecretStore(): IPlatformSecretStore {
+  const secrets = new Map<ProviderSecretRef, string>();
+  let nextId = 0;
+  return {
+    _serviceBrand: undefined,
+    ready: Promise.resolve(),
+    async put(secret) {
+      const reference = `secret_test_${String(++nextId)}` as ProviderSecretRef;
+      secrets.set(reference, secret);
+      return reference;
+    },
+    async set(reference, secret) {
+      secrets.set(reference, secret);
+    },
+    async get(reference) {
+      return secrets.get(reference);
+    },
+    async remove(reference) {
+      secrets.delete(reference);
+    },
+  };
 }
 
 describe('Agent config', () => {
@@ -2256,13 +2281,34 @@ describe('ConfigService replaceSections', () => {
     ix.stub(IBootstrapService, stubBootstrap('/tmp/spiderbyte-cfg-replace-sections'));
     ix.stub(IFileSystemStorageService, storage);
     ix.set(IAtomicTomlDocumentStore, new SyncDescriptor(TomlAtomicDocumentStore));
+    ix.stub(IPlatformSecretStore, stubSecretStore());
     ix.set(IConfigRegistry, new SyncDescriptor(ConfigRegistry));
     ix.set(IConfigService, new SyncDescriptor(ConfigService));
     const config = ix.get(IConfigService);
     await config.ready;
     const store = ix.get(IAtomicTomlDocumentStore);
-    return { config, disposables, store, storage };
+    const secretStore = ix.get(IPlatformSecretStore);
+    return { config, disposables, store, storage, secretStore };
   }
+
+  it('does not persist or vault the process-only provider environment overlay', async () => {
+    const { config, disposables, secretStore } = await createSectionsConfig('');
+    const putSpy = vi.spyOn(secretStore, 'put');
+
+    await config.set(PROVIDERS_SECTION, {
+      __spiderbyte_env__: {
+        type: 'openai',
+        apiKey: 'sk-process-only',
+        baseUrl: 'https://env.example.test/v1',
+      },
+    });
+
+    expect(putSpy).not.toHaveBeenCalled();
+    expect(config.inspect<ProvidersSection>(PROVIDERS_SECTION).userValue).toEqual({});
+    expect(config.get<ProvidersSection>(PROVIDERS_SECTION)).toEqual({});
+
+    disposables.dispose();
+  });
 
   it('applies every domain in one transition with a single disk write, clearing undefined domains', async () => {
     const { config, disposables, store } = await createSectionsConfig();
@@ -2276,9 +2322,12 @@ describe('ConfigService replaceSections', () => {
     });
 
     expect(setSpy).toHaveBeenCalledTimes(1);
-    expect(config.get<Record<string, unknown>>(PROVIDERS_SECTION)).toEqual({
-      acme: { type: 'openai', apiKey: 'sk-acme-2' },
+    expect(config.get<Record<string, unknown>>(PROVIDERS_SECTION)).toMatchObject({
+      acme: { type: 'openai', secretRef: expect.stringMatching(/^secret_/) },
     });
+    expect(
+      config.get<Record<string, Record<string, unknown>>>(PROVIDERS_SECTION).acme?.apiKey,
+    ).toBeUndefined();
     expect(config.get<Record<string, unknown>>(MODELS_SECTION)).toEqual({
       'acme/m2': { provider: 'acme', model: 'm2', maxContextSize: 2000 },
     });
@@ -2302,8 +2351,8 @@ describe('ConfigService replaceSections', () => {
     expect(setSpy).toHaveBeenCalledTimes(1);
     expect(config.get(DEFAULT_MODEL_SECTION)).toBeUndefined();
     expect(config.inspect(DEFAULT_MODEL_SECTION).userValue).toBeUndefined();
-    expect(config.get<Record<string, unknown>>(PROVIDERS_SECTION)).toEqual({
-      acme: { type: 'openai', apiKey: 'sk-acme-2' },
+    expect(config.get<Record<string, unknown>>(PROVIDERS_SECTION)).toMatchObject({
+      acme: { type: 'openai', secretRef: expect.stringMatching(/^secret_/) },
     });
 
     await config.replace(DEFAULT_MODEL_SECTION, 'acme/m1');
@@ -2337,7 +2386,12 @@ describe('ConfigService replaceSections', () => {
     });
 
     expect(snapshotDuringFirstEvent).toEqual({
-      providers: { acme: { type: 'openai', apiKey: 'sk-acme-2' } },
+      providers: {
+        acme: expect.objectContaining({
+          type: 'openai',
+          secretRef: expect.stringMatching(/^secret_/),
+        }),
+      },
       models: { 'acme/m2': { provider: 'acme', model: 'm2', maxContextSize: 2000 } },
       defaultModel: undefined,
       thinking: {},

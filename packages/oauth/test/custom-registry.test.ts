@@ -57,7 +57,7 @@ function makeJsonResponse(body: unknown, status = 200): Response {
 const KOKUB_SOURCE: CustomRegistrySource = {
   kind: 'apiJson',
   url: 'https://registry.example.test/v1/models/api.json',
-  apiKey: 'sk-token',
+  secretRef: 'secret_test_registry',
 };
 
 describe('fetchCustomRegistry', () => {
@@ -66,7 +66,7 @@ describe('fetchCustomRegistry', () => {
 
     const result = await fetchCustomRegistry(
       KOKUB_SOURCE,
-      { fetchImpl: fetchMock as unknown as typeof fetch },
+      { fetchImpl: fetchMock as unknown as typeof fetch, apiKey: 'sk-token' },
     );
 
     expect(Object.keys(result)).toHaveLength(3);
@@ -116,8 +116,8 @@ describe('fetchCustomRegistry', () => {
     const fetchMock = vi.fn(async () => makeJsonResponse(makeKokubResponseBody()));
 
     await fetchCustomRegistry(
-      { kind: 'apiJson', url: KOKUB_SOURCE.url, apiKey: '' },
-      { fetchImpl: fetchMock as unknown as typeof fetch },
+      { kind: 'apiJson', url: KOKUB_SOURCE.url, secretRef: KOKUB_SOURCE.secretRef },
+      { fetchImpl: fetchMock as unknown as typeof fetch, apiKey: '' },
     );
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -253,7 +253,7 @@ describe('applyCustomRegistryProvider', () => {
     expect(config.providers['registry_chat-completions']).toEqual({
       type: 'openai',
       baseUrl: 'https://registry.example.test/v1',
-      apiKey: 'sk-token',
+      secretRef: 'secret_test_registry',
       source: KOKUB_SOURCE,
     });
 
@@ -290,7 +290,7 @@ describe('applyCustomRegistryProvider', () => {
     applyCustomRegistryProvider(config, entry, {
       kind: 'apiJson',
       url: 'https://demo.example/api.json',
-      apiKey: 'x',
+      secretRef: 'secret_test_demo',
     });
 
     expect((config.models?.['demo/m-1'] as { displayName: string }).displayName).toBe('m-1');
@@ -318,7 +318,7 @@ describe('applyCustomRegistryProvider', () => {
     applyCustomRegistryProvider(config, entry, {
       kind: 'apiJson',
       url: 'https://rich.example/api.json',
-      apiKey: 'sk-rich',
+      secretRef: 'secret_test_rich',
     });
 
     const alias = config.models?.['rich/rich-vision'];
@@ -424,7 +424,7 @@ describe('applyCustomRegistryProvider', () => {
     applyCustomRegistryProvider(config, entry, {
       kind: 'apiJson',
       url: 'https://rich.example/api.json',
-      apiKey: 'sk-rich',
+      secretRef: 'secret_test_rich',
     });
 
     const alias = config.models?.['rich/rich-thinker'] as Record<string, unknown>;
@@ -452,7 +452,7 @@ describe('applyCustomRegistryProvider', () => {
     applyCustomRegistryProvider(config, entry, {
       kind: 'apiJson',
       url: 'https://rich.example/api.json',
-      apiKey: 'sk-rich',
+      secretRef: 'secret_test_rich',
     });
 
     const alias = config.models?.['rich/rich-effort-only'] as Record<string, unknown>;
@@ -566,7 +566,7 @@ describe('applyCustomRegistryEntries', () => {
     const source: CustomRegistrySource = {
       kind: 'apiJson',
       url: 'https://registry.example.test/v1/models/api.json',
-      apiKey: 'sk-token',
+      secretRef: 'secret_test_registry',
     };
     const entries: Record<string, CustomRegistryProviderEntry> = {
       a: { id: 'a', name: 'A', api: 'https://a.test/v1', type: 'openai', models: { 'm1': { id: 'm1' } } },
@@ -588,7 +588,7 @@ describe('applyCustomRegistryEntries', () => {
     const source: CustomRegistrySource = {
       kind: 'apiJson',
       url: 'https://registry.example.test/api.json',
-      apiKey: 'sk-new',
+      secretRef: 'secret_test_new',
     };
     const config: SpiderByteConfigShape = {
       providers: {
@@ -618,7 +618,7 @@ describe('applyCustomRegistryEntries', () => {
     expect(config.providers['x']).toMatchObject({
       type: 'openai',
       baseUrl: 'https://x-new.test/v1',
-      apiKey: 'sk-new',
+      secretRef: 'secret_test_new',
     });
     expect(config.models?.['x/old-model']).toBeUndefined();
     expect(config.models?.['x/new-model']).toBeDefined();
@@ -637,7 +637,7 @@ describe('applyCustomRegistryEntries', () => {
     const source: CustomRegistrySource = {
       kind: 'apiJson',
       url: 'https://registry.example.test/api.json',
-      apiKey: 'sk-token',
+      secretRef: 'secret_test_registry',
     };
     const firstEntries: Record<string, CustomRegistryProviderEntry> = {
       a: { id: 'a', name: 'A', api: 'https://a.test/v1', type: 'openai', models: { m1: { id: 'm1' } } },
@@ -654,7 +654,7 @@ describe('applyCustomRegistryEntries', () => {
           source: {
             kind: 'apiJson',
             url: 'https://other.example.test/api.json',
-            apiKey: 'sk-other',
+            secretRef: 'secret_test_other',
           },
         },
       },
@@ -691,12 +691,12 @@ describe('applyCustomRegistryEntries', () => {
     const sourceA: CustomRegistrySource = {
       kind: 'apiJson',
       url: 'https://registry-a.example.test/api.json',
-      apiKey: 'sk-a',
+      secretRef: 'secret_test_a',
     };
     const sourceB: CustomRegistrySource = {
       kind: 'apiJson',
       url: 'https://registry-b.example.test/api.json',
-      apiKey: 'sk-b',
+      secretRef: 'secret_test_b',
     };
 
     const config: SpiderByteConfigShape = { providers: {} };

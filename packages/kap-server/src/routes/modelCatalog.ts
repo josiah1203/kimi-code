@@ -57,6 +57,8 @@ import {
   type ProviderConfig,
   type ProvidersSection,
   type Scope,
+  IPlatformSecretStore,
+  secretRefForInput,
 } from '@spiderbyte/agent-core';
 import { setDefaultModelResponseSchema } from '@spiderbyte/agent-core/kosong/model/catalog';
 import { refreshProviderModelsResponseSchema } from '@spiderbyte/agent-core/app/kosongConfig/discovery';
@@ -334,7 +336,10 @@ export function registerModelCatalogRoutes(app: ModelCatalogRouteHost, core: Sco
         }
 
         const provider: ProviderConfig = { type: req.body.type };
-        if (req.body.api_key !== undefined) provider.apiKey = req.body.api_key;
+        provider.secretRef = await secretRefForInput(
+          core.accessor.get(IPlatformSecretStore),
+          req.body.api_key,
+        );
         if (req.body.base_url !== undefined) provider.baseUrl = req.body.base_url;
         if (req.body.default_model !== undefined) {
           // The provider-level default references the model alias id
@@ -397,7 +402,7 @@ export function registerModelCatalogRoutes(app: ModelCatalogRouteHost, core: Sco
         [ErrorCode.PROVIDER_ALREADY_EXISTS]: {},
       },
       description:
-        'Replace a provider in one save (type + base_url + model list), optionally renaming it via `new_id` (the providers key, model aliases, default_provider and a default_model pointing at an old alias all migrate). `api_key` is tri-state: omitted keeps the stored key, "" clears it, any other value replaces it. The provider\'s model aliases are rebuilt from `models` — aliases no longer listed disappear from config.toml, other providers\' aliases are untouched. Beyond the rename migration, the global default pointers are never modified. Answers 200 with `{provider}`. Provider OAuth records are not edited by this local route; use a provider-neutral adapter or BYOK configuration.',
+        'Replace a provider in one save (type + base_url + model list), optionally renaming it via `new_id` (the providers key, model aliases, default_provider and a default_model pointing at an old alias all migrate). `api_key` is transient tri-state input: omitted keeps the opaque secret reference, "" clears it, any other value replaces the encrypted material behind that reference. The provider\'s model aliases are rebuilt from `models` — aliases no longer listed disappear from config.toml, other providers\' aliases are untouched. Beyond the rename migration, the global default pointers are never modified. Answers 200 with `{provider}`. Provider OAuth records are not edited by this local route; use a provider-neutral adapter or BYOK configuration.',
       tags: ['providers'],
       operationId: 'replaceProvider',
     },
@@ -429,15 +434,14 @@ export function registerModelCatalogRoutes(app: ModelCatalogRouteHost, core: Sco
         }
 
         // Whole-section replace (not deep-merge `set`, which could never drop
-        // the old api_key/base_url/default_model keys when they leave the form).
+        // old credential/base_url/default_model fields when they leave the form).
         // The provider record itself merges like the model records below do:
         // fields the form does not know (custom_headers / env / the registry
         // `source` blob that scheduled refreshes rediscover by) ride along on
         // `target`; the fields the form owns are authoritative — absent from
         // the body means cleared. api_key tri-state: field absent keeps the
-        // stored key, "" clears it — persisted as `api_key = ""`, the same
-        // cleared form authService writes (runtime credential resolution
-        // treats "" as no key).
+        // stored secret reference, "" clears it. Raw key material is accepted
+        // only for this request and is written to the encrypted secret store.
         const newId = req.body.new_id ?? provider_id;
         if (newId !== provider_id && providers[newId] !== undefined) {
           reply.send(
@@ -455,7 +459,17 @@ export function registerModelCatalogRoutes(app: ModelCatalogRouteHost, core: Sco
         // a raw overlay that only drops a key when the new value carries the key
         // with an undefined value (`setDefined`); a missing key would keep the
         // old on-disk value alive and resurrect it on the next boot.
-        provider.apiKey = req.body.api_key ?? target.apiKey;
+        const targetSecretRef = target.secretRef ?? (
+          target.apiKey === undefined
+            ? undefined
+            : await secretRefForInput(core.accessor.get(IPlatformSecretStore), target.apiKey)
+        );
+        provider.secretRef = await secretRefForInput(
+          core.accessor.get(IPlatformSecretStore),
+          req.body.api_key,
+          targetSecretRef,
+        );
+        provider.apiKey = undefined;
         provider.baseUrl = req.body.base_url;
         provider.defaultModel =
           req.body.default_model !== undefined
@@ -596,7 +610,7 @@ export function registerModelCatalogRoutes(app: ModelCatalogRouteHost, core: Sco
         [ErrorCode.CATALOG_UNAVAILABLE]: {},
       },
       description:
-        'Provider collection actions. Use `:refresh` for all locally refreshable providers. Use `:import_catalog` to import a models.dev directory entry as a configured provider (201): the wire protocol and endpoint come from the catalog resolution (`base_url` overrides it; required when the entry resolves to needs-base-url), all catalogued models are written as aliases, and importing an id that already exists is a refresh — the provider entry and its aliases are rewritten from the catalog. Provider OAuth records are rejected because no hosted identity service ships in Open Core. `id` overrides the catalog id as the local provider id. Use `:import_registry` to import a models.dev-shaped private registry (api.json `url` + optional Bearer `api_key`, 201): every listed provider is written with a `source` blob so scheduled refreshes rediscover it, and re-importing the same URL removes providers that disappeared upstream (the URL is the stable registry identity). For both imports the global default_provider/default_model pointers are never modified — except that a default_model is seeded from the first imported model when none is configured at all (fresh setup).',
+        'Provider collection actions. Use `:refresh` for all locally refreshable providers. Use `:import_catalog` to import a models.dev directory entry as a configured provider (201): the wire protocol and endpoint come from the catalog resolution (`base_url` overrides it; required when the entry resolves to needs-base-url), all catalogued models are written as aliases, and importing an id that already exists is a refresh — the provider entry and its aliases are rewritten from the catalog. Provider OAuth records are rejected because no hosted identity service ships in Open Core. `id` overrides the catalog id as the local provider id. Use `:import_registry` to import a models.dev-shaped private registry (api.json `url` + optional transient Bearer `api_key`, 201): every listed provider is written with an opaque secret reference in its `source` blob so scheduled refreshes rediscover it, and re-importing the same URL removes providers that disappeared upstream (the URL is the stable registry identity). For both imports the global default_provider/default_model pointers are never modified — except that a default_model is seeded from the first imported model when none is configured at all (fresh setup).',
       tags: ['providers'],
       operationId: 'providerCollectionAction',
     },
@@ -679,23 +693,14 @@ export function registerModelCatalogRoutes(app: ModelCatalogRouteHost, core: Sco
         [ErrorCode.VALIDATION_FAILED]: {},
         [ErrorCode.PROVIDER_NOT_FOUND]: {},
       },
-      description:
-        'Get a configured provider by ID. Unlike the list route, the response reveals the stored `api_key` when one is set, so local clients can prefill an edit form.',
+      description: 'Get a configured provider by ID. Credentials are never returned.',
       tags: ['providers'],
     },
     async (req, reply) => {
       try {
         const { provider_id } = req.params;
         const provider = await (await loadCatalog(core)).getProvider(provider_id);
-        const config = await loadConfig(core);
-        const stored = config.inspect<ProvidersSection>(PROVIDERS_SECTION).userValue?.[provider_id];
-        const apiKey = stored?.apiKey;
-        reply.send(
-          okEnvelope(
-            apiKey !== undefined && apiKey !== '' ? { ...provider, api_key: apiKey } : provider,
-            req.id,
-          ),
-        );
+        reply.send(okEnvelope(provider, req.id));
       } catch (err) {
         if (sendMappedError(reply, req.id, err)) return;
         throw err;

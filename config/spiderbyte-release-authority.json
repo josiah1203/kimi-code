@@ -4,6 +4,9 @@
     "migration_plan": "docs/release/SPIDERBYTE_OPEN_CORE_MIGRATION_PLAN.md",
     "package_rename_map": "docs/release/PACKAGE_RENAME_MAP.md",
     "open_core_boundary": "docs/architecture/OPEN_CORE_BOUNDARY.md",
+    "product_authority": "docs/architecture/SPIDERBYTE_PRODUCT_AUTHORITY.md",
+    "self_hosted_operations": "docs/release/SPIDERBYTE_SELF_HOSTED_OPERATIONS.md",
+    "release_checklist": "docs/release/SPIDERBYTE_OPEN_CORE_RELEASE_CHECKLIST.md",
     "baseline": "docs/release/SPIDERBYTE_OPEN_CORE_BASELINE.json"
   },
   "required_document_headings": {
@@ -22,6 +25,30 @@
       "Required removals from the current graph",
       "Boundary checker contract",
       "Required release evidence"
+    ],
+    "product_authority": [
+      "Canonical identity",
+      "Edition contract",
+      "Customer-owned deployment modes",
+      "Provider CLI model",
+      "Plugin architecture",
+      "Authority hierarchy"
+    ],
+    "self_hosted_operations": [
+      "Clean local installation",
+      "Provider setup",
+      "Customer-owned deployment modes",
+      "ChatGPT and Codex plugin setup",
+      "License activation, seats, and entitlements",
+      "Security and data flow",
+      "Upgrade, rollback, backup, and restore",
+      "Unsupported and adapter-dependent capabilities"
+    ],
+    "release_checklist": [
+      "Open Core release contract",
+      "Required clean-checkout gates",
+      "Release evidence record",
+      "Known blockers"
     ]
   },
   "tracked_legacy_and_public_surfaces": [
@@ -107,33 +134,33 @@
     },
     {
       "path_or_surface": "packages/kap-server/src/routes/v2/platform.ts",
-      "kind": "commercial-public-route",
+      "kind": "local-provider-neutral-route",
       "target": "local-provider-neutral-routes",
-      "disposition": "remove-commercial-route-registration",
+      "disposition": "retained-after-commercial-route-removal",
       "owner": "open-core-boundary",
       "review_by": "2026-09-30"
     },
     {
       "path_or_surface": "packages/client/src/contract/global/platform.ts",
-      "kind": "commercial-public-contract",
+      "kind": "local-provider-neutral-contract",
       "target": "local-provider-neutral-contract",
-      "disposition": "remove-commercial-contract-export",
+      "disposition": "retained-after-commercial-contract-removal",
       "owner": "open-core-boundary",
       "review_by": "2026-09-30"
     },
     {
       "path_or_surface": "packages/client/src/core/facade/global.ts",
-      "kind": "commercial-public-facade",
+      "kind": "local-global-facade",
       "target": "local-global-facade",
-      "disposition": "remove-commercial-facade",
+      "disposition": "retained-after-commercial-facade-removal",
       "owner": "open-core-boundary",
       "review_by": "2026-09-30"
     },
     {
       "path_or_surface": "packages/client/src/transports/memory/serviceRegistry.ts",
-      "kind": "commercial-service-registration",
+      "kind": "local-service-registration",
       "target": "local-service-registry",
-      "disposition": "remove-commercial-registration",
+      "disposition": "retained-after-commercial-registration-removal",
       "owner": "open-core-boundary",
       "review_by": "2026-09-30"
     },

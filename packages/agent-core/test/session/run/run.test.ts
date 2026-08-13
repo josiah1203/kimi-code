@@ -75,14 +75,18 @@ describe('SessionRunService', () => {
       agent_session_id: 's1',
       status: 'queued',
       request_id: 'request_create',
+      attempt_count: 1,
     });
+    const attempts = await service.listAttempts(created.id);
+    expect(attempts).toHaveLength(1);
+    expect(attempts[0]).toMatchObject({ run_id: created.id, kind: 'initial', status: 'queued' });
     expect(await service.list()).toEqual([created]);
     expect(changed).toEqual([created.id]);
 
     const stored = await ix
       .get(IAtomicDocumentStore)
       .get<{ version: number; runs: readonly unknown[] }>(RUN_SCOPE, 'runs.json');
-    expect(stored).toMatchObject({ version: 1, runs: [created] });
+    expect(stored).toMatchObject({ version: 2, runs: [created], attempts: attempts });
   });
 
   it('enforces the lifecycle graph and records start/completion timestamps', async () => {
@@ -318,6 +322,111 @@ describe('SessionRunService', () => {
     await fresh.ready;
 
     expect((await fresh.list()).map((run) => run.parent_run_id)).toEqual([undefined, parent.id]);
+    expect((await fresh.listAttempts()).map((attempt) => attempt.run_id)).toEqual([
+      parent.id,
+      (await fresh.list())[1]!.id,
+    ]);
+  });
+
+  it('reloads the active Attempt after a service restart', async () => {
+    const service = ix.get(ISessionRunService);
+    const run = await service.create({ request_id: 'request_restart' });
+    await service.transition(run.id, { request_id: 'request_restart_running', status: 'running' });
+    const active = (await service.listAttempts(run.id))[0]!;
+
+    const fresh = disposables.add(ix.createInstance(SessionRunService));
+    await fresh.ready;
+
+    expect(await fresh.getAttempt(active.id)).toMatchObject({
+      id: active.id,
+      run_id: run.id,
+      status: 'running',
+    });
+    expect((await fresh.get(run.id))?.active_attempt_id).toBe(active.id);
+  });
+
+  it('creates one idempotent retry Attempt on the same Run', async () => {
+    const service = ix.get(ISessionRunService);
+    const run = await service.create({ request_id: 'request_attempt_retry' });
+    await service.transition(run.id, { request_id: 'request_attempt_retry_running', status: 'running' });
+    const failed = await service.transitionAttempt(
+      (await service.listAttempts(run.id))[0]!.id,
+      { request_id: 'request_attempt_retry_failed', status: 'failed', status_reason: 'provider unavailable' },
+    );
+    expect(failed?.status).toBe('failed');
+
+    const retry = await service.retryAttempt(run.id, { request_id: 'request_attempt_retry_new' });
+    const duplicate = await service.retryAttempt(run.id, {
+      request_id: 'request_attempt_retry_new',
+      metadata: { ignored: true },
+    });
+
+    expect(retry).toMatchObject({
+      run_id: run.id,
+      attempt_number: 2,
+      kind: 'retry',
+      retry_of_attempt_id: failed?.id,
+      status: 'queued',
+    });
+    expect(duplicate).toEqual(retry);
+    expect((await service.get(run.id))?.status).toBe('queued');
+  });
+
+  it('cancels the logical Run when its active Attempt is cancelled', async () => {
+    const service = ix.get(ISessionRunService);
+    const run = await service.create({ request_id: 'request_attempt_cancel' });
+    await service.transition(run.id, { request_id: 'request_attempt_cancel_running', status: 'running' });
+    const attempt = (await service.listAttempts(run.id))[0]!;
+
+    const cancelled = await service.cancelAttempt(attempt.id, { request_id: 'request_attempt_cancelled' });
+
+    expect(cancelled).toMatchObject({ id: attempt.id, status: 'cancelled' });
+    expect(await service.get(run.id)).toMatchObject({ status: 'cancelled', active_attempt_id: attempt.id });
+  });
+
+  it('does not let a historical Attempt mutate the active Run projection', async () => {
+    const service = ix.get(ISessionRunService);
+    const run = await service.create({ request_id: 'request_attempt_history' });
+    await service.transition(run.id, { request_id: 'request_attempt_history_running', status: 'running' });
+    const initial = (await service.listAttempts(run.id))[0]!;
+    await service.transitionAttempt(initial.id, {
+      request_id: 'request_attempt_history_failed',
+      status: 'failed',
+    });
+    const retry = await service.retryAttempt(run.id, { request_id: 'request_attempt_history_retry' });
+
+    await expect(service.transitionAttempt(initial.id, {
+      request_id: 'request_attempt_history_stale',
+      status: 'failed',
+    })).rejects.toMatchObject({ code: 'request.invalid' });
+    expect((await service.get(run.id))?.active_attempt_id).toBe(retry?.id);
+  });
+
+  it('preserves partial artifacts when an Attempt fails after producing output', async () => {
+    const service = ix.get(ISessionRunService);
+    const run = await service.create({ request_id: 'request_attempt_partial' });
+    await service.transition(run.id, { request_id: 'request_attempt_partial_running', status: 'running' });
+    const attempt = (await service.listAttempts(run.id))[0]!;
+
+    const partial = await service.transitionAttempt(attempt.id, {
+      request_id: 'request_attempt_partial_failed',
+      status: 'partial',
+      status_reason: 'worker disconnected after checkpoint',
+      partial_artifacts: [{ id: 'artifact_checkpoint', version: 1 }],
+      usage: { duration_ms: 1250 },
+    });
+
+    expect(partial).toMatchObject({
+      status: 'partial',
+      partial_artifacts: [{ id: 'artifact_checkpoint', version: 1 }],
+    });
+    expect(await service.get(run.id)).toMatchObject({
+      status: 'failed',
+      partial_result: {
+        attempt_id: attempt.id,
+        artifact_refs: [{ id: 'artifact_checkpoint', version: 1 }],
+      },
+    });
   });
 
   it('creates idempotent linked retry, rerun, and fork Runs with durable overrides', async () => {

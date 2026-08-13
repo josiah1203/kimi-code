@@ -7,6 +7,10 @@ import {
   type Scope,
 } from '@spiderbyte/agent-core';
 import {
+  attemptActionInputSchema,
+  attemptCreateInputSchema,
+  attemptIdSchema,
+  attemptTransitionInputSchema,
   runActionInputSchema,
   runCreateInputSchema,
   runForkInputSchema,
@@ -19,6 +23,7 @@ import { errEnvelope, okEnvelope } from '../../protocol/envelope';
 import { ErrorCode } from '../../protocol/error-codes';
 import { validationEnvelope } from '../../transport/errors';
 import { mapPlatformError } from './platformErrors';
+import { assertSessionAuthorization } from '../../services/platformAuthorization';
 
 interface RunRouteHost {
   get(path: string, options: { preHandler: unknown[] }, handler: RunHandler): unknown;
@@ -39,30 +44,71 @@ type RunHandler = (req: RunRequest, reply: RunReply) => Promise<void>;
 
 const paramsSchema = z.object({ session_id: z.string().min(1) });
 const runParamsSchema = paramsSchema.extend({ run_id: runIdSchema });
+const attemptParamsSchema = runParamsSchema.extend({ attempt_id: attemptIdSchema });
 
 export function registerRunRoutes(app: RunRouteHost, core: Scope): void {
   const opts = { preHandler: [] };
   app.get('/sessions/:session_id/runs', opts, async (req, reply) => {
-    await sessionRequest(req, reply, core, paramsSchema, async (runs) => runs.list());
+    await sessionRequest(req, reply, core, paramsSchema, 'data.read', async (runs) => runs.list());
   });
   app.get('/sessions/:session_id/runs/:run_id', opts, async (req, reply) => {
-    await sessionRequest(req, reply, core, runParamsSchema, async (runs, params) =>
+    await sessionRequest(req, reply, core, runParamsSchema, 'data.read', async (runs, params) =>
       runs.get(params.run_id),
     );
   });
   app.post('/sessions/:session_id/runs', opts, async (req, reply) => {
-    await sessionRequest(req, reply, core, paramsSchema, async (runs) =>
+    await sessionRequest(req, reply, core, paramsSchema, 'run.execute', async (runs) =>
       runs.create(runCreateInputSchema.parse(req.body)),
     );
   });
+  app.get('/sessions/:session_id/runs/:run_id/attempts', opts, async (req, reply) => {
+    await sessionRequest(req, reply, core, runParamsSchema, 'data.read', async (runs, params) =>
+      runs.listAttempts(params.run_id),
+    );
+  });
+  app.get('/sessions/:session_id/runs/:run_id/attempts/:attempt_id', opts, async (req, reply) => {
+    await sessionRequest(req, reply, core, attemptParamsSchema, 'data.read', async (runs, params) => {
+      const attempt = await runs.getAttempt(params.attempt_id);
+      return attempt?.run_id === params.run_id ? attempt : undefined;
+    });
+  });
+  app.post('/sessions/:session_id/runs/:run_id/attempts', opts, async (req, reply) => {
+    await sessionRequest(req, reply, core, runParamsSchema, 'run.execute', async (runs, params) =>
+      runs.createAttempt(params.run_id, attemptCreateInputSchema.parse(req.body)),
+    );
+  });
+  app.post('/sessions/:session_id/runs/:run_id/attempts/retry', opts, async (req, reply) => {
+    await sessionRequest(req, reply, core, runParamsSchema, 'run.execute', async (runs, params) =>
+      runs.retryAttempt(params.run_id, attemptActionInputSchema.parse(req.body)),
+    );
+  });
+  app.post('/sessions/:session_id/runs/:run_id/attempts/:attempt_id/transition', opts, async (req, reply) => {
+    await sessionRequest(req, reply, core, attemptParamsSchema, 'run.execute', async (runs, params) => {
+      const attempt = await runs.getAttempt(params.attempt_id);
+      if (attempt?.run_id !== params.run_id) return undefined;
+      return runs.transitionAttempt(params.attempt_id, attemptTransitionInputSchema.parse(req.body));
+    });
+  });
+  for (const action of ['cancel', 'resume'] as const) {
+    app.post(`/sessions/:session_id/runs/:run_id/attempts/:attempt_id/${action}`, opts, async (req, reply) => {
+      await sessionRequest(req, reply, core, attemptParamsSchema, 'run.execute', async (runs, params) => {
+        const attempt = await runs.getAttempt(params.attempt_id);
+        if (attempt?.run_id !== params.run_id) return undefined;
+        const input = attemptActionInputSchema.parse(req.body);
+        return action === 'cancel'
+          ? runs.cancelAttempt(params.attempt_id, input)
+          : runs.resumeAttempt(params.attempt_id, input);
+      });
+    });
+  }
   app.post('/sessions/:session_id/runs/:run_id/transition', opts, async (req, reply) => {
-    await sessionRequest(req, reply, core, runParamsSchema, async (runs, params) =>
+    await sessionRequest(req, reply, core, runParamsSchema, 'run.execute', async (runs, params) =>
       runs.transition(params.run_id, runTransitionInputSchema.parse(req.body)),
     );
   });
   for (const action of ['cancel', 'resume', 'retry', 'rerun'] as const) {
     app.post(`/sessions/:session_id/runs/:run_id/${action}`, opts, async (req, reply) => {
-      await sessionRequest(req, reply, core, runParamsSchema, async (runs, params) => {
+      await sessionRequest(req, reply, core, runParamsSchema, 'run.execute', async (runs, params) => {
         const input = runActionInputSchema.parse(req.body);
         return action === 'cancel'
           ? runs.cancel(params.run_id, input)
@@ -75,7 +121,7 @@ export function registerRunRoutes(app: RunRouteHost, core: Scope): void {
     });
   }
   app.post('/sessions/:session_id/runs/:run_id/fork', opts, async (req, reply) => {
-    await sessionRequest(req, reply, core, runParamsSchema, async (runs, params) =>
+    await sessionRequest(req, reply, core, runParamsSchema, 'run.execute', async (runs, params) =>
       runs.fork(params.run_id, runForkInputSchema.parse(req.body)),
     );
   });
@@ -86,6 +132,7 @@ async function sessionRequest<TParams extends z.ZodTypeAny>(
   reply: RunReply,
   core: Scope,
   schema: TParams,
+  capability: 'data.read' | 'run.execute',
   operation: (
     runs: ISessionRunService,
     params: z.infer<TParams>,
@@ -97,7 +144,17 @@ async function sessionRequest<TParams extends z.ZodTypeAny>(
   }
   try {
     const params = schema.parse(req.params);
-    const session = await resumeSessionById(core.accessor, (params as { session_id: string }).session_id);
+    const sessionId = (params as { session_id: string }).session_id;
+    const authorized = await assertSessionAuthorization(core, {
+      sessionId,
+      requestId: req.id,
+      capability,
+    });
+    if (authorized === undefined) {
+      reply.send(errEnvelope(ErrorCode.SESSION_NOT_FOUND, 'session not found', req.id));
+      return;
+    }
+    const session = await resumeSessionById(core.accessor, sessionId);
     if (session === undefined) {
       reply.send(errEnvelope(ErrorCode.SESSION_NOT_FOUND, 'session not found', req.id));
       return;

@@ -12,24 +12,21 @@ prediction-oriented analysis, or model-stage requests.
 
 ## Required tools
 
-`spiderbyte_list_experiments`, `spiderbyte_get_experiment`,
-`spiderbyte_create_experiment`, `spiderbyte_start_training`,
-`spiderbyte_cancel_training`, `spiderbyte_list_training_runs`,
-`spiderbyte_list_evaluations`, `spiderbyte_compare_experiments`,
-`spiderbyte_list_models`, `spiderbyte_register_model`,
-`spiderbyte_stage_model`, and `spiderbyte_explain_policy`.
+`get_capabilities`, `list_execution_targets`, `train_baseline_model`,
+`get_run`, `list_artifacts`, `get_artifact`, and `request_approval`.
+The curated baseline tool is the supported end-to-end ML entry point; detailed
+experiment/model management remains a full-profile or local service workflow.
 
 ## Workflow
 
 1. Inspect dataset versions, provider connections, execution targets, policy,
    and budget before creating an experiment.
 2. Make the comparison dimensions and success metrics explicit.
-3. Create the experiment with an idempotency key and preserve the source
-   references.
-4. Validate policy and use local training only when the configured command or
-   target is available.
-5. Inspect evaluations and compare completed experiments before staging a
-   model.
+3. Request explicit confirmation before `train_baseline_model`, preserve the
+   returned Run and artifact IDs, and use the selected execution target only
+   when it is authorized and ready.
+4. Inspect the completed Run and artifacts before reporting metrics or model
+   readiness.
 
 ## Confirmation and failure handling
 

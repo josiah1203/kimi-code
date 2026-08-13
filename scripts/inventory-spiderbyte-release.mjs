@@ -163,6 +163,7 @@ function validateManifestAuthority(manifest, authority) {
     migration_plan: authority.documents.migration_plan,
     package_rename_map: authority.documents.package_rename_map,
     open_core_boundary: authority.documents.open_core_boundary,
+    product_authority: authority.documents.product_authority,
     machine_readable_authority: 'config/spiderbyte-release-authority.json',
     baseline: authority.documents.baseline,
   };
@@ -219,7 +220,9 @@ function packageEntry(packagePath, packageJson, disposition, workspacePatterns, 
 
   return {
     path: packagePath,
-    workspace: packagePath === '.' || isWorkspacePath(packagePath, workspacePatterns),
+    // The pnpm workspace root is a private repository manifest, not a
+    // workspace package selected by pnpm-workspace.yaml.
+    workspace: packagePath !== '.' && isWorkspacePath(packagePath, workspacePatterns),
     open_core: openCorePaths.includes(packagePath),
     name: packageJson.name ?? null,
     version: packageJson.version ?? null,

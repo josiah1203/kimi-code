@@ -1,6 +1,6 @@
 # 供应商和模型
 
-SpiderByte 将供应商连接和模型别名分开管理。供应商描述线协议适配器、端点和 BYOK 凭据；模型描述发给上游的模型名称及其本地能力元数据。
+SpiderByte 将供应商连接和模型别名分开管理。供应商描述线协议适配器、端点和 BYOK 凭据；模型描述发给上游的模型名称及其本地能力元数据。持久化的供应商记录只包含不透明的 `secret_ref`；原始密钥只会在出站请求边界解析。
 
 ## 支持的适配器类型
 
@@ -22,13 +22,12 @@ SpiderByte 将供应商连接和模型别名分开管理。供应商描述线协
 spyderbyte provider --help
 ```
 
-也可以直接编辑 `config.toml`：
+也可以直接编辑 `config.toml`（无需凭据时）：
 
 ```toml
 [providers.local]
 type = "openai"
 base_url = "http://127.0.0.1:11434/v1"
-api_key = "local"
 
 [models.local]
 provider = "local"
@@ -37,7 +36,36 @@ max_context_size = 32768
 capabilities = ["tool_use"]
 ```
 
-配置 BYOK 网关时，替换端点，并把密钥放入被 Git 忽略的本地文件或环境覆盖。缺少密钥或端点时会返回配置错误，不会切换到其他供应商。
+## Provider CLI 连接
+
+平台运行时也可以通过 REST/SDK 平台契约接受显式的 `provider-cli` 连接。其
+`metadata.provider_command` 使用下划线字段，并且必须包含仅使用 argv 的
+`run_args`；将 `metadata.model` 设置为需要由策略授权的模型：
+
+```json
+{
+  "provider": "provider-cli",
+  "secret_ref": "secret_none",
+  "metadata": {
+    "model": "your-model",
+    "provider_command": {
+      "executable": "/absolute/path/to/provider-cli",
+      "version_args": ["version", "--json"],
+      "models_args": ["models", "--json"],
+      "run_args": ["run", "--json", "--model", "{model}"],
+      "input": "jsonl",
+      "models_output": "json"
+    }
+  }
+}
+```
+
+连接在本地 SpiderByte 进程中运行。如果供应商 CLI 需要保存的凭据，请配置
+`provider_command.auth_env`，并通过带凭据的设置命令创建连接；凭据只会注入
+子进程，绝不会写入 metadata。Provider CLI 连接支持纯文本模型请求。由于通用
+命令契约不表示工具调用或结构化响应格式，这两类请求会被明确拒绝。
+
+配置 BYOK 网关时，请设置 `SPIDERBYTE_SECRET_STORE_KEY`，并使用 `spyderbyte configure --api-key-env <name>` 或供应商导入命令。命令只临时接收密钥，持久化的是加密材料及其不透明引用。`SPIDERBYTE_MODEL_API_KEY` 仅作用于当前进程，不会写入 `config.toml`。缺少密钥或端点时会返回配置错误，不会切换到其他供应商。
 
 ## 供应商发现
 

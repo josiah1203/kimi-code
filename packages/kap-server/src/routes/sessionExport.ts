@@ -24,6 +24,7 @@ import { requestLog } from '../lib/requestLog';
 import { defineRoute } from '../middleware/defineRoute';
 import { ErrorCode } from '../protocol/error-codes';
 import { errEnvelope } from '../protocol/envelope';
+import { assertSessionAuthorization } from '../services/platformAuthorization';
 import {
   exportSessionParamsSchema,
   exportSessionRequestSchema,
@@ -106,6 +107,12 @@ export function registerSessionExportRoute(
 
       try {
         if (aborted) return;
+
+        await assertSessionAuthorization(core, {
+          sessionId: req.params.session_id,
+          requestId: req.id,
+          capability: 'data.read',
+        });
 
         const safeSessionId = sanitizeSessionId(req.params.session_id);
         tempDir = await mkdtemp(join(tmpdir(), `spiderbyte-session-export-${safeSessionId}-`));
@@ -198,6 +205,10 @@ function sendMappedError(reply: SessionExportReply, req: { id: string }, error: 
   if (isError2(error)) {
     if (error.code === ErrorCodes.SESSION_NOT_FOUND) {
       reply.send(errEnvelope(ErrorCode.SESSION_NOT_FOUND, error.message, requestId));
+      return;
+    }
+    if (error.code === ErrorCodes.AUTHORIZATION_DENIED) {
+      reply.send(errEnvelope(ErrorCode.PLATFORM_POLICY_DENIED, 'platform policy denied the request', requestId));
       return;
     }
     if (error.code === ErrorCodes.SESSION_EXPORT_TOO_LARGE) {

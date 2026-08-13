@@ -1,9 +1,11 @@
 # SpiderByte commercial Phase 0 audit
 
-Status: Phase 0 complete. This document is an architecture and readiness
-inventory only. It does not claim that hosted, paid, Team, Business, or
-Enterprise features are implemented, and it intentionally does not add those
-features to the Open Core runtime.
+Status: historical Phase 0 snapshot. This document is an architecture and
+readiness inventory only. It does not claim that hosted, paid, Team, Business,
+or Enterprise features are implemented, and it intentionally does not add
+those features to the Open Core runtime. The current commercial direction is
+the customer-owned, seat-based self-hosted edition in
+[`SPIDERBYTE_PRODUCT_AUTHORITY.md`](./SPIDERBYTE_PRODUCT_AUTHORITY.md).
 
 Audit date: 2026-08-11.
 

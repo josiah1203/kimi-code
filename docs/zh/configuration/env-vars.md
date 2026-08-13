@@ -19,6 +19,9 @@
 | `SPIDERBYTE_MODEL_THINKING_KEEP` | 控制是否保留 reasoning 内容。 |
 | `SPIDERBYTE_MODEL_THINKING_EFFORT` | 设置模型的 thinking effort。 |
 | `SPIDERBYTE_MODEL_REASONING_KEY` | 为兼容网关选择非标准 reasoning 字段。 |
+| `SPIDERBYTE_SECRET_STORE_KEY` | 用于本地供应商凭据静态加密的 32 字节 hex 或 base64url 密钥。创建或迁移持久化凭据前必须设置。 |
+| `SPIDERBYTE_LOCAL_ACTOR_ID` | 本地项目/工作区授权及审计归属使用的服务端主体；REST 平台边界会忽略请求体中的 actor ID。 |
+| `SPIDERBYTE_MCP_PROFILE` | HTTP MCP 工具配置：`full` 为开发者完整清单，`curated` 为 Otis 的窄语义接口。默认值为 `full`；Otis 自带的 stdio 配置通过 `--profile curated` 选择窄接口。 |
 
 示例：
 
@@ -31,6 +34,16 @@ spyderbyte
 ```
 
 环境覆盖只在当前进程生效，不会写回 `config.toml`。需要持久化时，请使用供应商记录。
+
+Provider connection 凭据会以带认证的 AES-256-GCM 信封存储在 credentials 作用域下。
+`SPIDERBYTE_SECRET_STORE_KEY` 缺失或无效时，SpiderByte 不会回退到明文存储。
+请将该密钥放在运维密钥存储或进程环境中，并与 `SPIDERBYTE_HOME` 分开备份；
+丢失密钥将无法恢复已加密的本地凭据。密钥不会写入供应商记录、工件、转录、
+MCP 结果或日志。
+
+兼容性 model-catalog 路由仅在设置时临时接受 `api_key`。启动时会把旧版
+`providers.*.api_key` 迁移为不透明引用；迁移成功后不会返回或继续持久化原始值。
+缺少 secret-store 密钥时迁移会安全失败。
 
 ## 运行控制
 

@@ -16,6 +16,9 @@ import type {
   IdentityProvider,
   Invoice,
   Invitation,
+  LicenseActivation,
+  LicenseSeat,
+  OfflineLicense,
   JobClass,
   LegalHold,
   LedgerEntry,
@@ -82,6 +85,9 @@ export type CommercialCollection =
   | 'verified_domains'
   | 'enterprise_configurations'
   | 'audit_events'
+  | 'licenses'
+  | 'license_activations'
+  | 'license_seats'
   | 'idempotency';
 
 export interface CommercialCollectionTypes {
@@ -126,6 +132,9 @@ export interface CommercialCollectionTypes {
   enterprise_configurations: EnterpriseConfiguration;
   audit_events: AuditEvent;
   idempotency: IdempotencyRecord;
+  licenses: OfflineLicense;
+  license_activations: LicenseActivation;
+  license_seats: LicenseSeat;
 }
 
 export interface IdempotencyRecord {
@@ -148,5 +157,7 @@ export interface CommercialStore {
     value: CommercialCollectionTypes[K],
   ): Promise<void>;
   delete(collection: CommercialCollection, id: string): Promise<void>;
+  /** Optional transaction-scoped lock for cross-record invariants. */
+  lock?(key: string): Promise<void>;
   transaction<T>(operation: (store: CommercialStore) => Promise<T>): Promise<T>;
 }

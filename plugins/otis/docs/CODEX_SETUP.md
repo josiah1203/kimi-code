@@ -17,7 +17,7 @@ codex plugin add otis@personal
 
 If the marketplace is already configured, only the last two commands are
 needed. The plugin bundles `.mcp.json`, so the local `spiderbyte-local` server
-uses the `spyderbyte mcp` executable.
+uses `spyderbyte mcp --profile curated`.
 
 ## Direct project MCP configuration
 
@@ -63,7 +63,7 @@ does not ship `mcp.example.com`; it is a configuration placeholder.
 Codex also supports an explicit local registration:
 
 ```bash
-codex mcp add spiderbyte-local -- spyderbyte mcp
+codex mcp add spiderbyte-local -- spyderbyte mcp --profile curated
 ```
 
 For an already deployed endpoint:

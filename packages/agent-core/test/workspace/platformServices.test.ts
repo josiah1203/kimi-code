@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import { lookup } from 'node:dns/promises';
 
 import { SyncDescriptor } from '#/_base/di/descriptors';
 import { DisposableStore } from '#/_base/di/lifecycle';
@@ -27,6 +28,7 @@ import { WorkspaceArtifactService } from '#/workspace/artifacts/artifactService'
 import { IWorkspaceExecutionTargetService } from '#/workspace/executionTargets/executionTarget';
 import { WorkspaceExecutionTargetService } from '#/workspace/executionTargets/executionTargetService';
 import { IWorkspaceExecutionService } from '#/workspace/execution/execution';
+import { IWorkspaceSshDaemonService } from '#/workspace/execution/sshDaemon';
 import { IWorkspaceMlService } from '#/workspace/ml/ml';
 import { IWorkspaceAutomationService } from '#/workspace/automations/automation';
 import { WorkspaceAutomationService } from '#/workspace/automations/automationService';
@@ -38,6 +40,10 @@ import { IWorkspaceUsageService } from '#/workspace/usage/usage';
 import { WorkspaceUsageService } from '#/workspace/usage/usageService';
 import { IWorkspaceContext } from '#/workspace/workspaceContext/workspaceContext';
 import type { IWorkspaceContext as WorkspaceContext } from '#/workspace/workspaceContext/workspaceContext';
+
+vi.mock('node:dns/promises', () => ({ lookup: vi.fn() }));
+
+const lookupMock = lookup as unknown as Mock;
 
 function makeAccessor(
   entries: ReadonlyArray<readonly [ServiceIdentifier<unknown>, unknown]>,
@@ -72,16 +78,43 @@ const context: WorkspaceContext = {
 describe('workspace platform services', () => {
   let disposables: DisposableStore;
   let ix: TestInstantiationService;
+  let sshProbeRequestId: string | undefined;
 
   beforeEach(() => {
+    lookupMock.mockResolvedValue([{ address: '93.184.216.34', family: 4 }]);
     disposables = new DisposableStore();
     ix = disposables.add(new TestInstantiationService());
+    sshProbeRequestId = undefined;
     ix.stub(IWorkspaceContext, context);
     ix.set(IFileSystemStorageService, new SyncDescriptor(InMemoryStorageService));
     ix.set(IAtomicDocumentStore, new SyncDescriptor(JsonAtomicDocumentStore));
     ix.set(IAppendLogStore, new SyncDescriptor(AppendLogStore));
     ix.set(IBlobStore, new SyncDescriptor(BlobStoreService));
     ix.set(IWorkspacePlatformEventService, new SyncDescriptor(WorkspacePlatformEventService));
+    ix.stub(IWorkspaceSshDaemonService, {
+      _serviceBrand: undefined,
+      probe: async (
+        target: { id: string },
+        workspaceId: string,
+        options: { readonly requestId: string },
+      ) => {
+        sshProbeRequestId = options.requestId;
+        return {
+        target_id: target.id,
+        workspace_id: workspaceId,
+        status: 'healthy' as const,
+        checked_at: '2026-08-09T00:00:00.000Z',
+        message: 'SSH daemon probe passed',
+        capabilities: ['execute_analysis', 'train_model'],
+        version_compatibility: {
+          required_protocol_version: 1,
+          observed_protocol_version: 1,
+          compatible: true,
+        },
+        };
+      },
+      execute: async () => { throw new Error('SSH execution not expected in target tests'); },
+    });
     ix.set(IWorkspacePolicyService, new SyncDescriptor(WorkspacePolicyService));
     ix.set(IWorkspaceResourceService, new SyncDescriptor(WorkspaceResourceService));
     ix.set(IWorkspaceArtifactService, new SyncDescriptor(WorkspaceArtifactService));
@@ -259,6 +292,7 @@ describe('workspace platform services', () => {
       locality: 'local',
       capabilities: ['python'],
     });
+    await targets.test(target.id, { request_id: 'target_health' });
     await targets.markReady(target.id, { request_id: 'target_ready' });
     const lease = await targets.acquireLease(target.id, {
       request_id: 'target_lease',
@@ -280,10 +314,20 @@ describe('workspace platform services', () => {
     const remoteTarget = await targets.register({
       request_id: 'target_remote_register',
       name: 'customer-runner',
-      type: 'customer-managed',
+      type: 'ssh',
       locality: 'customer-region',
       capabilities: ['python'],
+      endpoint: 'ssh://customer-runner.example',
+      authentication_method: 'ssh_agent',
+      ssh: {
+        host: 'customer-runner.example',
+        user: 'runner',
+        host_key_hash: 'sha256',
+        host_key_fingerprint: 'b'.repeat(64),
+        remote_root: '/srv/spiderbyte/workspace',
+      },
     });
+    await targets.test(remoteTarget.id, { request_id: 'target_remote_health' });
     await targets.markReady(remoteTarget.id, { request_id: 'target_remote_ready' });
     const pendingLease = await targets.acquireLease(remoteTarget.id, {
       request_id: 'target_remote_lease',
@@ -445,6 +489,236 @@ describe('workspace platform services', () => {
     });
   });
 
+  it('durably expires leases and does not let a late release clear a newer lease', async () => {
+    vi.useFakeTimers({ now: new Date('2026-08-09T00:00:00.000Z') });
+    try {
+      const targets = ix.get(IWorkspaceExecutionTargetService);
+      const target = await targets.register({
+        request_id: 'lease_expiry_register',
+        name: 'lease-expiry-target',
+        type: 'local',
+        locality: 'local',
+      });
+      await targets.test(target.id, { request_id: 'lease_expiry_test' });
+      await targets.markReady(target.id, { request_id: 'lease_expiry_ready' });
+      const first = await targets.acquireLease(target.id, {
+        request_id: 'lease_expiry_first',
+        duration_seconds: 1,
+      });
+
+      vi.setSystemTime(new Date('2026-08-09T00:00:01.001Z'));
+      await expect(targets.getLease(target.id, first.id)).resolves.toMatchObject({ state: 'expired' });
+      await expect(targets.get(target.id)).resolves.toMatchObject({ lease_ref: undefined });
+
+      const second = await targets.acquireLease(target.id, {
+        request_id: 'lease_expiry_second',
+        duration_seconds: 60,
+      });
+      await expect(targets.releaseLease(target.id, first.id, {
+        request_id: 'lease_expiry_late_release',
+      })).resolves.toMatchObject({ state: 'expired' });
+      await expect(targets.get(target.id)).resolves.toMatchObject({ lease_ref: second.lease_ref });
+      await expect(ix.get(IWorkspacePlatformEventService).replay()).resolves.toMatchObject({
+        events: expect.arrayContaining([
+          expect.objectContaining({
+            event_type: 'execution_target.lease_expired',
+            entity_id: target.id,
+          }),
+        ]),
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('refuses readiness for targets without a healthy validation result', async () => {
+    const targets = ix.get(IWorkspaceExecutionTargetService);
+    const target = await targets.register({
+      request_id: 'readiness_gate_register',
+      name: 'readiness-gate-docker',
+      type: 'docker',
+      locality: 'customer-region',
+    });
+
+    await expect(targets.markReady(target.id, { request_id: 'readiness_gate_ready_before_test' }))
+      .rejects.toMatchObject({ code: 'execution_target.not_validated' });
+    await expect(targets.test(target.id, { request_id: 'readiness_gate_test' })).resolves.toMatchObject({
+      status: 'adapter-dependent',
+    });
+    await expect(targets.markReady(target.id, { request_id: 'readiness_gate_ready_after_test' }))
+      .rejects.toMatchObject({ code: 'execution_target.not_validated' });
+    await expect(targets.update(target.id, {
+      request_id: 'readiness_gate_update_ready',
+      state: 'ready',
+    })).rejects.toMatchObject({ code: 'execution_target.not_validated' });
+  });
+
+  it('bounds remote health responses before parsing them', async () => {
+    const targets = ix.get(IWorkspaceExecutionTargetService);
+    const target = await targets.register({
+      request_id: 'health_size_register',
+      name: 'health-size-worker',
+      type: 'customer-managed',
+      locality: 'customer-region',
+      endpoint: 'https://worker.example/v1/execute',
+    });
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('x'.repeat(65 * 1024), { status: 200 })));
+    try {
+      await expect(targets.test(target.id, { request_id: 'health_size_test' })).resolves.toMatchObject({
+        status: 'unhealthy',
+        message: 'execution target health response is too large',
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('tests target health, persists discovered capabilities, reports adapter gaps, and revokes targets', async () => {
+    const targets = ix.get(IWorkspaceExecutionTargetService);
+    const local = await targets.register({
+      request_id: 'connection_local_register',
+      name: 'local-connection',
+      type: 'local',
+      locality: 'local',
+      capabilities: ['analysis'],
+    });
+    await expect(targets.test(local.id, { request_id: 'connection_local_test' })).resolves.toMatchObject({
+      target_id: local.id,
+      workspace_id: context.workspaceId,
+      status: 'healthy',
+      capabilities: ['analysis'],
+    });
+    await targets.markReady(local.id, { request_id: 'connection_local_ready' });
+    const localLease = await targets.acquireLease(local.id, {
+      request_id: 'connection_local_lease',
+      duration_seconds: 60,
+    });
+    await expect(targets.revoke(local.id, { request_id: 'connection_local_revoke' })).resolves.toMatchObject({
+      state: 'disabled',
+      lease_ref: undefined,
+    });
+    await expect(targets.getLease(local.id, localLease.id)).resolves.toMatchObject({ state: 'released' });
+
+    const remote = await targets.register({
+      request_id: 'connection_remote_register',
+      name: 'remote-connection',
+      type: 'customer-managed',
+      locality: 'customer-region',
+      endpoint: 'https://worker.example/v1/execute',
+      version_compatibility: { required_protocol_version: 1 },
+    });
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      status: 'ready',
+      protocol_version: 1,
+      capabilities: ['analysis', 'training'],
+      models: ['local-model'],
+      providers: ['customer-runtime'],
+      resources: { cpu_cores: 4, memory_bytes: 8_192, gpu_count: 1, gpu_models: ['test-gpu'] },
+    }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      await expect(targets.test(remote.id, {
+        request_id: 'connection_remote_test',
+        timeout_ms: 1_000,
+      })).resolves.toMatchObject({
+        target_id: remote.id,
+        status: 'healthy',
+        capabilities: ['analysis', 'training'],
+        available_models: ['local-model'],
+        available_providers: ['customer-runtime'],
+        version_compatibility: {
+          required_protocol_version: 1,
+          observed_protocol_version: 1,
+          compatible: true,
+        },
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(fetchMock).toHaveBeenCalledWith('https://worker.example/health', expect.objectContaining({
+      method: 'GET',
+      redirect: 'error',
+    }));
+    await expect(targets.get(remote.id)).resolves.toMatchObject({
+      health_status: 'healthy',
+      last_health_check_at: expect.any(String),
+      resources: { cpu_cores: 4, gpu_count: 1 },
+    });
+    await targets.markReady(remote.id, { request_id: 'connection_remote_ready' });
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ status: 'unavailable' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })));
+    try {
+      await expect(targets.test(remote.id, {
+        request_id: 'connection_remote_unhealthy_test',
+        timeout_ms: 1_000,
+      })).resolves.toMatchObject({ status: 'unhealthy' });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    await expect(targets.get(remote.id)).resolves.toMatchObject({
+      state: 'draining',
+      health_status: 'unhealthy',
+    });
+
+    const ssh = await targets.register({
+      request_id: 'connection_ssh_register',
+      name: 'ssh-connection',
+      type: 'ssh',
+      locality: 'customer-region',
+      endpoint: 'ssh://host.example',
+      authentication_method: 'ssh_agent',
+      ssh: {
+        host: 'host.example',
+        user: 'runner',
+        host_key_hash: 'sha256',
+        host_key_fingerprint: 'a'.repeat(64),
+        remote_root: '/srv/spiderbyte/workspace',
+      },
+    });
+    await expect(targets.test(ssh.id, { request_id: 'connection_ssh_test' })).resolves.toMatchObject({
+      status: 'healthy',
+      capabilities: ['execute_analysis', 'train_model'],
+    });
+    expect(sshProbeRequestId).toBe('connection_ssh_test');
+
+    await expect(targets.register({
+      request_id: 'connection_bad_endpoint',
+      name: 'bad-endpoint',
+      type: 'customer-managed',
+      locality: 'customer-region',
+      endpoint: 'https://user:password@worker.example',
+    })).rejects.toMatchObject({ code: 'execution_target.endpoint_invalid' });
+    await expect(targets.register({
+      request_id: 'connection_private_customer_worker',
+      name: 'private-customer-worker',
+      type: 'customer-managed',
+      locality: 'customer-region',
+      endpoint: 'https://10.20.0.5/v1/execute',
+    })).rejects.toMatchObject({ code: 'execution_target.endpoint_invalid' });
+    await expect(targets.register({
+      request_id: 'connection_localhost_customer_worker',
+      name: 'localhost-customer-worker',
+      type: 'customer-managed',
+      locality: 'customer-region',
+      endpoint: 'https://localhost/v1/execute',
+    })).rejects.toMatchObject({ code: 'execution_target.endpoint_invalid' });
+
+    await expect(targets.revoke(remote.id, { request_id: 'connection_remote_revoke' })).resolves.toMatchObject({
+      state: 'disabled',
+    });
+    await expect(targets.test(remote.id, { request_id: 'connection_remote_test_after_revoke' })).resolves.toMatchObject({
+      status: 'unavailable',
+    });
+    await expect(ix.get(IWorkspacePlatformEventService).replay()).resolves.toMatchObject({
+      events: expect.arrayContaining([
+        expect.objectContaining({ event_type: 'execution_target.validated', entity_id: remote.id }),
+        expect.objectContaining({ event_type: 'execution_target.revoked', entity_id: remote.id }),
+      ]),
+    });
+  });
+
   it('keeps the durable Run linked when an automation pipeline launch fails', async () => {
     const failingPipeline = {
       get: async () => ({ id: 'pipeline_archived', state: 'ready' }),
@@ -496,6 +770,15 @@ describe('workspace platform services', () => {
       entity_type: 'workspace',
       entity_id: context.workspaceId,
       actor: 'system',
+    });
+    const replay = await events.replay();
+    expect(replay.events[0]).toMatchObject({
+      previous_event_hash: expect.stringMatching(/^0{64}$/),
+      event_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
+    });
+    expect(replay.events[1]).toMatchObject({
+      previous_event_hash: replay.events[0]?.event_hash,
+      event_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
     });
     await expect(events.replay(1, 1)).resolves.toMatchObject({
       events: [{ sequence: 2 }],

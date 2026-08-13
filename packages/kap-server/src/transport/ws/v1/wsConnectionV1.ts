@@ -24,6 +24,11 @@ import {
   type SessionCursor,
 } from '../../../protocol/ws-control';
 import {
+  ErrorCodes,
+  isError2,
+  type Scope,
+} from '@spiderbyte/agent-core';
+import {
   detachGrades,
   transcriptSubscribeV2PayloadSchema,
   type TranscriptGradeSpec,
@@ -51,6 +56,10 @@ import {
   type TargetSubscription,
 } from './sessionEventBroadcaster';
 import { FsWatchBridge } from './fsWatchBridge';
+import {
+  assertSessionAuthorization,
+  assertWorkspaceAuthorization,
+} from '../../../services/platformAuthorization';
 
 const DEFAULT_MAX_BUFFER_SIZE = 1000;
 
@@ -75,6 +84,7 @@ interface InboundFrame {
 
 export interface WsConnectionV1Options {
   readonly socket: WebSocket;
+  readonly core: Scope;
   readonly broadcaster: SessionEventBroadcaster;
   readonly fsWatchBridge?: FsWatchBridge;
   readonly connectionRegistry: IConnectionRegistry;
@@ -105,6 +115,7 @@ export class WsConnectionV1 implements BroadcastTarget {
   readonly userAgent: string | null;
 
   private readonly socket: WebSocket;
+  private readonly core: Scope;
   private readonly broadcaster: SessionEventBroadcaster;
   private readonly fsWatchBridge?: FsWatchBridge;
   private readonly validateCredential?: CredentialValidator;
@@ -140,6 +151,7 @@ export class WsConnectionV1 implements BroadcastTarget {
     this.remoteAddress = opts.remoteAddress;
     this.userAgent = opts.userAgent;
     this.socket = opts.socket;
+    this.core = opts.core;
     this.broadcaster = opts.broadcaster;
     this.fsWatchBridge = opts.fsWatchBridge;
     this.validateCredential = opts.validateCredential;
@@ -180,6 +192,36 @@ export class WsConnectionV1 implements BroadcastTarget {
   send(envelope: EventEnvelope, delivery: BroadcastDelivery = 'subscription'): void {
     if (delivery === 'immediate') this.sendImmediateFrame(envelope);
     else this.sendSubscribedFrame(envelope);
+  }
+
+  /**
+   * The broadcaster calls this before delivering a global event. Global
+   * configuration events remain daemon-wide, but session/workspace lifecycle
+   * events are filtered by the same server-derived project authorization as
+   * REST and session subscriptions.
+   */
+  async authorizeGlobalEvent(envelope: EventEnvelope): Promise<boolean> {
+    if (envelope.type.startsWith('event.config.')) return true;
+    if (envelope.type.startsWith('event.di.')) return true;
+
+    const sessionId = envelope.session_id;
+    if (sessionId !== undefined && sessionId !== '__global__') {
+      return this.authorizeSession(sessionId, `${this.id}:global:${envelope.seq}`, 'workspace.read');
+    }
+
+    const workspaceId = workspaceIdFromGlobalEvent(envelope);
+    if (workspaceId === undefined) return false;
+    try {
+      await assertWorkspaceAuthorization(this.core, {
+        workspaceId,
+        requestId: `${this.id}:global:${envelope.seq}`,
+        capability: 'workspace.read',
+      });
+      return true;
+    } catch (error) {
+      if (isError2(error) && error.code === ErrorCodes.AUTHORIZATION_DENIED) return false;
+      throw error;
+    }
   }
 
   private onMessage(data: RawData): void {
@@ -246,6 +288,7 @@ export class WsConnectionV1 implements BroadcastTarget {
     if (payload['client_id'] === 'spiderbyte-inspect') this.broadcaster.addDiEventTarget(this);
 
     const accepted: string[] = [];
+    const denied: string[] = [];
     const resyncRequired: string[] = [];
     const serverCursors: Record<string, { seq: number; epoch?: string }> = {};
 
@@ -258,13 +301,15 @@ export class WsConnectionV1 implements BroadcastTarget {
         // must not wipe grades this connection already holds.
         this.subscriptions.get(sid)?.transcriptGrades,
         undefined,
-        { accepted, resyncRequired, serverCursors },
+        frame.id ?? this.id,
+        { accepted, resyncRequired, serverCursors, denied },
       );
     }
 
     this.sendImmediateFrame(
       buildAck(frame.id ?? '', 0, 'success', {
         accepted_subscriptions: accepted,
+        denied_subscriptions: denied,
         resync_required: resyncRequired,
         cursors: serverCursors,
       }),
@@ -278,6 +323,7 @@ export class WsConnectionV1 implements BroadcastTarget {
     const agentFilter = parseAgentFilter(payload['agent_filter']);
 
     const accepted: string[] = [];
+    const denied: string[] = [];
     const notFound: string[] = [];
     const resyncRequired: string[] = [];
     const serverCursors: Record<string, { seq: number; epoch?: string }> = {};
@@ -291,13 +337,15 @@ export class WsConnectionV1 implements BroadcastTarget {
         // this connection already holds (the replay below filters through it).
         this.subscriptions.get(sid)?.transcriptGrades,
         undefined,
-        { accepted, resyncRequired, serverCursors, notFound },
+        frame.id ?? this.id,
+        { accepted, resyncRequired, serverCursors, notFound, denied },
       );
     }
 
     this.sendImmediateFrame(
       buildAck(frame.id ?? '', 0, 'success', {
         accepted,
+        denied,
         not_found: notFound,
         resync_required: resyncRequired,
         cursors: serverCursors,
@@ -322,6 +370,7 @@ export class WsConnectionV1 implements BroadcastTarget {
     const sid = parsed.data.session_id;
 
     const accepted: string[] = [];
+    const denied: string[] = [];
     const notFound: string[] = [];
     const resyncRequired: string[] = [];
     const serverCursors: Record<string, { seq: number; epoch?: string }> = {};
@@ -332,12 +381,14 @@ export class WsConnectionV1 implements BroadcastTarget {
       this.subscriptions.get(sid)?.agentFilter,
       parsed.data.transcript,
       parsed.data.transcript_since,
-      { accepted, resyncRequired, serverCursors, notFound },
+      frame.id ?? this.id,
+      { accepted, resyncRequired, serverCursors, notFound, denied },
     );
 
     this.sendImmediateFrame(
       buildAck(frame.id ?? '', 0, 'success', {
         accepted,
+        denied,
         not_found: notFound,
         resync_required: resyncRequired,
         cursors: serverCursors,
@@ -406,6 +457,10 @@ export class WsConnectionV1 implements BroadcastTarget {
       this.sendImmediateFrame(buildAck(frame.id ?? '', 1, 'fs watch unavailable', {}));
       return;
     }
+    if (!(await this.authorizeSession(sessionId, frame.id ?? this.id, 'data.read'))) {
+      this.sendImmediateFrame(buildAck(frame.id ?? '', 40302, 'platform policy denied the request', {}));
+      return;
+    }
     let result;
     try {
       result = isAdd
@@ -443,14 +498,20 @@ export class WsConnectionV1 implements BroadcastTarget {
     filter: AgentFilter | undefined,
     transcriptGrades: TranscriptGradeSpec | undefined,
     transcriptSince: Record<string, number> | undefined,
+    requestId: string,
     collectors: {
       accepted: string[];
       resyncRequired: string[];
       serverCursors: Record<string, { seq: number; epoch?: string }>;
       notFound?: string[];
+      denied?: string[];
     },
   ): Promise<void> {
     const { accepted, resyncRequired, serverCursors, notFound } = collectors;
+    if (!(await this.authorizeSession(sid, requestId, 'workspace.read'))) {
+      collectors.denied?.push(sid);
+      return;
+    }
     const ok = await this.broadcaster.subscribe(sid, this, filter, transcriptGrades, {
       deferTranscriptReset: cursor !== undefined,
       transcriptSince,
@@ -468,6 +529,24 @@ export class WsConnectionV1 implements BroadcastTarget {
     } else {
       const cur = await this.broadcaster.getCursor(sid);
       serverCursors[sid] = cur;
+    }
+  }
+
+  private async authorizeSession(
+    sessionId: string,
+    requestId: string,
+    capability: 'workspace.read' | 'data.read',
+  ): Promise<boolean> {
+    try {
+      await assertSessionAuthorization(this.core, {
+        sessionId,
+        requestId,
+        capability,
+      });
+      return true;
+    } catch (error) {
+      if (isError2(error) && error.code === ErrorCodes.AUTHORIZATION_DENIED) return false;
+      throw error;
     }
   }
 
@@ -622,6 +701,21 @@ export class WsConnectionV1 implements BroadcastTarget {
     this.fsWatchBridge?.detachConnection(this);
     // registry removal is handled by registerWsV1 on the socket 'close' event.
   }
+}
+
+function workspaceIdFromGlobalEvent(envelope: EventEnvelope): string | undefined {
+  const payload = envelope.payload;
+  if (typeof payload !== 'object' || payload === null) return undefined;
+  if (envelope.type.startsWith('event.workspace.')) {
+    const value = payload as { workspace?: { id?: unknown }; workspace_id?: unknown };
+    if (typeof value.workspace?.id === 'string') return value.workspace.id;
+    if (typeof value.workspace_id === 'string') return value.workspace_id;
+  }
+  if (envelope.type === 'event.session.created') {
+    const value = payload as { session?: { workspace_id?: unknown } };
+    if (typeof value.session?.workspace_id === 'string') return value.session.workspace_id;
+  }
+  return undefined;
 }
 
 function asStringArray(value: unknown): string[] {

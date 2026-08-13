@@ -12,12 +12,10 @@ summaries, audit events, provider grants, or permission troubleshooting.
 
 ## Required tools
 
-`spiderbyte_list_policies`, `spiderbyte_explain_policy`,
-`spiderbyte_request_approval`, `spiderbyte_approve_approval`,
-`spiderbyte_deny_approval`, `spiderbyte_get_budget_status`,
-`spiderbyte_get_usage`, `spiderbyte_list_events`,
-`spiderbyte_list_provider_connections`, `spiderbyte_account_status`, and
-`spiderbyte_capabilities`.
+`get_capabilities`, `request_approval`, `list_execution_targets`, `get_run`,
+and `list_artifacts`.
+Detailed policy, budget, usage, provider, and event inspection remains in the
+full profile or local administrative surfaces.
 
 ## Workflow
 

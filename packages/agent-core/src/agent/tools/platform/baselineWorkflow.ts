@@ -23,6 +23,7 @@ import type { IWorkspaceMlService } from '#/workspace/ml/ml';
 export interface BaselineWorkflowInput {
   readonly requestPrefix: string;
   readonly runId: string;
+  readonly attemptId?: string;
   readonly datasetId?: string;
   readonly datasetName?: string;
   readonly format?: 'csv' | 'jsonl';
@@ -177,6 +178,7 @@ export async function executeBaselineWorkflow(
   const profile = await datasets.profile(dataset.id, {
     request_id: request('dataset:profile'),
     run_id: input.runId,
+    attempt_id: input.attemptId,
     version,
     policy_decision_id: input.datasetPolicyDecisionId,
   });
@@ -186,6 +188,7 @@ export async function executeBaselineWorkflow(
   const analysis = await ml.analyze({
     request_id: request('ml:analysis'),
     run_id: input.runId,
+    attempt_id: input.attemptId,
     dataset_id: dataset.id,
     dataset_version: version,
     execution_target_id: input.executionTargetId,
@@ -222,6 +225,7 @@ export async function executeBaselineWorkflow(
   const training = await ml.startTraining(experiment.id, {
     request_id: request('ml:training'),
     run_id: input.runId,
+    attempt_id: input.attemptId,
     execution_target_id: input.executionTargetId,
     execution_target_policy_decision_id: input.executionTargetPolicyDecisionId,
     dataset_policy_decision_id: input.datasetPolicyDecisionId,
@@ -237,6 +241,7 @@ export async function executeBaselineWorkflow(
   const evaluation = await ml.evaluate({
     request_id: request('ml:evaluation'),
     run_id: input.runId,
+    attempt_id: input.attemptId,
     experiment_id: experiment.id,
     dataset_id: dataset.id,
     dataset_version: version,

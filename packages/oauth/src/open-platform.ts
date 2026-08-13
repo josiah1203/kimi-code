@@ -184,6 +184,8 @@ export function applyOpenPlatformConfig(
      * for boolean models, where thinking is simply enabled with no effort. */
     readonly effort?: string;
     readonly apiKey: string;
+    /** Existing opaque credential reference used by refresh/write-back paths. */
+    readonly secretRef?: string | undefined;
   },
 ): ApplyOpenPlatformResult {
   const providerKey = options.platform.id;
@@ -192,7 +194,8 @@ export function applyOpenPlatformConfig(
   config.providers[providerKey] = {
     type: 'kimi',
     baseUrl: options.platform.baseUrl,
-    apiKey: options.apiKey,
+    secretRef: options.secretRef,
+    apiKey: options.secretRef === undefined ? options.apiKey : undefined,
   };
 
   const existingModels = config.models ?? {};

@@ -1,0 +1,24 @@
+import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
+import type { ReactNode } from "react";
+import "./globals.css";
+
+export const metadata: Metadata = {
+  title: "SpiderByte — Governed agent workspaces",
+  description: "A governed workspace for agents, data, and ML.",
+};
+
+export default function RootLayout({ children }: { children: ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <ClerkProvider
+          signInFallbackRedirectUrl="/"
+          signUpFallbackRedirectUrl="/"
+        >
+          {children}
+        </ClerkProvider>
+      </body>
+    </html>
+  );
+}

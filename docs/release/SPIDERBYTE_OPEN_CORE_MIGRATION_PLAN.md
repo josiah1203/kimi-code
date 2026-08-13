@@ -1,10 +1,17 @@
 # SpiderByte Open Core migration plan
 
-Status: planning baseline only. The repository is not ready for publication.
+Status: historical planning baseline. The repository is not ready for
+publication, and the current product/edition authority is
+[`SPIDERBYTE_PRODUCT_AUTHORITY.md`](../architecture/SPIDERBYTE_PRODUCT_AUTHORITY.md).
+The dated inventories and gates below are historical evidence; they must not
+override current code facts or be read as proof that a planned capability is
+implemented.
 
-This document is the implementation authority for preparing the repository for
-GitHub publication as SpiderByte Open Core. It is deliberately separate from
-the final release report: a planned gate is not a passed gate.
+This document is a historical implementation plan for preparing the repository
+for GitHub publication as SpiderByte Open Core. The current product and
+edition authority is [`SPIDERBYTE_PRODUCT_AUTHORITY.md`](../architecture/SPIDERBYTE_PRODUCT_AUTHORITY.md).
+This plan is deliberately separate from the final release report: a planned
+gate is not a passed gate.
 
 ## 1. Release contract
 

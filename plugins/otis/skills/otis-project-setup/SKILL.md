@@ -12,11 +12,10 @@ workspace, organization, project, permissions, or session.
 
 ## Required tools
 
-`spiderbyte_capabilities`, `spiderbyte_list_workspaces`,
-`spiderbyte_register_workspace`, `spiderbyte_list_organizations`,
-`spiderbyte_create_organization`, `spiderbyte_list_projects`,
-`spiderbyte_create_project`, `spiderbyte_project_permissions`,
-`spiderbyte_create_session`.
+`get_capabilities`, `list_workspaces`, and `list_projects`.
+Workspace registration, organization/project mutation, and session creation
+remain local CLI or full-profile operations; never invent an ID when the
+curated server has not returned one.
 
 ## Workflow
 

@@ -45,12 +45,12 @@ const DEFAULT_SFTP_STATUS_CODE = {
  * Advanced ssh2 connect options that may be passed through `SSHKaosOptions.extraOptions`.
  *
  * Excludes fields that SSHKaos manages itself (`host`, `port`, `username`,
- * `password`, `privateKey`, `authHandler`, `hostVerifier`) — those are derived
+ * `password`, `privateKey`, `authHandler`, `hostHash`, `hostVerifier`) — those are derived
  * from the top-level `SSHKaosOptions` fields and cannot be overridden here.
  */
 export type SSHKaosExtraOptions = Omit<
   ConnectConfig,
-  'host' | 'port' | 'username' | 'password' | 'privateKey' | 'authHandler' | 'hostVerifier'
+  'host' | 'port' | 'username' | 'password' | 'privateKey' | 'authHandler' | 'hostHash' | 'hostVerifier'
 >;
 
 export interface SSHKaosOptions {
@@ -61,12 +61,19 @@ export interface SSHKaosOptions {
   keyPaths?: string[];
   keyContents?: string[];
   cwd?: string;
+  /** Hash algorithm used to present the remote host key to hostKeyVerifier. */
+  hostHash?: string;
+  /**
+   * Verifies the remote host key. When omitted, SSHKaos rejects the host key
+   * instead of inheriting ssh2's permissive auto-accept default.
+   */
+  hostKeyVerifier?: ConnectConfig['hostVerifier'];
   /**
    * Pass-through for advanced ssh2 `ConnectConfig` fields such as `algorithms`,
    * `keepaliveInterval`, `readyTimeout`, `debug`, `tryKeyboard`, `agent`, etc.
    *
    * Managed fields (`host`, `port`, `username`, `password`, `privateKey`,
-   * `authHandler`, `hostVerifier`) are excluded from this type and will take
+   * `authHandler`, `hostHash`, `hostVerifier`) are excluded from this type and will take
    * precedence over anything set here.
    */
   extraOptions?: SSHKaosExtraOptions;
@@ -604,8 +611,13 @@ export class SSHKaos implements Kaos {
       }
     }
 
-    // Disable host key verification (like asyncssh known_hosts=None)
-    config.hostVerifier = () => true;
+    if (options.hostHash !== undefined) {
+      config.hostHash = options.hostHash;
+    }
+    // ssh2 auto-accepts host keys when hostVerifier is absent. Fail closed
+    // when callers have not supplied an explicit verifier; production
+    // transports provide a fingerprint verifier at this boundary.
+    config.hostVerifier = options.hostKeyVerifier ?? (() => false);
 
     const client = await connectClient(config);
     try {
@@ -986,34 +998,11 @@ export class SSHKaos implements Kaos {
     cwd: string,
     env?: Record<string, string>,
   ): string {
-    let command = args.map((arg) => shellQuote(arg)).join(' ');
-
-    if (env !== undefined) {
-      const assignments: string[] = [];
-      for (const [key, value] of Object.entries(env)) {
-        // Reject anything that isn't a POSIX-valid shell variable name so
-        // the injected prefix can never become a shell-injection vector.
-        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
-          throw new KaosValueError(
-            `SSHKaos.execWithEnv(): invalid env variable name ${JSON.stringify(key)}`,
-          );
-        }
-        assignments.push(`${key}=${shellQuote(value)}`);
-      }
-      if (assignments.length > 0) {
-        command = `${assignments.join(' ')} ${command}`;
-      }
-    }
-
-    if (cwd !== '') {
-      command = `cd ${shellQuote(cwd)} && ${command}`;
-    }
-
-    return command;
+    return buildSshExecCommand(args, cwd, env);
   }
 
   private async _execInternal(args: string[], env?: Record<string, string>): Promise<KaosProcess> {
-    const command = SSHKaos._buildExecCommand(args, this._cwd, env);
+    const command = buildSshExecCommand(args, this._cwd, env);
     const channel = await clientExec(this._client, command);
     return new SSHProcess(channel);
   }
@@ -1032,4 +1021,40 @@ export class SSHKaos implements Kaos {
       this._client.end();
     });
   }
+}
+
+/**
+ * Build a safely quoted fixed-argument SSH exec command. This helper is
+ * exported for transport-boundary tests; callers should still prefer a
+ * semantic adapter over arbitrary command execution.
+ */
+export function buildSshExecCommand(
+  args: readonly string[],
+  cwd: string,
+  env?: Record<string, string>,
+): string {
+  let command = args.map((arg) => shellQuote(arg)).join(' ');
+
+  if (env !== undefined) {
+    const assignments: string[] = [];
+    for (const [key, value] of Object.entries(env)) {
+      // Reject anything that isn't a POSIX-valid shell variable name so
+      // the injected prefix can never become a shell-injection vector.
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
+        throw new KaosValueError(
+          `SSHKaos.execWithEnv(): invalid env variable name ${JSON.stringify(key)}`,
+        );
+      }
+      assignments.push(`${key}=${shellQuote(value)}`);
+    }
+    if (assignments.length > 0) {
+      command = `${assignments.join(' ')} ${command}`;
+    }
+  }
+
+  if (cwd !== '') {
+    command = `cd ${shellQuote(cwd)} && ${command}`;
+  }
+
+  return command;
 }

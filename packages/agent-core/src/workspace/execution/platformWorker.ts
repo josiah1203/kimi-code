@@ -28,16 +28,24 @@ const inputArtifactSchema = z.strictObject({
   content_base64: z.string().max(Math.ceil((MAX_ARTIFACT_BYTES * 4) / 3) + 4),
 });
 
-const requestSchema = z.strictObject({
+export const platformWorkerRequestSchema = z.strictObject({
   protocol_version: z.literal(1),
   workspace_id: z.string().min(1),
   run_id: z.string().min(1),
+  attempt_id: z.string().min(1).optional(),
+  project_id: z.string().min(1).optional(),
   request_id: z.string().min(1),
   target_id: z.string().min(1),
   lease_id: z.string().min(1).optional(),
   operation: z.enum(['analysis', 'training', 'evaluation', 'comparison', 'serving']),
   payload: z.record(z.string(), z.unknown()),
   policy_decision_id: z.string().min(1).optional(),
+  policy_decision_ids: z.array(z.string().min(1)).max(100).optional(),
+  approval_ids: z.array(z.string().min(1)).max(100).optional(),
+  artifact_ids: z.array(z.string().min(1)).max(100).optional(),
+  provider: z.string().min(1).max(160).optional(),
+  model: z.string().min(1).max(256).optional(),
+  user_id: z.string().min(1).optional(),
 });
 
 const outputArtifactSchema = z.strictObject({
@@ -49,7 +57,7 @@ const outputArtifactSchema = z.strictObject({
   metadata: platformMetadataSchema.optional(),
 });
 
-const responseSchema = z.strictObject({
+export const platformWorkerResponseSchema = z.strictObject({
   status: z.enum(['succeeded', 'failed']),
   output_artifacts: z.array(outputArtifactSchema).max(100).default([]),
   metrics: z.record(z.string(), z.number().finite()).optional(),
@@ -57,9 +65,9 @@ const responseSchema = z.strictObject({
   error: z.string().max(2_000).optional(),
 });
 
-export type PlatformWorkerRequest = z.infer<typeof requestSchema>;
+export type PlatformWorkerRequest = z.infer<typeof platformWorkerRequestSchema>;
 export type PlatformWorkerArtifact = z.infer<typeof outputArtifactSchema>;
-export type PlatformWorkerResponse = z.infer<typeof responseSchema>;
+export type PlatformWorkerResponse = z.infer<typeof platformWorkerResponseSchema>;
 export type PlatformWorkerOperation = PlatformWorkerRequest['operation'];
 export type PlatformWorkerSignal = globalThis.AbortSignal;
 
@@ -111,7 +119,7 @@ export async function executePlatformWorkerRequest(
     return previous.response;
   }
   try {
-    const result = responseSchema.parse(await options.executor.execute(request, signal));
+    const result = platformWorkerResponseSchema.parse(await options.executor.execute(request, signal));
     if (Buffer.byteLength(JSON.stringify(result), 'utf8') > MAX_RESPONSE_BYTES) {
       return { status: 'failed', output_artifacts: [], error: 'worker response is too large' };
     }
@@ -184,7 +192,7 @@ async function handleRequest(
   if (body === undefined) return sendError(response, 413, 'worker request is too large or invalid');
   let parsed: PlatformWorkerRequest;
   try {
-    parsed = requestSchema.parse(JSON.parse(body));
+    parsed = platformWorkerRequestSchema.parse(JSON.parse(body));
   } catch {
     sendError(response, 400, 'worker request does not match the execution contract');
     return;

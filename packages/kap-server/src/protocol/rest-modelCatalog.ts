@@ -29,12 +29,9 @@ export const listProvidersResponseSchema = z.object({
 });
 export type ListProvidersResponse = z.infer<typeof listProvidersResponseSchema>;
 
-// The single-provider GET additionally reveals the stored `api_key` so the
-// local desktop client can prefill its edit form (the loopback transport is
-// already bearer-guarded; the list route and /config stay redacted).
-export const getProviderResponseSchema = providerCatalogItemSchema.extend({
-  api_key: z.string().optional(),
-});
+// Provider responses are always credential-free. Clients submit a transient
+// `api_key` on create/replace/import requests; they never receive it back.
+export const getProviderResponseSchema = providerCatalogItemSchema;
 export type GetProviderResponse = z.infer<typeof getProviderResponseSchema>;
 
 // ---------------------------------------------------------------------------
@@ -140,9 +137,10 @@ export type CreateProviderResponse = z.infer<typeof createProviderResponseSchema
  * The desktop "edit & save" payload: the whole provider form. `new_id`
  * renames the provider (the id in the path is the current identity) — the
  * providers key, all model aliases, default_provider and a default_model
- * pointing at an old alias are migrated to the new id. `api_key` is
- * tri-state so the edit form can leave the stored key untouched — absent
- * keeps it, `""` clears it, anything else replaces it.
+ * pointing at an old alias are migrated to the new id. `api_key` is transient
+ * tri-state input so the edit form can leave the encrypted credential untouched
+ * — absent keeps its opaque secret reference, `""` clears it, anything else
+ * replaces the encrypted secret material behind that reference.
  */
 export const replaceProviderRequestSchema = z
   .object({

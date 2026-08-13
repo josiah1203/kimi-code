@@ -1,4 +1,5 @@
 import type { SessionRunsFacade } from '@spiderbyte/client';
+import type { ProviderSecretRef } from '@spiderbyte/protocol';
 import { ErrorCodes, SpiderByteError } from '#/errors';
 import { withTelemetryContext } from '#/telemetry';
 import type { ImageLimits, ExperimentalFeatureState } from '#/types';
@@ -343,6 +344,34 @@ export class SpiderByteHarness {
 
   async getConfig(options: GetConfigOptions = {}): Promise<SpiderByteConfig> {
     return this.rpc.getConfig(options);
+  }
+
+  /** Persist provider material in the encrypted local vault; only the opaque reference leaves this API. */
+  async storeProviderSecret(
+    secret: string,
+    existing?: ProviderSecretRef,
+  ): Promise<ProviderSecretRef> {
+    const client = this.rpc as SDKRpcClientBase & {
+      storeProviderSecret?: (
+        secret: string,
+        existing?: ProviderSecretRef,
+      ) => Promise<ProviderSecretRef>;
+    };
+    if (client.storeProviderSecret === undefined) {
+      throw new Error('provider secret storage is unavailable for this transport');
+    }
+    return client.storeProviderSecret(secret, existing);
+  }
+
+  /** Resolve an opaque provider reference at the outbound-call boundary. */
+  async resolveProviderSecret(reference: ProviderSecretRef): Promise<string | undefined> {
+    const client = this.rpc as SDKRpcClientBase & {
+      resolveProviderSecret?: (reference: ProviderSecretRef) => Promise<string | undefined>;
+    };
+    if (client.resolveProviderSecret === undefined) {
+      throw new Error('provider secret resolution is unavailable for this transport');
+    }
+    return client.resolveProviderSecret(reference);
   }
 
   /** Warnings from the most recent config.toml load; empty when the config is fully valid. */

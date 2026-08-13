@@ -6,15 +6,13 @@ import {
 import {
   CapabilityUnavailableError,
   type CommercialStore,
-  type CapabilityAdapter,
+  type RelationalStore,
 } from '@spiderbyte/commercial-ports';
 
 import { COMMERCIAL_MIGRATIONS, SqlMigrationPort, type CommercialSqlClient } from './migrations';
 import { SqlCommercialStore } from './sqlStore';
 
-export interface CommercialDatabaseAdapter extends CapabilityAdapter {
-  open(): Promise<CommercialStore>;
-}
+export interface CommercialDatabaseAdapter extends RelationalStore {}
 
 /** Production hosted database adapter boundary. No database is claimed until configured. */
 export class UnavailableCommercialDatabaseAdapter implements CommercialDatabaseAdapter {

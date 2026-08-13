@@ -10,6 +10,7 @@ import {
   UnavailableCapabilityAdapter,
   UnavailableIdentityAdapter,
 } from '@spiderbyte/commercial-adapters';
+import { ClerkBillingAdapter, ClerkIdentityAdapter } from '../src/clerk';
 
 const now = '2026-08-11T12:00:00.000Z';
 const clock = { now: () => now };
@@ -48,6 +49,19 @@ describe('commercial deterministic adapters', () => {
     expect(adapter.capability().availability).toBe('not_configured');
     expect(() => adapter.assertAvailable()).toThrow();
     expect(new StaticCapabilityRegistry().status('payment').availability).toBe('not_configured');
+  });
+
+  it('fails closed when Clerk hosted adapters are not configured', async () => {
+    const identity = new ClerkIdentityAdapter();
+    const billing = new ClerkBillingAdapter();
+    expect(identity.capability().availability).toBe('not_configured');
+    expect(billing.capability().availability).toBe('not_configured');
+    await expect(identity.validateSession('token')).rejects.toMatchObject({
+      code: 'commercial.identity.not_configured',
+    });
+    await expect(billing.listPlans('user')).rejects.toMatchObject({
+      code: 'commercial.payment.not_configured',
+    });
   });
 
   it('serializes in-memory transactions and maintains an audit hash chain', async () => {

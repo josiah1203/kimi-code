@@ -60,6 +60,8 @@ import {
   executionTargetCommandInputSchema,
   executionTargetCreateInputSchema,
   executionTargetSchema,
+  executionTargetTestInputSchema,
+  executionTargetTestResultSchema,
   executionTargetUpdateInputSchema,
   platformReplayPageSchema,
   policyDecisionAuditInputSchema,
@@ -322,6 +324,8 @@ export const executionTargetContract = {
   update: { input: z.tuple([z.string(), executionTargetUpdateInputSchema]), output: maybe(executionTargetSchema) },
   markReady: { input: z.tuple([z.string(), executionTargetCommandInputSchema]), output: maybe(executionTargetSchema) },
   disable: { input: z.tuple([z.string(), executionTargetCommandInputSchema]), output: maybe(executionTargetSchema) },
+  revoke: { input: z.tuple([z.string(), executionTargetCommandInputSchema]), output: maybe(executionTargetSchema) },
+  test: { input: z.tuple([z.string(), executionTargetTestInputSchema]), output: executionTargetTestResultSchema },
   acquireLease: { input: z.tuple([z.string(), executionLeaseAcquireInputSchema]), output: executionLeaseSchema },
   releaseLease: {
     input: z.tuple([z.string(), z.string(), executionLeaseReleaseInputSchema]),

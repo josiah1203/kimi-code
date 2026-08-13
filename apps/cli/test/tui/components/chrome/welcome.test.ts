@@ -45,7 +45,7 @@ function truecolorCodes(text: string): Set<string> {
   return codes;
 }
 
-/** The two header rows (logo + title) of the rendered welcome box. */
+/** The two welcome header rows of the rendered welcome box. */
 function headerOf(lines: string[]): string {
   return [lines[3], lines[4]].join('\n');
 }
@@ -93,6 +93,13 @@ describe('WelcomeComponent', () => {
     const off = headerOf(new WelcomeComponent(appState).render(80));
 
     expect(off).toBe(base);
+  });
+
+  it('does not render the legacy terminal character/pixel', () => {
+    const rendered = new WelcomeComponent(appState).render(80).join('\n');
+
+    expect(rendered).not.toContain('▐█▛█▛█▌');
+    expect(rendered).not.toContain('▐█████▌');
   });
 
   it('keeps every line within the requested width on narrow terminals', () => {

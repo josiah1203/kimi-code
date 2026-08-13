@@ -363,6 +363,7 @@ export class WorkspacePipelineService extends Disposable implements IWorkspacePi
         remote = await this.execution.execute({
           request_id: requestId,
           run_id: run.run_id,
+          attempt_id: command.attempt_id,
           target_id: command.execution_target_id,
           lease_id: leaseId,
           operation: step.kind,

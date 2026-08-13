@@ -35,7 +35,17 @@ export interface HostedComputeAdapter extends CapabilityAdapter {
   }): Promise<ComputeExecution>;
   cancel(input: { readonly execution_id: string; readonly request_id: string }): Promise<ComputeExecution>;
   inspect(executionId: string): Promise<ComputeExecution | undefined>;
+  /** Optional provider-reported usage used by the control plane for reconciliation. */
+  usage?(executionId: string): Promise<HostedComputeUsage | undefined>;
 }
+
+export interface HostedComputeUsage {
+  readonly actual_amount: number;
+  readonly unit: 'seconds';
+}
+
+/** Provider-neutral execution target contract used by hosted and customer-managed workers. */
+export interface ExecutionTarget extends HostedComputeAdapter {}
 
 /** Server-owned price quote boundary; callers must not provide billing rates. */
 export interface HostedComputePricing extends CapabilityAdapter {

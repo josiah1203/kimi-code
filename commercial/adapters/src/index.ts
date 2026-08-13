@@ -5,4 +5,6 @@ export * from './payment';
 export * from './compute';
 export * from './artifacts';
 export * from './enterprise';
+export * from './licensing';
+export * from './clerk';
 export * from './unavailable';

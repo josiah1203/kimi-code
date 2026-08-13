@@ -1,7 +1,11 @@
 # SpiderByte commercial architecture
 
 Status: implemented commercial boundary and deterministic control-plane
-contracts; not a production hosted deployment.
+contracts; not a production deployment. The accepted commercial direction is
+the customer-owned, seat-based self-hosted edition described in
+[`SPIDERBYTE_PRODUCT_AUTHORITY.md`](./SPIDERBYTE_PRODUCT_AUTHORITY.md). Hosted
+compute and model-usage billing are optional future products, not launch
+dependencies.
 
 This document describes the commercial workspace added after the Phase 0 audit.
 It is deliberately explicit about what is operational in this repository and
@@ -29,6 +33,10 @@ commercial/application ── commercial/billing
         ↓
 commercial/api ── commercial/sdk ── commercial/mcp
 commercial/persistence
+
+commercial/licensing ── signed offline license verifier
+        ↑
+commercial/ports ← commercial/adapters (explicit local/test or unavailable)
 ```
 
 `domain` contains validated records and lifecycle state. `ports` contains
@@ -51,7 +59,7 @@ metadata validation. The model map is:
 | Commercial state | Plan, Subscription, Entitlement, Quota, Allowance, Budget, SpendLimit, CreditBalance |
 | Metering and billing | UsageEvent, UsageLedgerEntry, ComputeReservation, BillingPeriod, Invoice, PaymentStatus |
 | Execution and data | ComputeProvider, ComputeRegion, JobClass, ComputeExecution, HostedArtifact, RetentionPolicy, LegalHold, ExportJob |
-| Administration and security | OrganizationPolicy, AuditEvent, SupportAccessGrant, WebhookEndpoint, EnterpriseConfiguration |
+| Administration and security | OrganizationPolicy, AuditEvent, SupportAccessGrant, WebhookEndpoint, EnterpriseConfiguration, OfflineLicense, LicenseActivation, LicenseSeat |
 
 Secrets are represented by hashes or secret references. Account passwords,
 session tokens, invitation tokens, service-account credentials, API-key
@@ -63,7 +71,8 @@ idempotent replay fails with an explicit one-time-secret-unavailable error.
 
 `CommercialDirectoryService` is the server-side authority for account
 creation, login, session validation/revocation, organization and workspace
-creation, invitations, membership lifecycle, ownership transfer, and
+creation, invitations, membership lifecycle, membership role changes,
+ownership transfer, and
 authorization. `CommercialAuthMiddleware` validates a bearer session through
 that directory, including stored session state, token hash, user state, and
 expiration. It does not trust a frontend-supplied user or organization.
@@ -98,6 +107,25 @@ from posted/reconciled ledger entries, never from mutable UI totals.
 `PaymentAdapter` is provider-neutral. `LocalTestPaymentAdapter` is a
 deterministic test adapter; `UnavailablePaymentAdapter` is the production-safe
 default when a real merchant/invoicing provider has not been configured.
+
+## Signed offline licensing and seats
+
+`commercial/licensing` verifies an Ed25519-signed `OfflineLicense` locally from
+the organization ID, plan, seat count, enabled capabilities, issuance and
+expiration timestamps, grace period, version, key ID, signature, and optional
+deployment restrictions. The canonical payload excludes only the signature;
+the injected `LicenseKeyResolver` receives only a key ID. Activation, inspect,
+seat assignment/revocation, entitlement inspection, grace/expiry evaluation,
+renewal, idempotency, the fail-closed `assertCapability` guard, and
+hash-chained audit events are implemented in `OfflineLicenseService`.
+
+Activation is air-gap compatible and does not call a license authority. An
+optional injected `LicenseAuthorityPort` is used only for renewal. Temporary
+key-resolver unavailability can use the last verified license digest; a changed
+or unverifiable cached payload becomes `invalid` and is not enabled. The local
+key and authority adapters are explicitly limited to development/test; the
+production key distribution, signing authority, identity provider, and durable
+deployment remain external adapters and are not claimed here.
 
 ## Hosted compute and artifacts
 
@@ -143,7 +171,8 @@ foundations, append-only ledger data, idempotency, and audit records. Its
 in-memory migration port is deterministic, while `SqlMigrationPort` and
 `SqlCommercialStore` provide an injected PostgreSQL-compatible client boundary
 with transactional migration application, JSON record persistence, rollback
-ordering, and record-key validation. The SQL adapter reports
+ordering, record-key validation, and transaction-scoped advisory locks for
+seat/activation invariants. The SQL adapter reports
 `not_configured` until a client is supplied; production pooling, credentials,
 backups, restore, tenant isolation, and migration operations remain deployment
 responsibilities.
@@ -156,7 +185,8 @@ organization before accepting a socket; event delivery is organization and
 workspace scoped. The HTTP registry covers account/session onboarding,
 organizations/workspaces, entitlement reads, compute lifecycle, artifact
 operations, Team/Business team and custom-role mutations, and Enterprise
-identity/configuration mutations; each specialized service is injected and
+identity/configuration mutations, plus invitation/removal/role and signed
+license lifecycle routes; each specialized service is injected and
 returns a capability error when absent. `commercial/sdk` supplies a fetch transport with
 bearer/request/idempotency headers and strips server-controlled actor fields
 from public request bodies. `commercial/mcp` exposes a deny-by-default tool

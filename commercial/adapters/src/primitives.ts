@@ -71,11 +71,17 @@ export class StaticCapabilityRegistry implements CapabilityRegistry {
       'payment',
       'hosted_compute',
       'hosted_artifacts',
+      'managed_llm',
+      'event_bus',
+      'workflow_engine',
+      'secrets',
+      'observability',
       'sso',
       'scim',
       'webhooks',
       'customer_managed_keys',
       'private_networking',
+      'licensing',
     ];
     this.statuses = new Map(keys.map((capability) => [
       capability,

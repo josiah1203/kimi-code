@@ -46,7 +46,6 @@ telemetry = false
 [providers.local]
 type = "openai"
 base_url = "http://127.0.0.1:11434/v1"
-api_key = "local"
 
 [models.local]
 provider = "local"
@@ -55,7 +54,7 @@ max_context_size = 32768
 capabilities = ["tool_use"]
 ```
 
-使用 `spyderbyte doctor` 校验配置。一次性运行可以使用 [环境变量](../configuration/env-vars.md) 中介绍的 `SPIDERBYTE_MODEL_*` 变量。
+使用 `spyderbyte doctor` 校验配置。BYOK 凭据请设置 `SPIDERBYTE_SECRET_STORE_KEY`，并使用 `spyderbyte configure --api-key-env <name>` 配置。一次性运行可以使用 [环境变量](../configuration/env-vars.md) 中介绍的 `SPIDERBYTE_MODEL_*` 变量。
 
 ## 启动会话
 

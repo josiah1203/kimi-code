@@ -121,4 +121,22 @@ describe('server-v2 disableAuth (--dangerous-bypass-auth)', () => {
     };
     expect(metaBody.data.dangerous_bypass_auth).toBe(false);
   });
+
+  it('rejects disableAuth on a non-loopback bind', async () => {
+    const nonLoopbackHome = await mkdtemp(join(tmpdir(), 'spiderbyte-server-disable-auth-remote-'));
+    try {
+      await expect(startServer({
+        hostIdentity: TEST_HOST_IDENTITY,
+        host: '0.0.0.0',
+        port: 0,
+        homeDir: nonLoopbackHome,
+        logLevel: 'silent',
+        insecureNoTls: true,
+        authTokenService: fixedTokenAuth(TOKEN),
+        disableAuth: true,
+      })).rejects.toThrow('unauthenticated mode is permitted only on a loopback bind');
+    } finally {
+      await rm(nonLoopbackHome, { recursive: true, force: true });
+    }
+  });
 });

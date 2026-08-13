@@ -47,7 +47,7 @@ spyderbyte --plan
 | `spyderbyte auth status` | 报告无账号本地认证状态。 |
 | `spyderbyte run <prompt>` | 通过规范 harness 执行一条受治理提示词。 |
 | `spyderbyte provider` | 列出、添加、删除或发现供应商记录。 |
-| `spyderbyte connections` | 列出工作区的本地供应商连接。 |
+| `spyderbyte connections` | 使用 `list`、`add`、`inspect`、`test`、`ready` 和 `remove` 管理工作区范围的执行目标。 |
 | `spyderbyte usage` | 显示本地工作区使用记录。 |
 | `spyderbyte plugins` | 列出本地已安装 Plugin。 |
 | `spyderbyte organization` | 创建、列出和选择本地组织。 |
@@ -55,11 +55,32 @@ spyderbyte --plan
 | `spyderbyte workspace` | 列出和选择本地工作区。 |
 | `spyderbyte acp` | 通过标准输入/输出运行本地 ACP server。 |
 | `spyderbyte web` | 运行本地 REST/WebSocket server；浏览器客户端不在此 checkout 中。 |
+| `spyderbyte daemon platform-worker --stdio` | 运行受治理 SSH 目标使用的客户自有语义执行 daemon。 |
 | `spyderbyte doctor` | 校验 `config.toml` 和 `tui.toml`。 |
 | `spyderbyte export` | 导出本地会话归档。 |
 | `spyderbyte upgrade` | 更新功能开启时执行更新检查。 |
 
 `configure`、组织、项目、工作区、连接、使用量和 Plugin 命令都操作本地持久化数据，不会创建托管租户、付费权益、发票或托管 Worker。
+
+`spyderbyte connections` 只注册端点引用和不透明的 `secret_<reference>` 值。`connections test` 会对本地目标、受治理的 SSH 目标以及受支持的 HTTP Worker 或私有网关目标执行有界健康检查和能力发现；Docker 和 Kubernetes 目标在安装相应传输适配器前会报告 `adapter-dependent`。SSH 要求客户主机已经安装兼容的 SpiderByte daemon；主机密钥指纹或 daemon 协议不匹配时会失败关闭。目标必须先通过 `connections test`，`connections ready` 才会使其可获取租约；已 ready 目标的失败检查会将其置为 draining。普通 customer-managed Worker 端点只能使用公共网络；显式配置的 private-gateway 可以使用客户私有地址，但会拒绝 loopback 和 link-local 目标。`connections remove` 会撤销目标，同时保留持久化记录用于本地审计历史。
+
+### SSH 执行目标
+
+SSH 是客户自有 SpiderByte daemon 的执行传输，不是面向模型的 shell 工具。注册目标时必须显式提供主机、用户、指纹和受限的远程根目录：
+
+```sh
+spyderbyte connections add \
+  --workspace wd_example \
+  --name customer-ssh \
+  --type ssh \
+  --ssh-host runner.example.test \
+  --ssh-user spiderbyte \
+  --ssh-host-key YOUR_SHA256_HEX_FINGERPRINT \
+  --ssh-root /srv/spiderbyte/workspaces/example \
+  --auth-method ssh_agent
+```
+
+密钥认证使用 `--auth-method ssh_key` 和不透明的 `--credential-ref secret_<reference>`；命令行和目标记录都不会接受或保存私钥材料。传输只向固定命令 `spyderbyte daemon platform-worker --stdio` 传递协议版本和 workspace ID。该接口不暴露任意 shell 执行。
 
 ### `spyderbyte configure`
 
@@ -71,7 +92,7 @@ spyderbyte configure \
   --no-credentials
 ```
 
-BYOK 连接可以把密钥放在 `--api-key-env` 指定的环境变量中，避免将密钥写入 argv。只有在配置阶段无法访问端点时才使用 `--skip-validation`。
+BYOK 连接请先设置 `SPIDERBYTE_SECRET_STORE_KEY`，再把密钥放在 `--api-key-env` 指定的环境变量中，避免将密钥写入 argv。命令会加密保存材料，只持久化不透明引用。只有在配置阶段无法访问端点时才使用 `--skip-validation`。
 
 ### `spyderbyte auth status`
 
@@ -91,7 +112,7 @@ spyderbyte provider catalog add openai --default-model your-model
 spyderbyte provider remove local
 ```
 
-目录和 registry 命令是可选网络集成。它们不可用时，静态本地配置仍然可以使用。
+目录和 registry 命令只把 `--api-key` 作为临时配置输入，并持久化加密的密钥引用。它们不可用时，静态本地配置仍然可以使用。
 
 ### `spyderbyte web`
 
@@ -124,4 +145,4 @@ spyderbyte export <session-id> -o ./session-export.zip --no-include-global-log
 
 ## Open Core 范围
 
-Open Core 包含本地组织、项目、工作区、会话、Run、制品、策略、预算、审批、使用量记录、供应商中立的执行合约、CLI/TUI、REST/WebSocket 合约、ACP、SDK，以及不依赖托管服务即可工作的 Klient 功能。托管身份、计费、订阅、托管供应商、托管 Worker、Slack/Teams 集成和托管审批路由明确排除在外。
+Open Core 包含本地组织、项目、工作区、会话、Run、制品、策略、预算、审批、使用量记录、供应商中立的执行合约、CLI/TUI、REST/WebSocket 合约、ACP、SDK，以及不依赖托管服务即可工作的本地客户端门面功能。托管身份、计费、订阅、托管供应商、托管 Worker、Slack/Teams 集成和托管审批路由明确排除在外。

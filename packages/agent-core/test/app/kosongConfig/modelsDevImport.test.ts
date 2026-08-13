@@ -7,8 +7,8 @@
  *  - a failed upstream fetch with no built-in snapshot throws
  *    `provider.catalog_unavailable`;
  *  - `importModelsDevProvider` writes the provider + model aliases through
- *    `config.replace` (never the default pointers), keeps the stored api_key
- *    on a re-import without one, and rejects OAuth-managed providers and
+ *    `config.replace` (never the default pointers), keeps the stored secret
+ *    reference on a re-import without one, and rejects OAuth-managed providers and
  *    non-importable entries with coded errors;
  *  - `importCustomRegistry` applies every valid entry with a `source` blob,
  *    drops same-URL providers that vanished upstream, rejects OAuth-managed
@@ -268,7 +268,7 @@ describe('IModelsDevImportService', () => {
     expect(config.get('defaultModel')).toBe('openai/gpt-4.1');
   });
 
-  it('keeps the stored api_key on a re-import without one, replaces it when given', async () => {
+  it('keeps the stored secret reference on a re-import without one, replaces its material when given', async () => {
     setModelsDevUpstreamForTest({ fetchImpl: fetchJson(CATALOG) });
     const { config, imports } = createHost({
       providers: { openai: { type: 'openai', apiKey: 'sk-old' } },
@@ -276,11 +276,14 @@ describe('IModelsDevImportService', () => {
 
     await imports.importModelsDevProvider({ catalogId: 'openai' });
     let providers = config.inspect<ProvidersSection>(PROVIDERS_SECTION).userValue ?? {};
-    expect(providers['openai']?.apiKey).toBe('sk-old');
+    expect(providers['openai']?.apiKey).toBeUndefined();
+    const secretRef = providers['openai']?.secretRef;
+    expect(secretRef).toMatch(/^secret_/);
 
     await imports.importModelsDevProvider({ catalogId: 'openai', apiKey: 'sk-new' });
     providers = config.inspect<ProvidersSection>(PROVIDERS_SECTION).userValue ?? {};
-    expect(providers['openai']?.apiKey).toBe('sk-new');
+    expect(providers['openai']?.apiKey).toBeUndefined();
+    expect(providers['openai']?.secretRef).toBe(secretRef);
   });
 
   it('rejects importing over an OAuth-managed provider', async () => {
@@ -391,8 +394,16 @@ describe('IModelsDevImportService', () => {
     expect(providers['acme-gpt']).toMatchObject({
       type: 'openai',
       baseUrl: 'https://acme.example/v1',
-      source: { kind: 'apiJson', url: REGISTRY_URL, apiKey: 'tok-2' },
+      secretRef: expect.stringMatching(/^secret_/),
+      source: {
+        kind: 'apiJson',
+        url: REGISTRY_URL,
+        secretRef: expect.stringMatching(/^secret_/),
+      },
     });
+    expect(providers['acme-gpt']?.secretRef).toBe(
+      (providers['acme-gpt']?.source as { secretRef?: string }).secretRef,
+    );
     const models = config.inspect<ModelsSection>(MODELS_SECTION).userValue ?? {};
     expect(models['acme-old/gpt-y']).toBeUndefined();
     expect(models['acme-gpt/gpt-x']).toMatchObject({ provider: 'acme-gpt', model: 'gpt-x' });

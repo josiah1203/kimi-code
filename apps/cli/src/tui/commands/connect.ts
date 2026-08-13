@@ -79,11 +79,13 @@ async function handleOpenPlatformSetup(
   if (selection === undefined) return;
 
   const existingConfig = await host.harness.getConfig();
+  const existingSecretRef = existingConfig.providers[platform.id]?.secretRef;
   if (existingConfig.providers[platform.id] !== undefined) {
     await host.harness.removeProvider(platform.id);
   }
 
   const config = await host.harness.getConfig();
+  const secretRef = await host.harness.storeProviderSecret(apiKey, existingSecretRef);
   applyOpenPlatformConfig(config as SpiderByteConfigShape, {
     platform,
     models,
@@ -94,6 +96,7 @@ async function handleOpenPlatformSetup(
         ? selection.thinking
         : undefined,
     apiKey,
+    secretRef,
   });
 
   await host.harness.setConfig({

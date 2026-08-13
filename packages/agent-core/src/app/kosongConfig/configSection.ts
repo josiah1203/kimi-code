@@ -38,6 +38,7 @@ import {
   transformPlainObject,
 } from '#/app/config/toml';
 import { type AssertExact, type Equal } from '#/_base/utils/typeEquality';
+import { providerSecretRefSchema } from '@spiderbyte/protocol';
 import type { ModelOverride, ModelRecord, ModelsSection } from '#/kosong/model/model';
 import type { ThinkingConfig } from '#/kosong/model/thinking';
 import type { OAuthRef, ProviderConfig, ProvidersSection } from '#/kosong/provider/provider';
@@ -70,6 +71,7 @@ export const ProviderConfigSchema = z.object({
   defaultModel: z.string().optional(),
 
   type: ProviderTypeSchema.optional(),
+  secretRef: providerSecretRefSchema.optional(),
   apiKey: z.string().optional(),
   oauth: OAuthRefSchema.optional(),
   env: StringRecordSchema.optional(),
@@ -170,6 +172,7 @@ const ModelBaseSchema = z.object({
   providerId: z.string().optional(),
 
   baseUrl: z.string().optional(),
+  secretRef: providerSecretRefSchema.optional(),
   apiKey: z.string().optional(),
   oauth: OAuthRefSchema.optional(),
 
@@ -196,6 +199,7 @@ const ModelBaseSchema = z.object({
 export const ModelOverrideSchema = ModelBaseSchema.omit({
   providerId: true,
   baseUrl: true,
+  secretRef: true,
   apiKey: true,
   oauth: true,
   protocol: true,

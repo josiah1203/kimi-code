@@ -2,7 +2,8 @@
 
 Contract-driven client SDK for the SpiderByte Agent Core engine. One facade, two
 transports — you pick the transport **once** at creation; everything after
-that is byte-identical:
+that is byte-identical. The exported `Klient*` names are compatibility API
+identifiers; the product and package identity is SpiderByte client:
 
 ```ts
 import { bootstrap, logSeed, resolveLoggingConfig } from '@spiderbyte/agent-core';

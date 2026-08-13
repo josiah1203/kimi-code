@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { artifactIdSchema, executionTargetIdSchema, platformIdentifierSchema, platformMetadataSchema, runIdSchema } from './platform';
+import { artifactIdSchema, attemptIdSchema, executionTargetIdSchema, platformIdentifierSchema, platformMetadataSchema, runIdSchema } from './platform';
 import { isoDateTimeSchema } from './time';
 import { workspaceIdSchema } from './workspace';
 
@@ -81,6 +81,7 @@ export type PipelineRun = z.infer<typeof pipelineRunSchema>;
 export const pipelineRunInputSchema = z.strictObject({
   request_id: platformIdentifierSchema,
   run_id: runIdSchema,
+  attempt_id: attemptIdSchema.optional(),
   execution_target_id: executionTargetIdSchema.optional(),
   execution_target_policy_decision_id: platformIdentifierSchema.optional(),
   policy_decision_id: platformIdentifierSchema.optional(),

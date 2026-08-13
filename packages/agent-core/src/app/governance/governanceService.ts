@@ -428,7 +428,18 @@ export class PlatformGovernanceService extends Disposable implements IPlatformGo
   async ensureLocalOrganization(actorId = LOCAL_ACTOR): Promise<Organization> {
     await this.ready;
     const existing = this.organizations.find((organization) => organization.mode === 'local');
-    if (existing !== undefined) return existing;
+    if (existing !== undefined) {
+      const member = this.organizationMembers.find((candidate) =>
+        candidate.organization_id === existing.id && candidate.member_id === actorId,
+      );
+      if (member === undefined) {
+        throw new GovernanceServiceError(
+          GovernanceErrors.codes.GOVERNANCE_MEMBERSHIP_DENIED,
+          'local organization is not available to this actor',
+        );
+      }
+      return existing;
+    }
     return this.createOrganization({
       request_id: 'governance:ensure-local',
       actor_id: actorId,

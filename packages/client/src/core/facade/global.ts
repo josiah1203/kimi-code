@@ -103,6 +103,8 @@ import type {
   ExecutionTarget,
   ExecutionTargetCommandInput,
   ExecutionTargetCreateInput,
+  ExecutionTargetTestInput,
+  ExecutionTargetTestResult,
   ExecutionTargetUpdateInput,
   PlatformReplayPage,
   PlatformLifecycleEvent,
@@ -400,6 +402,8 @@ export interface GlobalExecutionTargetFacade {
   update(workspaceId: string, id: string, input: ExecutionTargetUpdateInput): Promise<ExecutionTarget | undefined>;
   markReady(workspaceId: string, id: string, input: ExecutionTargetCommandInput): Promise<ExecutionTarget | undefined>;
   disable(workspaceId: string, id: string, input: ExecutionTargetCommandInput): Promise<ExecutionTarget | undefined>;
+  revoke(workspaceId: string, id: string, input: ExecutionTargetCommandInput): Promise<ExecutionTarget | undefined>;
+  test(workspaceId: string, id: string, input: ExecutionTargetTestInput): Promise<ExecutionTargetTestResult>;
   acquireLease(workspaceId: string, id: string, input: ExecutionLeaseAcquireInput): Promise<ExecutionLease>;
   releaseLease(workspaceId: string, id: string, leaseId: string, input: ExecutionLeaseReleaseInput): Promise<ExecutionLease | undefined>;
 }
@@ -973,6 +977,10 @@ export function createGlobalFacade(
         scoped({ workspaceId }, 'executionTargetService', 'markReady', [id, input]) as Promise<ExecutionTarget | undefined>,
       disable: (workspaceId, id, input) =>
         scoped({ workspaceId }, 'executionTargetService', 'disable', [id, input]) as Promise<ExecutionTarget | undefined>,
+      revoke: (workspaceId, id, input) =>
+        scoped({ workspaceId }, 'executionTargetService', 'revoke', [id, input]) as Promise<ExecutionTarget | undefined>,
+      test: (workspaceId, id, input) =>
+        scoped({ workspaceId }, 'executionTargetService', 'test', [id, input]) as Promise<ExecutionTargetTestResult>,
       acquireLease: (workspaceId, id, input) =>
         scoped({ workspaceId }, 'executionTargetService', 'acquireLease', [id, input]) as Promise<ExecutionLease>,
       releaseLease: (workspaceId, id, leaseId, input) =>

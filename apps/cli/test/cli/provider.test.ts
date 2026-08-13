@@ -6,7 +6,13 @@
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
+import type { ProviderSecretRef } from '@spiderbyte/protocol';
 import type { SpiderByteConfig } from '@spiderbyte/sdk';
+import type {
+  ProviderCommandAdapter,
+  ProviderEvent,
+  ProviderRequest,
+} from '@spiderbyte/kaos';
 
 import {
   handleCatalogAdd,
@@ -17,6 +23,12 @@ import {
   registerProviderCommand,
   type ProviderDeps,
 } from '#/cli/sub/provider';
+import {
+  handleProviderCommandList,
+  handleProviderCommandTest,
+  parseConfiguredProviderCommands,
+  PROVIDER_CLI_CONFIG_ENV,
+} from '#/cli/sub/provider-command';
 
 // Spy on the SDK harness factories so the default-deps engine routing can be
 // asserted without booting a real engine. The real implementations stay in
@@ -48,6 +60,10 @@ interface FakeHarness {
   getConfig: () => Promise<SpiderByteConfig>;
   setConfig: (patch: Partial<SpiderByteConfig>) => Promise<SpiderByteConfig>;
   removeProvider: (providerId: string) => Promise<SpiderByteConfig>;
+  storeProviderSecret: (
+    secret: string,
+    existing?: ProviderSecretRef,
+  ) => Promise<ProviderSecretRef>;
   close: () => Promise<void>;
 }
 
@@ -100,6 +116,8 @@ function makeHarness(initial: SpiderByteConfig): {
       if (removedDefault) persisted = { ...persisted, defaultModel: undefined };
       return structuredClone(persisted);
     },
+    storeProviderSecret: async (_secret, existing) =>
+      existing ?? ('secret_test_provider' as ProviderSecretRef),
     close: async () => {},
   };
   return {
@@ -270,11 +288,12 @@ describe('spyderbyte provider add', () => {
     const kohub = finalConfig.providers['kohub']!;
     expect(kohub.type).toBe('anthropic');
     expect(kohub.baseUrl).toBe('https://registry.example.test');
-    expect(kohub.apiKey).toBe('sk-test-token');
+    expect(kohub.apiKey).toBeUndefined();
+    expect(kohub.secretRef).toBe('secret_test_provider');
     expect(kohub.source).toEqual({
       kind: 'apiJson',
       url: REGISTRY_URL,
-      apiKey: 'sk-test-token',
+      secretRef: 'secret_test_provider',
     });
 
     expect(finalConfig.models?.['kohub/claude-opus-4-7']).toMatchObject({
@@ -371,7 +390,8 @@ describe('spyderbyte provider add', () => {
     // disk-backed config that had not yet been persisted with `kohub`.
     expect(final.providers['kohub']).toBeDefined();
     expect(final.providers['kohub-responses']).toBeDefined();
-    expect(final.providers['kohub-responses']?.apiKey).toBe('sk-fresh');
+    expect(final.providers['kohub-responses']?.apiKey).toBeUndefined();
+    expect(final.providers['kohub-responses']?.secretRef).toBe('secret_test_provider');
     expect(final.models?.['kohub/claude-opus-4-7']).toBeDefined();
     expect(final.models?.['kohub-responses/gpt-5.5']).toBeDefined();
     expect(final.models?.['kohub-responses/legacy-model']).toBeUndefined();
@@ -464,8 +484,8 @@ describe('spyderbyte provider list', () => {
       kohub: {
         type: 'anthropic',
         baseUrl: 'https://x',
-        apiKey: 'k',
-        source: { kind: 'apiJson', url: REGISTRY_URL, apiKey: 'k' },
+        secretRef: 'secret_test_provider' as ProviderSecretRef,
+        source: { kind: 'apiJson', url: REGISTRY_URL, secretRef: 'secret_test_provider' },
       },
       'managed:spiderbyte': {
         type: 'kimi',
@@ -702,7 +722,7 @@ describe('spyderbyte provider catalog add', () => {
     const finalConfig = current();
     expect(finalConfig.providers['anthropic']).toMatchObject({
       type: 'anthropic',
-      apiKey: 'sk-ant-token',
+      secretRef: 'secret_test_provider',
     });
     // Catalog import populates the model aliases.
     expect(finalConfig.models?.['anthropic/claude-opus-4-7']).toMatchObject({
@@ -791,7 +811,8 @@ describe('spyderbyte provider catalog add', () => {
     );
 
     expect(exitCodes).toEqual([]);
-    expect(current().providers['anthropic']?.apiKey).toBe('sk-rotated');
+    expect(current().providers['anthropic']?.apiKey).toBeUndefined();
+    expect(current().providers['anthropic']?.secretRef).toBe('secret_test_provider');
     // Previous default and thinking flag must survive the re-import.
     expect(current().defaultModel).toBe('anthropic/claude-opus-4-7');
     expect(current().thinking?.enabled).toBe(true);
@@ -906,7 +927,7 @@ describe('spyderbyte provider catalog add', () => {
     await tryRun(() => handleCatalogAdd(deps, 'openai', {}));
 
     expect(exitCodes).toEqual([]);
-    expect(current().providers['openai']).toMatchObject({ apiKey: 'sk-env' });
+    expect(current().providers['openai']).toMatchObject({ secretRef: 'secret_test_provider' });
   });
 
   it('lets --base-url override the catalog-declared endpoint', async () => {
@@ -1076,7 +1097,7 @@ describe('spyderbyte provider catalog add', () => {
     expect(current().providers['xai']).toMatchObject({
       type: 'openai',
       baseUrl: 'https://api.x.ai/v1',
-      apiKey: 'sk-xai',
+      secretRef: 'secret_test_provider',
     });
     expect(current().models?.['xai/grok-4']).toMatchObject({
       supportEfforts: ['low', 'medium', 'high'],
@@ -1112,5 +1133,150 @@ describe('spyderbyte provider catalog add', () => {
       type: 'openai',
       baseUrl: 'https://res.example.test/openai/v1',
     });
+  });
+});
+
+describe('spyderbyte provider CLI commands', () => {
+  function makeProviderCliAdapter(): {
+    adapter: ProviderCommandAdapter;
+    requests: ProviderRequest[];
+  } {
+    const requests: ProviderRequest[] = [];
+    const adapter: ProviderCommandAdapter = {
+      id: 'fixture-cli',
+      displayName: 'Fixture CLI',
+      executable: '/usr/local/bin/fixture-cli',
+      detect: async () => ({
+        available: true,
+        code: 'available',
+        executable: '/usr/local/bin/fixture-cli',
+        version: '1.2.3',
+      }),
+      version: async () => '1.2.3',
+      capabilities: async () => ({
+        available: true,
+        code: 'available',
+        streaming: true,
+        cancellation: true,
+        modelSelection: true,
+        modelListing: true,
+        structuredOutput: true,
+        nonInteractive: true,
+        usageMetadata: true,
+      }),
+      models: async () => [{ id: 'fixture-model', displayName: 'Fixture Model' }],
+      run: (request) => {
+        requests.push(request);
+        return (async function* (): AsyncGenerator<ProviderEvent> {
+          yield { kind: 'started', requestId: request.requestId };
+          yield { kind: 'text', requestId: request.requestId, text: 'ok' };
+          yield {
+            kind: 'usage',
+            requestId: request.requestId,
+            usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+          };
+          yield {
+            kind: 'completed',
+            requestId: request.requestId,
+            exitCode: 0,
+            usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+          };
+        })();
+      },
+      cancel: async () => {},
+    };
+    return { adapter, requests };
+  }
+
+  it('reports provider CLI commands, versions, models, and capabilities as JSON', async () => {
+    const { harness } = makeHarness({ providers: {} } as SpiderByteConfig);
+    const { adapter } = makeProviderCliAdapter();
+    const { deps, stdout } = makeDeps(harness, {
+      getProviderCommandAdapters: async () => [adapter],
+    });
+
+    await handleProviderCommandList(deps, { json: true });
+
+    const parsed = JSON.parse(stdout.join('')) as {
+      providers: Array<{ id: string; status: { version: string }; models: Array<{ id: string }> }>;
+    };
+    expect(parsed.providers[0]).toMatchObject({
+      id: 'fixture-cli',
+      status: { version: '1.2.3', code: 'available' },
+      models: [{ id: 'fixture-model' }],
+    });
+  });
+
+  it('loads provider-specific argv and environment configuration from the documented variable', () => {
+    const specs = parseConfiguredProviderCommands({
+      [PROVIDER_CLI_CONFIG_ENV]: JSON.stringify([
+        {
+          id: 'configured',
+          displayName: 'Configured CLI',
+          executable: '/opt/provider',
+          versionArgs: ['version', '--machine'],
+          modelsArgs: ['models', '--json'],
+          runArgs: ['run', '--json', '--model', '{model}', '--workspace'],
+          environment: { PROVIDER_TOKEN: 'secret-value' },
+          capabilities: { streaming: false },
+        },
+      ]),
+    });
+
+    expect(specs).toEqual([
+      expect.objectContaining({
+        id: 'configured',
+        executable: '/opt/provider',
+        runArgs: ['run', '--json', '--model', '{model}', '--workspace'],
+        environment: { PROVIDER_TOKEN: 'secret-value' },
+        capabilities: { streaming: false },
+      }),
+    ]);
+  });
+
+  it('runs a provider smoke request through the common interface', async () => {
+    const { harness } = makeHarness({ providers: {} } as SpiderByteConfig);
+    const { adapter, requests } = makeProviderCliAdapter();
+    const { deps, stdout } = makeDeps(harness, {
+      getProviderCommandAdapters: async () => [adapter],
+    });
+
+    await handleProviderCommandTest(deps, 'fixture-cli', {
+      model: 'fixture-model',
+      prompt: 'hello',
+      json: true,
+    });
+
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({ model: 'fixture-model', prompt: 'hello' });
+    expect(JSON.parse(stdout.join(''))).toMatchObject({
+      providerId: 'fixture-cli',
+      events: expect.arrayContaining([expect.objectContaining({ kind: 'text', text: 'ok' })]),
+    });
+  });
+
+  it('registers the requested detect and capabilities command surfaces', async () => {
+    const { harness } = makeHarness({ providers: {} } as SpiderByteConfig);
+    const { adapter } = makeProviderCliAdapter();
+    const { deps, stdout, exitCodes } = makeDeps(harness, {
+      getProviderCommandAdapters: async () => [adapter],
+    });
+    const program = new Command('spyderbyte');
+    registerProviderCommand(program, deps);
+
+    await tryRun(() =>
+      program.parseAsync(['node', 'spyderbyte', 'provider', 'detect', 'fixture-cli'], {
+        from: 'node',
+      }),
+    );
+    await tryRun(() =>
+      program.parseAsync(['node', 'spyderbyte', 'capabilities', 'fixture-cli', '--json'], {
+        from: 'node',
+      }),
+    );
+
+    expect(exitCodes).toEqual([]);
+    expect(stdout.join('')).toContain('fixture-cli');
+    expect(stdout.join('')).toContain('"streaming": true');
   });
 });

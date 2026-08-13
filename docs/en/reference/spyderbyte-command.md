@@ -47,7 +47,7 @@ spyderbyte --plan
 | `spyderbyte auth status` | Report accountless local authentication status. |
 | `spyderbyte run <prompt>` | Execute one governed prompt through the canonical harness. |
 | `spyderbyte provider` | List, add, remove, or discover provider records. |
-| `spyderbyte connections` | List local provider connections for a workspace. |
+| `spyderbyte connections` | Manage workspace-scoped execution targets with `list`, `add`, `inspect`, `test`, `ready`, and `remove`. |
 | `spyderbyte usage` | Show local workspace usage records. |
 | `spyderbyte plugins` | List locally installed plugins. |
 | `spyderbyte organization` | Create, list, and select local organizations. |
@@ -55,11 +55,51 @@ spyderbyte --plan
 | `spyderbyte workspace` | List and select local workspaces. |
 | `spyderbyte acp` | Run the local Agent Client Protocol server over stdio. |
 | `spyderbyte web` | Run the local REST/WebSocket server. The browser client is external to this checkout. |
+| `spyderbyte daemon platform-worker --stdio` | Run the customer-owned semantic execution daemon used by governed SSH targets. |
 | `spyderbyte doctor` | Validate `config.toml` and `tui.toml`. |
 | `spyderbyte export` | Export a local session archive. |
 | `spyderbyte upgrade` | Run the configured update check when updates are enabled. |
 
 The `configure`, organization, project, workspace, connection, usage, and plugin commands operate on local persistence. They do not create hosted tenants, paid entitlements, invoices, or managed workers.
+
+`spyderbyte connections` registers only endpoint references and opaque
+`secret_<reference>` values. `connections test` performs a bounded health and
+capability check for local targets, governed SSH targets, and supported HTTP
+worker or private-gateway targets; Docker and Kubernetes targets report
+`adapter-dependent` until their transport adapters are installed. SSH requires
+an already-installed, compatible customer daemon and fails closed when the
+host-key fingerprint or daemon protocol does not match. A target must pass
+`connections test` before `connections ready` can make it leasable; a failed
+check drains a previously ready target. Customer-managed worker endpoints are
+public-network only; an explicitly configured private-gateway may use a
+customer-private address, but loopback and link-local destinations are
+rejected. `connections remove`
+revokes the target while retaining its durable record for local audit history.
+
+### SSH execution targets
+
+SSH is an execution transport for a customer-owned SpiderByte daemon, not a
+model-facing shell tool. Register a target with explicit host, user,
+fingerprint, and confined remote root settings:
+
+```sh
+spyderbyte connections add \
+  --workspace wd_example \
+  --name customer-ssh \
+  --type ssh \
+  --ssh-host runner.example.test \
+  --ssh-user spiderbyte \
+  --ssh-host-key YOUR_SHA256_HEX_FINGERPRINT \
+  --ssh-root /srv/spiderbyte/workspaces/example \
+  --auth-method ssh_agent
+```
+
+Key authentication uses `--auth-method ssh_key` plus an opaque
+`--credential-ref secret_<reference>`; private key material is never accepted
+on the command line or stored in the target record. The transport passes only
+the protocol version and workspace ID to the fixed remote command
+`spyderbyte daemon platform-worker --stdio`. Arbitrary shell execution is not
+exposed by this interface.
 
 ### `spyderbyte configure`
 
@@ -71,7 +111,7 @@ spyderbyte configure \
   --no-credentials
 ```
 
-For a BYOK connection, set the environment variable named by `--api-key-env` instead of putting a secret in argv. Use `--skip-validation` only when the endpoint cannot be reached during configuration.
+For a BYOK connection, set `SPIDERBYTE_SECRET_STORE_KEY`, then set the environment variable named by `--api-key-env` instead of putting a secret in argv. The command stores encrypted material and persists only an opaque reference. Use `--skip-validation` only when the endpoint cannot be reached during configuration.
 
 ### `spyderbyte auth status`
 
@@ -91,7 +131,7 @@ spyderbyte provider catalog add openai --default-model your-model
 spyderbyte provider remove local
 ```
 
-Catalog and registry commands are optional network integrations. Static local configuration remains supported when they are unavailable.
+Catalog and registry commands accept `--api-key` only as transient setup input and persist an encrypted secret reference. Static local configuration remains supported when they are unavailable.
 
 ### `spyderbyte web`
 
@@ -124,4 +164,4 @@ Review exported code, command output, file paths, and logs before sharing them.
 
 ## Open Core scope
 
-Open Core includes local Organizations, Projects, Workspaces, Sessions, Runs, artifacts, policies, budgets, approvals, usage records, provider-neutral execution contracts, CLI/TUI, REST/WebSocket contracts, ACP, SDK, and Klient functionality that works without hosted services. Hosted identity, billing, subscriptions, managed providers, hosted workers, Slack/Teams integrations, and hosted approval routing are explicitly excluded.
+Open Core includes local Organizations, Projects, Workspaces, Sessions, Runs, artifacts, policies, budgets, approvals, usage records, provider-neutral execution contracts, CLI/TUI, REST/WebSocket contracts, ACP, SDK, and the local client facade functionality that works without hosted services. Hosted identity, billing, subscriptions, managed providers, hosted workers, Slack/Teams integrations, and hosted approval routing are explicitly excluded.

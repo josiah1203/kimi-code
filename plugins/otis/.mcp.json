@@ -2,7 +2,7 @@
   "mcpServers": {
     "spiderbyte-local": {
       "command": "spyderbyte",
-      "args": ["mcp"]
+      "args": ["mcp", "--profile", "curated"]
     }
   }
 }

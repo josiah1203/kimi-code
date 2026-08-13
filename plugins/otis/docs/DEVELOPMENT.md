@@ -39,13 +39,13 @@ in a restricted environment.
 Stdio, used by Codex and other local MCP clients:
 
 ```bash
-spyderbyte mcp --workspace <local-workspace-id>
+spyderbyte mcp --profile curated --workspace <local-workspace-id>
 ```
 
 HTTP, used for development tunnels and ChatGPT MCP configuration:
 
 ```bash
-spyderbyte web --no-open
+SPIDERBYTE_MCP_PROFILE=curated spyderbyte web --no-open
 ```
 
 The HTTP server prints the loopback origin and bearer token. Keep the token
@@ -56,7 +56,7 @@ disable bearer auth on an exposed interface.
 ## Inspect the server without a UI
 
 After an authenticated HTTP connection, inspect `tools/list` and call
-`spiderbyte_capabilities` first. It reports local-only, credential-required,
+`get_capabilities` first. It reports local-only, credential-required,
 hosted-required, provider-unavailable, enterprise-only, and planned states.
 
 For a stdio smoke test, use an MCP client rather than piping arbitrary text to

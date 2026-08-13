@@ -114,6 +114,14 @@ describe('commercial API contracts', () => {
     expect(unavailableEntitlement.statusCode).toBe(503);
     expect(unavailableEntitlement.json()).toMatchObject({ error: { code: 'commercial.billing.not_configured' } });
 
+    const unavailableLicense = await app.inject({
+      method: 'GET',
+      url: `/api/v1/commercial/organizations/${organizationId}/license`,
+      headers: { authorization: `Bearer ${sessionToken}`, 'x-request-id': 'http-license-unavailable' },
+    });
+    expect(unavailableLicense.statusCode).toBe(503);
+    expect(unavailableLicense.json()).toMatchObject({ error: { code: 'commercial.licensing.not_configured' } });
+
     const unavailableCompute = await app.inject({
       method: 'POST',
       url: `/api/v1/commercial/organizations/${organizationId}/workspaces/${workspaceId}/compute`,

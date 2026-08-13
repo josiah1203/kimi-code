@@ -13,6 +13,7 @@ the default workspace and Open Core graph.
 | `apps/cli` | `@spiderbyte/cli` | `apps/cli` | `@spiderbyte/cli` | Yes | Canonical CLI package. It publishes exactly one executable, `spyderbyte`. |
 | `apps/inspect` | `@spiderbyte/inspect` | `apps/inspect` | `@spiderbyte/inspect` | No | Private local debugging application; excluded from the public package set. |
 | `apps/spiderbyte-vscode` | `spiderbyte-vscode` | `apps/spiderbyte-vscode` | `spiderbyte-vscode` | No | Private editor integration; local/BYOK only and excluded from hosted account flows. |
+| `apps/web` | `@spiderbyte/web` | `apps/web` | `@spiderbyte/web` | No | Private hosted-frontend scaffold; excluded from Open Core publication while the external browser source remains the distribution authority. |
 | `docs` | `spiderbyte-docs` | `docs` | `spiderbyte-docs` | No | Private documentation workspace; published documentation is maintained with the repository. |
 | `commercial/domain` | `@spiderbyte/commercial-domain` | `commercial/domain` | `@spiderbyte/commercial-domain` | No | Commercial domain models and state validation; excluded from Open Core publication. |
 | `commercial/ports` | `@spiderbyte/commercial-ports` | `commercial/ports` | `@spiderbyte/commercial-ports` | No | Commercial provider-neutral ports; excluded from Open Core publication. |
@@ -24,12 +25,14 @@ the default workspace and Open Core graph.
 | `commercial/artifacts` | `@spiderbyte/commercial-artifacts` | `commercial/artifacts` | `@spiderbyte/commercial-artifacts` | No | Hosted artifact ownership, retention, legal-hold, and scoped access orchestration. |
 | `commercial/admin` | `@spiderbyte/commercial-admin` | `commercial/admin` | `@spiderbyte/commercial-admin` | No | Team, Business, support-access, API-key, service-account, policy, and webhook administration. |
 | `commercial/enterprise` | `@spiderbyte/commercial-enterprise` | `commercial/enterprise` | `@spiderbyte/commercial-enterprise` | No | SSO/SCIM/domain/security configuration contracts and fail-closed enterprise adapters. |
+| `commercial/licensing` | `@spiderbyte/commercial-licensing` | `commercial/licensing` | `@spiderbyte/commercial-licensing` | No | Signed offline license verification, activation, entitlement inspection, and seat lifecycle; excluded from Open Core publication. |
 | `commercial/persistence` | `@spiderbyte/commercial-persistence` | `commercial/persistence` | `@spiderbyte/commercial-persistence` | No | Reversible commercial migration definitions and hosted-database capability boundary. |
+| `commercial/hosted` | `@spiderbyte/commercial-hosted` | `commercial/hosted` | `@spiderbyte/commercial-hosted` | No | Private Cloudflare Workers hosted control-plane runtime; excluded from Open Core and not claimed deployed by this checkout. |
 | `commercial/sdk` | `@spiderbyte/commercial-sdk` | `commercial/sdk` | `@spiderbyte/commercial-sdk` | No | Hosted API SDK transport and typed request/error contracts; no Open Core dependency. |
 | `commercial/mcp` | `@spiderbyte/commercial-mcp` | `commercial/mcp` | `@spiderbyte/commercial-mcp` | No | Capability- and entitlement-gated hosted MCP tool registry; not registered in local MCP by default. |
 | `packages/acp-server` | `@spiderbyte/acp-server` | `packages/acp-server` | `@spiderbyte/acp-server` | Yes | Canonical local ACP server; no legacy adapter or hosted route dependency. |
 | `packages/agent-core` | `@spiderbyte/agent-core` | `packages/agent-core` | `@spiderbyte/agent-core` | Yes | Canonical unversioned SpiderByte Agent Core runtime. |
-| `packages/client` | `@spiderbyte/client` | `packages/client` | `@spiderbyte/client` | Yes | Provider-neutral Klient facade for local memory, IPC, and browser contracts. |
+| `packages/client` | `@spiderbyte/client` | `packages/client` | `@spiderbyte/client` | Yes | Provider-neutral client facade for local memory, IPC, and browser contracts; exported `Klient*` identifiers are compatibility API names. |
 | `packages/kaos` | `@spiderbyte/kaos` | `packages/kaos` | `@spiderbyte/kaos` | Yes | Neutral execution-environment abstraction. |
 | `packages/kap-server` | `@spiderbyte/kap-server` | `packages/kap-server` | `@spiderbyte/kap-server` | Yes | Local REST/WebSocket server; hosted Business routes are excluded. |
 | `packages/kosong` | `@spiderbyte/kosong` | `packages/kosong` | `@spiderbyte/kosong` | Yes | Neutral LLM/provider abstraction; external provider protocol names remain technical. |

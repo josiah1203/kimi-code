@@ -11,7 +11,7 @@ Status: prepared, not submitted.
   for Codex and MCP-compatible clients.
 - Architecture: skills plus headless MCP server; optional UI is not included.
 - MCP server: `spiderbyte`
-- Local entry point: `spyderbyte mcp`
+- Local entry point: `spyderbyte mcp --profile curated`
 - Production endpoint: **required, not supplied by this repository**
 - Privacy policy: **required, not supplied by this repository**
 - Support contact/URL: **required, not supplied by this repository**
@@ -36,19 +36,19 @@ URLs. A fake URL would make the package appear more complete than it is.
 
 | Case | Request | Expected result |
 | --- | --- | --- |
-| P1 | Analyze a registered local dataset | Uses `spiderbyte_profile_dataset` or `spiderbyte_analyze_dataset`; returns bounded structured data and local status. |
-| P2 | Create a local experiment | Creates an experiment through the ML service; no hosted job is implied. |
-| P3 | Plan and inspect a run | Creates a queued Run, transitions it only after confirmation/policy as needed, and returns the Run record. |
-| P4 | Inspect prior results | Uses `search`, then `fetch` or artifact tools with a workspace-scoped stable URI. |
-| P5 | Inspect governance/usage | Returns policies, budget, usage, or audit events without secrets. |
+| P1 | Analyze a registered local dataset | Uses `profile_dataset` or `run_sql_analysis`; returns bounded structured data and local status. |
+| P2 | Launch a baseline model | Uses `train_baseline_model` only after explicit confirmation; returns durable Run and artifact IDs. |
+| P3 | Plan and inspect a run | Uses `create_run` and `get_run`, with workspace authorization and stable IDs. |
+| P4 | Inspect prior results | Uses `list_artifacts` and `get_artifact` with bounded metadata. |
+| P5 | Request restricted action approval | Uses `request_approval`; policy and audit remain daemon-side. |
 
 ## Negative test cases
 
 | Case | Request | Expected result |
 | --- | --- | --- |
-| N1 | Submit a hosted job without a hosted service | Returns `hosted-required` through `spiderbyte_explain_unavailable`; no job is created. |
-| N2 | Fetch a resource URI belonging to another workspace | Returns a workspace-scope error; no record is disclosed. |
-| N3 | Cancel training or close a session without confirmation | Returns `confirmation_required`; the operation is not executed. |
+| N1 | Submit a hosted job without a hosted service | Returns `hosted-required` through `get_capabilities`/daemon status; no job is created. |
+| N2 | Use a Run, artifact, or target from another workspace | Returns a workspace-scope error; no record is disclosed. |
+| N3 | Cancel a Run or launch baseline training without confirmation | Returns `confirmation_required`; the operation is not executed. |
 
 ## Review checklist
 

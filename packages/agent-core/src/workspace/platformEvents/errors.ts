@@ -7,6 +7,7 @@ import type { ErrorCode } from '#/errors';
 export const PlatformEventErrors = {
   codes: {
     PLATFORM_EVENT_SECRET_MATERIAL: 'platform_event.secret_material',
+    PLATFORM_EVENT_INVALID: 'platform_event.invalid',
   },
 } as const satisfies ErrorDomain;
 

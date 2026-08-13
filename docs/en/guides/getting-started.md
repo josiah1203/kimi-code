@@ -46,7 +46,6 @@ telemetry = false
 [providers.local]
 type = "openai"
 base_url = "http://127.0.0.1:11434/v1"
-api_key = "local"
 
 [models.local]
 provider = "local"
@@ -55,7 +54,7 @@ max_context_size = 32768
 capabilities = ["tool_use"]
 ```
 
-Use `spyderbyte doctor` to validate the configuration. For a one-off process, use the `SPIDERBYTE_MODEL_*` environment variables described in [Environment variables](../configuration/env-vars.md).
+Use `spyderbyte doctor` to validate the configuration. For a BYOK credential, set `SPIDERBYTE_SECRET_STORE_KEY` and configure it with `spyderbyte configure --api-key-env <name>`. For a one-off process, use the `SPIDERBYTE_MODEL_*` environment variables described in [Environment variables](../configuration/env-vars.md).
 
 ## Start a session
 

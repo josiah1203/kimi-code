@@ -65,6 +65,7 @@ import { errEnvelope, okEnvelope } from '../envelope';
 import { ErrorCode } from '../protocol/error-codes';
 import { defineRoute } from '../middleware/defineRoute';
 import type { TranscriptService } from '../services/transcript/transcriptService';
+import { assertSessionAuthorization } from '../services/platformAuthorization';
 
 interface TranscriptRouteHost {
   get(
@@ -185,7 +186,7 @@ export interface TranscriptRouteDeps {
 }
 
 export function registerTranscriptRoutes(app: TranscriptRouteHost, deps: TranscriptRouteDeps): void {
-  const { transcriptService } = deps;
+  const { core, transcriptService } = deps;
 
   const route = defineRoute(
     {
@@ -205,6 +206,11 @@ export function registerTranscriptRoutes(app: TranscriptRouteHost, deps: Transcr
     async (req, reply) => {
       const { session_id } = req.params;
       const query = req.query;
+      await assertSessionAuthorization(core, {
+        sessionId: session_id,
+        requestId: req.id,
+        capability: 'data.read',
+      });
       const pageQuery = {
         beforeTurn: query.before_turn,
         afterTurn: query.after_turn,
@@ -301,6 +307,11 @@ export function registerTranscriptRoutes(app: TranscriptRouteHost, deps: Transcr
     async (req, reply) => {
       const { session_id } = req.params;
       const query = req.query;
+      await assertSessionAuthorization(core, {
+        sessionId: session_id,
+        requestId: req.id,
+        capability: 'data.read',
+      });
 
       const catchup = transcriptService.getOpsSince(session_id, query.agent_id, query.since_seq);
       if (catchup === undefined) {
@@ -353,6 +364,11 @@ export function registerTranscriptRoutes(app: TranscriptRouteHost, deps: Transcr
     async (req, reply) => {
       const { session_id } = req.params;
       const { agent_id } = req.query;
+      await assertSessionAuthorization(core, {
+        sessionId: session_id,
+        requestId: req.id,
+        capability: 'data.read',
+      });
 
       // Live session — the store already holds the full timeline; the roster
       // was seeded from session metadata on bind, so an agent_id-less read
@@ -430,6 +446,11 @@ export function registerTranscriptRoutes(app: TranscriptRouteHost, deps: Transcr
     async (req, reply) => {
       const { session_id } = req.params;
       const { agent_id, tool_call_id } = req.query;
+      await assertSessionAuthorization(core, {
+        sessionId: session_id,
+        requestId: req.id,
+        capability: 'data.read',
+      });
 
       // Live session — same read path as the paged route.
       const store = transcriptService.forSessionLive(session_id);

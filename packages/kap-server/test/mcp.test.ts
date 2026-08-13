@@ -17,6 +17,7 @@ import type { Scope } from '@spiderbyte/agent-core';
 import { createSpyderbyteMcpHandler } from '../src/mcp/routes';
 import {
   createSpyderbyteMcpServer,
+  SPIDERBYTE_MCP_CURATED_TOOLS,
   SPIDERBYTE_MCP_PROTOCOL_VERSION,
 } from '../src/mcp/server';
 import { startServer, type RunningServer } from '../src/start';
@@ -121,6 +122,52 @@ describe('SpiderByte MCP adapter', () => {
     } finally {
       await handle.close().catch(() => undefined);
       input.end();
+    }
+  });
+
+  it('exposes only the semantic Otis contract in the curated profile', async () => {
+    const handler = createSpyderbyteMcpHandler(fakeCore(), { profile: 'curated' });
+    const transport = new StreamableHTTPClientTransport(new URL('http://spiderbyte.test/mcp'), {
+      fetch: async (input, init) => handler.fetch(new Request(input, init)),
+    });
+    const client = new Client(
+      { name: 'otis-curated-contract-test', version: '1.0.0' },
+      { versionNegotiation: { mode: { pin: SPIDERBYTE_MCP_PROTOCOL_VERSION } } },
+    );
+    try {
+      await client.connect(transport);
+      const tools = await client.listTools();
+      expect(new Set(tools.tools.map((tool) => tool.name)).size).toBe(SPIDERBYTE_MCP_CURATED_TOOLS.length);
+      expect(tools.tools.map((tool) => tool.name).toSorted()).toEqual([...SPIDERBYTE_MCP_CURATED_TOOLS].toSorted());
+      expect(tools.tools.some((tool) => tool.name.startsWith('spiderbyte_'))).toBe(false);
+
+      const cancel = tools.tools.find((tool) => tool.name === 'cancel_run');
+      expect(cancel?.annotations).toMatchObject({
+        readOnlyHint: false,
+        destructiveHint: true,
+      });
+      expect(cancel?.inputSchema).toMatchObject({
+        type: 'object',
+        properties: expect.objectContaining({ confirmed: expect.anything() }),
+      });
+
+      const capabilities = await client.callTool({ name: 'get_capabilities', arguments: {} });
+      expect(capabilities.structuredContent).toMatchObject({
+        status: 'ok',
+        data: {
+          mcp_profile: 'curated',
+          curated_tools: expect.arrayContaining(['train_baseline_model', 'run_sql_analysis']),
+        },
+      });
+
+      const unsupported = await sendModern(handler, modernMessage('tools/call', 'curated-unsupported-1', {
+        name: 'spiderbyte_capabilities',
+        arguments: {},
+      }));
+      expect((await unsupported.json() as JsonRpcResponse).error).toBeDefined();
+    } finally {
+      await client.close().catch(() => undefined);
+      await handler.close().catch(() => undefined);
     }
   });
 

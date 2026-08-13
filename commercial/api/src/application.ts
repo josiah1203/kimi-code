@@ -8,6 +8,10 @@ import {
   type EnterpriseConfiguration,
   type IdentityProvider,
   type HostedArtifact,
+  type InviteMemberInput,
+  type Membership,
+  type MembershipRolesInput,
+  type OfflineLicense,
   type Principal,
 } from '@spiderbyte/commercial-domain';
 import type { CommercialDirectoryService } from '@spiderbyte/commercial-application';
@@ -16,6 +20,14 @@ import type { CommercialAdminService } from '@spiderbyte/commercial-admin';
 import type { HostedArtifactService } from '@spiderbyte/commercial-artifacts';
 import type { HostedComputeControlPlane } from '@spiderbyte/commercial-compute';
 import type { EnterpriseSecurityService } from '@spiderbyte/commercial-enterprise';
+import type {
+  EntitlementInspection,
+  LicenseActivationResult,
+  LicenseDeploymentContext,
+  LicenseInspection,
+  OfflineLicenseService,
+} from '@spiderbyte/commercial-licensing';
+import type { LicenseSeat } from '@spiderbyte/commercial-domain';
 import type { HostedComputePricing } from '@spiderbyte/commercial-ports';
 
 import { CommercialApiError, mapCommercialApiError } from './errors';
@@ -29,6 +41,7 @@ export interface CommercialApiApplicationDependencies {
   readonly compute?: HostedComputeControlPlane;
   readonly computePricing?: HostedComputePricing;
   readonly enterprise?: EnterpriseSecurityService;
+  readonly licensing?: OfflineLicenseService;
 }
 
 export interface CommercialComputeSubmission {
@@ -77,6 +90,123 @@ export class CommercialApiApplication {
       if (this.deps.entitlements === undefined) throw new CommercialApiError(503, 'commercial.billing.not_configured', 'commercial billing is not configured');
       return this.deps.entitlements.evaluate(organizationId, key);
     });
+  }
+
+  async activateLicense(
+    headers: CommercialMutationHeaders,
+    principal: Principal,
+    input: { readonly license: OfflineLicense; readonly deployment?: LicenseDeploymentContext },
+  ): Promise<CommercialApiEnvelope<LicenseActivationResult>> {
+    return this.execute(headers.request_id, async () => {
+      const licensing = this.deps.licensing;
+      if (licensing === undefined) throw new CommercialApiError(503, 'commercial.licensing.not_configured', 'commercial licensing is not configured');
+      return licensing.activate(principal, { ...input, request_id: commandRequestId(headers) });
+    });
+  }
+
+  async inspectLicense(headers: CommercialMutationHeaders, principal: Principal, organizationId: string): Promise<CommercialApiEnvelope<LicenseInspection>> {
+    return this.execute(headers.request_id, async () => {
+      const licensing = this.deps.licensing;
+      if (licensing === undefined) throw new CommercialApiError(503, 'commercial.licensing.not_configured', 'commercial licensing is not configured');
+      return licensing.inspect(principal, organizationId, headers.request_id);
+    });
+  }
+
+  async inspectLicenseEntitlement(headers: CommercialMutationHeaders, principal: Principal, organizationId: string, capability: string): Promise<CommercialApiEnvelope<EntitlementInspection>> {
+    return this.execute(headers.request_id, async () => {
+      const licensing = this.deps.licensing;
+      if (licensing === undefined) throw new CommercialApiError(503, 'commercial.licensing.not_configured', 'commercial licensing is not configured');
+      return licensing.inspectEntitlement(principal, organizationId, capability, headers.request_id);
+    });
+  }
+
+  async renewLicense(
+    headers: CommercialMutationHeaders,
+    principal: Principal,
+    input: { readonly organization_id: string; readonly license?: OfflineLicense; readonly deployment?: LicenseDeploymentContext },
+  ): Promise<CommercialApiEnvelope<LicenseActivationResult>> {
+    return this.execute(headers.request_id, async () => {
+      const licensing = this.deps.licensing;
+      if (licensing === undefined) throw new CommercialApiError(503, 'commercial.licensing.not_configured', 'commercial licensing is not configured');
+      return licensing.renew(principal, { ...input, request_id: commandRequestId(headers) });
+    });
+  }
+
+  async revokeLicense(
+    headers: CommercialMutationHeaders,
+    principal: Principal,
+    organizationId: string,
+    licenseId: string,
+  ): Promise<CommercialApiEnvelope<Awaited<ReturnType<OfflineLicenseService['revokeLicense']>>>> {
+    return this.execute(headers.request_id, async () => {
+      const licensing = this.deps.licensing;
+      if (licensing === undefined) throw new CommercialApiError(503, 'commercial.licensing.not_configured', 'commercial licensing is not configured');
+      return licensing.revokeLicense(principal, { organization_id: organizationId, license_id: licenseId, request_id: commandRequestId(headers) });
+    });
+  }
+
+  async assignLicenseSeat(
+    headers: CommercialMutationHeaders,
+    principal: Principal,
+    input: { readonly organization_id: string; readonly user_id: string },
+  ): Promise<CommercialApiEnvelope<LicenseSeat>> {
+    return this.execute(headers.request_id, async () => {
+      const licensing = this.deps.licensing;
+      if (licensing === undefined) throw new CommercialApiError(503, 'commercial.licensing.not_configured', 'commercial licensing is not configured');
+      return licensing.assignSeat(principal, { ...input, request_id: commandRequestId(headers) });
+    });
+  }
+
+  async revokeLicenseSeat(
+    headers: CommercialMutationHeaders,
+    principal: Principal,
+    organizationId: string,
+    seatId: string,
+  ): Promise<CommercialApiEnvelope<LicenseSeat>> {
+    return this.execute(headers.request_id, async () => {
+      const licensing = this.deps.licensing;
+      if (licensing === undefined) throw new CommercialApiError(503, 'commercial.licensing.not_configured', 'commercial licensing is not configured');
+      return licensing.revokeSeat(principal, { organization_id: organizationId, seat_id: seatId, request_id: commandRequestId(headers) });
+    });
+  }
+
+  async inviteMember(
+    headers: CommercialMutationHeaders,
+    principal: Principal,
+    input: Omit<InviteMemberInput, 'actor' | 'request_id'>,
+  ): Promise<CommercialApiEnvelope<Awaited<ReturnType<CommercialDirectoryService['inviteMember']>>>> {
+    return this.execute(headers.request_id, () => this.deps.directory.inviteMember(principal, {
+      ...input,
+      actor: actorForPrincipal(principal),
+      request_id: commandRequestId(headers),
+    }));
+  }
+
+  async removeMember(
+    headers: CommercialMutationHeaders,
+    principal: Principal,
+    organizationId: string,
+    membershipId: string,
+  ): Promise<CommercialApiEnvelope<Membership>> {
+    return this.execute(headers.request_id, () => this.deps.directory.changeMembershipState(principal, {
+      membership_id: membershipId,
+      organization_id: organizationId,
+      state: 'removed',
+      actor: actorForPrincipal(principal),
+      request_id: commandRequestId(headers),
+    }));
+  }
+
+  async changeMemberRoles(
+    headers: CommercialMutationHeaders,
+    principal: Principal,
+    input: Omit<MembershipRolesInput, 'actor' | 'request_id'>,
+  ): Promise<CommercialApiEnvelope<Membership>> {
+    return this.execute(headers.request_id, () => this.deps.directory.changeMembershipRoles(principal, {
+      ...input,
+      actor: actorForPrincipal(principal),
+      request_id: commandRequestId(headers),
+    }));
   }
 
   async submitCompute(headers: CommercialMutationHeaders, principal: Principal, input: CommercialComputeSubmission): Promise<CommercialApiEnvelope<ComputeReservation>> {

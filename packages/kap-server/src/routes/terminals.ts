@@ -42,6 +42,7 @@ import {
   listTerminalsResponseSchema,
 } from '../protocol/rest-terminal';
 import { parseActionSuffix } from './action-suffix';
+import { assertSessionAuthorization } from '../services/platformAuthorization';
 
 interface TerminalsRouteHost {
   get(
@@ -109,6 +110,11 @@ export function registerTerminalsRoutes(app: TerminalsRouteHost, core: Scope): v
     async (req, reply) => {
       try {
         const { session_id } = req.params;
+        await assertSessionAuthorization(core, {
+          sessionId: session_id,
+          requestId: req.id,
+          capability: 'workspace.read',
+        });
         const items = await (await resolveTerminal(core, session_id)).list();
         reply.send(okEnvelope({ items }, req.id));
       } catch (err) {
@@ -140,6 +146,11 @@ export function registerTerminalsRoutes(app: TerminalsRouteHost, core: Scope): v
     async (req, reply) => {
       try {
         const { session_id } = req.params;
+        await assertSessionAuthorization(core, {
+          sessionId: session_id,
+          requestId: req.id,
+          capability: 'run.execute',
+        });
         const terminal = await (await resolveTerminal(core, session_id)).create(req.body);
         requestLog(req)?.info({ session_id, terminal_id: terminal.id }, 'terminal created');
         reply.send(okEnvelope(terminal, req.id));
@@ -171,6 +182,11 @@ export function registerTerminalsRoutes(app: TerminalsRouteHost, core: Scope): v
     async (req, reply) => {
       try {
         const { session_id, terminal_id } = req.params;
+        await assertSessionAuthorization(core, {
+          sessionId: session_id,
+          requestId: req.id,
+          capability: 'workspace.read',
+        });
         const terminal = await (await resolveTerminal(core, session_id)).get(terminal_id);
         reply.send(okEnvelope(terminal, req.id));
       } catch (err) {
@@ -202,6 +218,11 @@ export function registerTerminalsRoutes(app: TerminalsRouteHost, core: Scope): v
     async (req, reply) => {
       try {
         const { session_id, tail } = req.params;
+        await assertSessionAuthorization(core, {
+          sessionId: session_id,
+          requestId: req.id,
+          capability: 'run.execute',
+        });
         const parsed = parseActionSuffix({
           tail,
           allowedActions: ['close'] as const,
@@ -240,6 +261,9 @@ function sendMappedError(
         return;
       case ErrorCodes.TERMINAL_NOT_FOUND:
         reply.send(errEnvelope(ErrorCode.TERMINAL_NOT_FOUND, err.message, requestId, err.stack));
+        return;
+      case ErrorCodes.AUTHORIZATION_DENIED:
+        reply.send(errEnvelope(ErrorCode.PLATFORM_POLICY_DENIED, 'platform policy denied the request', requestId));
         return;
     }
   }

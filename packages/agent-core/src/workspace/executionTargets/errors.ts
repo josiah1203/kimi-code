@@ -11,10 +11,13 @@ export const ExecutionTargetErrors = {
     EXECUTION_TARGET_NOT_FOUND: 'execution_target.not_found',
     EXECUTION_TARGET_NAME_TAKEN: 'execution_target.name_taken',
     EXECUTION_TARGET_INVALID_STATE: 'execution_target.invalid_state',
+    EXECUTION_TARGET_NOT_VALIDATED: 'execution_target.not_validated',
     EXECUTION_TARGET_LEASE_BUSY: 'execution_target.lease_busy',
     EXECUTION_TARGET_LEASE_NOT_FOUND: 'execution_target.lease_not_found',
     EXECUTION_TARGET_POLICY_DENIED: 'execution_target.policy_denied',
     EXECUTION_TARGET_CREDENTIAL_INVALID: 'execution_target.credential_invalid',
+    EXECUTION_TARGET_ENDPOINT_INVALID: 'execution_target.endpoint_invalid',
+    EXECUTION_TARGET_REQUEST_REUSED: 'execution_target.request_reused',
   },
 } as const satisfies ErrorDomain;
 

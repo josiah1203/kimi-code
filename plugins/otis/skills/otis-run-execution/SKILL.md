@@ -12,19 +12,21 @@ resume, cancellation, or run comparison.
 
 ## Required tools
 
-`spiderbyte_create_run`, `spiderbyte_transition_run`,
-`spiderbyte_list_runs`, `spiderbyte_get_run`, `spiderbyte_compare_runs`,
-`spiderbyte_list_events`, `spiderbyte_request_approval`,
-`spiderbyte_get_budget_status`, and `spiderbyte_list_execution_targets`.
+`get_capabilities`, `list_execution_targets`, `create_run`, `get_run`,
+`cancel_run`, and `request_approval`.
+The curated surface does not expose arbitrary lifecycle transitions, retries,
+or event browsing; use the full profile or local CLI when those operations are
+explicitly available.
 
 ## Workflow
 
 1. Resolve workspace and session scope.
 2. Inspect policy, budget, execution targets, and recent runs.
-3. Create an idempotent run envelope with an explicit plan and target.
-4. Transition through the service’s validated lifecycle; do not skip approval
-   or policy states.
-5. Inspect run status/events and compare only compatible runs.
+3. Create an idempotent Run envelope with an explicit plan and target.
+4. Use `request_approval` before restricted work; do not infer approval from a
+   previous response.
+5. Inspect the Run by its returned stable ID and never infer success from a
+   client-side timeout.
 
 ## Confirmation and failure handling
 

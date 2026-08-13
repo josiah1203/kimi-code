@@ -29,6 +29,7 @@
 
 import { createDecorator, type ServiceIdentifier } from '#/_base/di/instantiation';
 import type { Event, IWaitUntil } from '#/_base/event';
+import type { ProviderSecretRef } from '@spiderbyte/protocol';
 import type { Protocol } from '#/kosong/protocol/protocol';
 
 import type { OAuthRef } from '../provider/provider';
@@ -50,6 +51,8 @@ export interface ModelRecord {
   providerId?: string;
 
   baseUrl?: string;
+  /** Opaque reference to encrypted credential material. Raw apiKey is runtime-only. */
+  secretRef?: ProviderSecretRef;
   apiKey?: string;
   oauth?: OAuthRef;
 

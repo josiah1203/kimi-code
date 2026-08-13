@@ -434,3 +434,39 @@ describe('server-v2 /api/v1 fs:content', () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe('server-v2 host filesystem exposure boundary', () => {
+  it('denies unconfined host filesystem routes on a non-loopback bind', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'spiderbyte-server-fs-remote-'));
+    const instancesDir = await mkdtemp(join(tmpdir(), 'spiderbyte-server-fs-remote-instances-'));
+    let server: RunningServer | undefined;
+    try {
+      server = await startServer({
+        hostIdentity: TEST_HOST_IDENTITY,
+        host: '0.0.0.0',
+        port: 0,
+        insecureNoTls: true,
+        homeDir: home,
+        instancesDir,
+        logLevel: 'silent',
+      });
+      const base = `http://127.0.0.1:${server.port}`;
+      const headers = authHeaders(server);
+      const browse = await fetch(`${base}/api/v1/fs:home`, { headers } as never);
+      const browseBody = (await browse.json()) as Envelope<null>;
+      expect(browseBody.code).toBe(40302);
+
+      const mkdir = await fetch(`${base}/api/v1/fs:mkdir`, {
+        method: 'POST',
+        headers: { ...headers, 'content-type': 'application/json' },
+        body: JSON.stringify({ path: join(home, 'should-not-exist') }),
+      } as never);
+      const mkdirBody = (await mkdir.json()) as Envelope<null>;
+      expect(mkdirBody.code).toBe(40302);
+    } finally {
+      await server?.close();
+      await rm(home, { recursive: true, force: true });
+      await rm(instancesDir, { recursive: true, force: true });
+    }
+  });
+});

@@ -29,6 +29,8 @@ import {
   IWorkspaceService,
   IWorkspaceSessions,
   IWorkspaceUsageService,
+  baselineWorkflowProjection,
+  executeBaselineWorkflow,
   resumeSessionById,
   type ISessionScopeHandle,
   type IWorkspaceScopeHandle,
@@ -54,6 +56,8 @@ import {
   trainingCancelInputSchema,
   trainingStartInputSchema,
   type ArtifactKind,
+  type ExperimentMetricSpec,
+  type PlatformCapability,
   type Run,
 } from '@spiderbyte/protocol';
 import { McpServer } from '@modelcontextprotocol/server';
@@ -63,14 +67,85 @@ import { z } from 'zod';
 import { isAbsolute, relative, resolve } from 'node:path';
 
 import type { ServerLogger } from '../services/pinoLoggerService';
+import {
+  assertProjectAuthorization,
+  assertWorkspaceAuthorization,
+  isWorkspaceAuthorized,
+  listAuthorizedOrganizations,
+  listAuthorizedProjects,
+  resolveLocalActorId,
+} from '../services/platformAuthorization';
 
 export const SPIDERBYTE_MCP_SERVER_NAME = 'spiderbyte';
 export const SPIDERBYTE_MCP_PROTOCOL_VERSION = '2026-07-28';
 export const SPIDERBYTE_MCP_MAX_RESULT_TEXT = 8_000;
 export const SPIDERBYTE_MCP_MAX_ARTIFACT_BYTES = 64 * 1024;
 export const SPIDERBYTE_MCP_DEFAULT_TIMEOUT_MS = 60_000;
+export const SPIDERBYTE_MCP_MAX_CURATED_STRUCTURED_BYTES = 64 * 1024;
+const SPIDERBYTE_MCP_MAX_CURATED_ITEMS = 100;
+const CURATED_BASELINE_CLAIMS = new Map<string, Promise<unknown>>();
 
-const actorId = process.env['SPIDERBYTE_LOCAL_ACTOR_ID'] ?? 'local-user';
+export const SPIDERBYTE_MCP_PROFILES = ['full', 'curated'] as const;
+export type SpyderbyteMcpProfile = (typeof SPIDERBYTE_MCP_PROFILES)[number];
+
+/**
+ * The public Otis surface is deliberately semantic and small. The full
+ * `spiderbyte_*` inventory remains available to local repository developers,
+ * but it is not the plugin contract.
+ */
+export const SPIDERBYTE_MCP_CURATED_TOOLS = [
+  'list_workspaces',
+  'list_projects',
+  'list_execution_targets',
+  'create_run',
+  'get_run',
+  'cancel_run',
+  'list_artifacts',
+  'get_artifact',
+  'profile_dataset',
+  'run_sql_analysis',
+  'train_baseline_model',
+  'get_capabilities',
+  'request_approval',
+] as const;
+
+export function resolveSpyderbyteMcpProfile(value: string | undefined): SpyderbyteMcpProfile {
+  if (value === undefined || value === '') return 'full';
+  if ((SPIDERBYTE_MCP_PROFILES as readonly string[]).includes(value)) return value as SpyderbyteMcpProfile;
+  throw new Error(`Unsupported SpiderByte MCP profile: ${value}`);
+}
+
+const CURATED_TOOL_ALIASES: Readonly<Record<string, (typeof SPIDERBYTE_MCP_CURATED_TOOLS)[number]>> = {
+  spiderbyte_list_workspaces: 'list_workspaces',
+  spiderbyte_list_projects: 'list_projects',
+  spiderbyte_list_execution_targets: 'list_execution_targets',
+  spiderbyte_create_run: 'create_run',
+  spiderbyte_get_run: 'get_run',
+  spiderbyte_cancel_run: 'cancel_run',
+  spiderbyte_list_artifacts: 'list_artifacts',
+  spiderbyte_get_artifact: 'get_artifact',
+  spiderbyte_profile_dataset: 'profile_dataset',
+  spiderbyte_query_dataset: 'run_sql_analysis',
+  spiderbyte_train_baseline_model: 'train_baseline_model',
+  spiderbyte_capabilities: 'get_capabilities',
+  spiderbyte_request_approval: 'request_approval',
+};
+
+const CURATED_TOOL_DESCRIPTIONS: Readonly<Partial<Record<(typeof SPIDERBYTE_MCP_CURATED_TOOLS)[number], string>>> = {
+  list_workspaces: 'List local SpiderByte workspaces visible to this authenticated daemon; returns stable workspace IDs and bounded metadata.',
+  list_projects: 'List local SpiderByte projects visible to this authenticated daemon; use returned stable project IDs for follow-up governance work.',
+  list_execution_targets: 'List authorized local or customer-managed execution targets; managed SpiderByte-hosted compute is never implied.',
+  create_run: 'Create an idempotent durable Run envelope in an existing session; this records intent but does not execute work by itself.',
+  get_run: 'Inspect one durable Run by stable session and Run IDs, including lifecycle state, target, policy references, and bounded outputs.',
+  cancel_run: 'Cancel one durable Run after inspecting it; explicit confirmed=true is required and the action is audited.',
+  list_artifacts: 'List bounded metadata for artifacts in an authorized workspace; content and secrets are not returned.',
+  get_artifact: 'Retrieve bounded metadata for one stable artifact ID; use the local artifact service for authorized content access.',
+  profile_dataset: 'Profile a registered dataset version through the governed local dataset service and return its durable profile artifact reference.',
+  run_sql_analysis: 'Run a bounded read-only SQL analysis over one registered CSV or JSONL dataset; arbitrary database access is not exposed.',
+  train_baseline_model: 'Launch the canonical local baseline dataset-to-model workflow; it creates a durable Run and requires explicit confirmation before compute.',
+  get_capabilities: 'Report which SpiderByte capabilities are implemented locally, credential-dependent, unavailable, or require hosted infrastructure.',
+  request_approval: 'Evaluate a requested governed action and return allow, deny, or approval-required; policy remains authoritative on the daemon.',
+};
 
 const capabilityStatusSchema = z.enum([
   'implemented',
@@ -101,10 +176,17 @@ const workspaceSchema = { workspace_id: z.string().min(1).optional() };
 const idempotencySchema = { idempotency_key: z.string().min(1).max(256).optional() };
 const metadataSchema = { metadata: z.record(z.string(), z.unknown()).optional() };
 const confirmationSchema = { confirmed: z.boolean().default(false) };
+const baselineMetricSchema = z.object({
+  name: z.string().min(1).max(160),
+  higher_is_better: z.boolean().optional(),
+  required_minimum: z.number().finite().optional(),
+  maximum_regression: z.number().finite().nonnegative().optional(),
+}).strict();
 
 export interface SpyderbyteMcpOptions {
   readonly core: Scope;
   readonly mode: 'local-http' | 'local-stdio';
+  readonly profile?: SpyderbyteMcpProfile;
   readonly defaultWorkspaceId?: string;
   readonly actorId?: string;
   readonly clientName?: string;
@@ -151,6 +233,7 @@ class McpToolError extends Error {
  */
 export function createSpyderbyteMcpServer(options: SpyderbyteMcpOptions): McpServer {
   const { core } = options;
+  const profile = options.profile ?? 'full';
   const server = new McpServer(
     {
       name: SPIDERBYTE_MCP_SERVER_NAME,
@@ -158,7 +241,7 @@ export function createSpyderbyteMcpServer(options: SpyderbyteMcpOptions): McpSer
     },
     {
       instructions:
-        `SpiderByte local Open Core MCP server (MCP protocol ${SPIDERBYTE_MCP_PROTOCOL_VERSION}). Use workspace_id for every workspace-scoped operation. Hosted identity, billing, managed compute, and enterprise controls are unavailable in this server.`,
+        `SpiderByte local Open Core MCP server (MCP protocol ${SPIDERBYTE_MCP_PROTOCOL_VERSION}, profile ${profile}). Use workspace_id for every workspace-scoped operation. Hosted identity, billing, managed compute, and enterprise controls are unavailable in this server.`,
     },
   );
 
@@ -177,18 +260,27 @@ export function createSpyderbyteMcpServer(options: SpyderbyteMcpOptions): McpSer
     },
     handler: (args: Record<string, unknown>, extra: ToolExtra) => Promise<CallToolResult>,
   ): void => {
+    const curatedName = profile === 'curated' ? CURATED_TOOL_ALIASES[name] : undefined;
+    if (profile === 'curated' && curatedName === undefined) return;
+    const exposedName = curatedName ?? name;
+    const description = curatedName === undefined
+      ? config.description
+      : CURATED_TOOL_DESCRIPTIONS[curatedName] ?? config.description;
     // The helper keeps every tool on the same bounded result/error envelope;
     // the official SDK performs the actual JSON-schema validation. Translate
     // the v2 context into the small adapter context used by the tool bodies so
     // request correlation and cancellation remain consistent across HTTP and
     // stdio.
     server.registerTool(
-      name,
-      { ...config, outputSchema: commonOutputSchema },
-      async (args, context: ServerContext) => handler(args, {
-        requestId: context.mcpReq.id,
-        signal: context.mcpReq.signal,
-      }),
+      exposedName,
+      { ...config, description, outputSchema: commonOutputSchema },
+      async (args, context: ServerContext) => {
+        const result = await handler(args, {
+          requestId: context.mcpReq.id,
+          signal: context.mcpReq.signal,
+        });
+        return profile === 'curated' ? boundCuratedResult(result) : result;
+      },
     );
   };
 
@@ -215,7 +307,7 @@ export function createSpyderbyteMcpServer(options: SpyderbyteMcpOptions): McpSer
     },
     (_args, extra) => invokeTool('spiderbyte_account_status', extra, async () => ({
       mode: options.mode.startsWith('local') ? 'local' : 'unknown',
-      actor_id: options.actorId ?? actorId,
+      actor_id: resolveLocalActorId(options.actorId),
       authentication: options.mode === 'local-http' ? 'local-bearer' : 'local-process',
       hosted_identity: capability('hosted_identity', 'hosted-required', 'No hosted SpiderByte identity authority is included in Open Core.'),
       billing: capability('billing', 'hosted-required', 'Billing, invoices, and commercial entitlements are outside this checkout.'),
@@ -236,8 +328,17 @@ export function createSpyderbyteMcpServer(options: SpyderbyteMcpOptions): McpSer
     (_args, extra) => invokeTool('spiderbyte_list_workspaces', extra, async () => {
       const workspaces = await core.accessor.get(IWorkspaceService).list();
       const sessions = core.accessor.get(IWorkspaceSessions);
+      const visible: Array<(typeof workspaces)[number]> = [];
+      for (const workspace of workspaces) {
+        if (await isWorkspaceAuthorized(core, {
+          workspaceId: workspace.id,
+          requestId: `mcp_list_workspaces:${workspace.id}`,
+          capability: 'workspace.read',
+          actorId: options.actorId,
+        })) visible.push(workspace);
+      }
       return Promise.all(
-        workspaces.map(async (workspace) => ({
+        visible.slice(0, profile === 'curated' ? SPIDERBYTE_MCP_MAX_CURATED_ITEMS : undefined).map(async (workspace) => ({
           ...workspace,
           session_count: await sessions.count(workspace.id),
           mode: 'local',
@@ -259,6 +360,12 @@ export function createSpyderbyteMcpServer(options: SpyderbyteMcpOptions): McpSer
       const workspaceId = requireString(args, 'workspace_id');
       const workspace = await core.accessor.get(IWorkspaceService).get(workspaceId);
       if (workspace === undefined) throw notFound('workspace', workspaceId);
+      await assertWorkspaceAuthorization(core, {
+        workspaceId,
+        requestId: requestIdFor(args, 'get_workspace', extra.requestId),
+        capability: 'workspace.read',
+        actorId: options.actorId,
+      });
       return {
         ...workspace,
         session_count: await core.accessor.get(IWorkspaceSessions).count(workspace.id),
@@ -277,21 +384,29 @@ export function createSpyderbyteMcpServer(options: SpyderbyteMcpOptions): McpSer
         root: z.string().min(1),
         name: z.string().min(1).max(100).optional(),
         ...idempotencySchema,
+        ...confirmationSchema,
       },
       annotations: {
         readOnlyHint: false,
         openWorldHint: false,
-        destructiveHint: false,
+        destructiveHint: true,
         idempotentHint: true,
       },
     },
     (args, extra) => invokeTool('spiderbyte_register_workspace', extra, async () => {
+      requireConfirmation(args);
       const root = requireString(args, 'root');
       if (!isAbsolute(root)) throw invalid('root must be an absolute path');
       const stat = await core.accessor.get(IHostFileSystem).stat(root).catch(() => undefined);
       if (stat?.isDirectory !== true) throw invalid('root must be an existing directory');
       const name = optionalString(args, 'name');
       const workspace = await core.accessor.get(IWorkspaceService).createOrTouch(root, name);
+      await assertWorkspaceAuthorization(core, {
+        workspaceId: workspace.id,
+        requestId: requestIdFor(args, 'register_workspace', extra.requestId),
+        capability: 'project.manage',
+        actorId: options.actorId,
+      });
       return {
         ...workspace,
         session_count: await core.accessor.get(IWorkspaceSessions).count(workspace.id),
@@ -387,7 +502,7 @@ export function createSpyderbyteMcpServer(options: SpyderbyteMcpOptions): McpSer
       annotations: readOnlyAnnotations(),
     },
     (_args, extra) => invokeTool('spiderbyte_list_organizations', extra, async () =>
-      redact(await core.accessor.get(IPlatformGovernanceService).listOrganizations())),
+      redact(await listAuthorizedOrganizations(core, options.actorId))),
   );
 
   register(
@@ -396,20 +511,21 @@ export function createSpyderbyteMcpServer(options: SpyderbyteMcpOptions): McpSer
       title: 'Create a local organization',
       description:
         'Use when you need a local accountless organization to own projects and governance records.',
-      inputSchema: { name: z.string().min(1).max(200), ...metadataSchema, ...idempotencySchema },
+      inputSchema: { name: z.string().min(1).max(200), ...metadataSchema, ...idempotencySchema, ...confirmationSchema },
       annotations: {
         readOnlyHint: false,
         openWorldHint: false,
-        destructiveHint: false,
+        destructiveHint: true,
         idempotentHint: true,
       },
     },
     (args, extra) => invokeTool('spiderbyte_create_organization', extra, async () => {
+      requireConfirmation(args);
       const requestId = requestIdFor(args, 'organization');
       const organization = await core.accessor.get(IPlatformGovernanceService).createOrganization(
         organizationCreateInputSchema.parse({
           request_id: requestId,
-          actor_id: options.actorId ?? actorId,
+          actor_id: resolveLocalActorId(options.actorId),
           name: requireString(args, 'name'),
           mode: 'local',
           metadata: optionalObject(args, 'metadata'),
@@ -428,8 +544,10 @@ export function createSpyderbyteMcpServer(options: SpyderbyteMcpOptions): McpSer
       inputSchema: { organization_id: z.string().min(1).optional() },
       annotations: readOnlyAnnotations(),
     },
-    (args, extra) => invokeTool('spiderbyte_list_projects', extra, async () =>
-      redact(await core.accessor.get(IPlatformGovernanceService).listProjects(optionalString(args, 'organization_id')))),
+    (args, extra) => invokeTool('spiderbyte_list_projects', extra, async () => {
+      const projects = await listAuthorizedProjects(core, optionalString(args, 'organization_id'), options.actorId);
+      return redact(projects.slice(0, profile === 'curated' ? SPIDERBYTE_MCP_MAX_CURATED_ITEMS : undefined));
+    }),
   );
 
   register(
@@ -444,7 +562,12 @@ export function createSpyderbyteMcpServer(options: SpyderbyteMcpOptions): McpSer
     (args, extra) => invokeTool('spiderbyte_get_project', extra, async () => {
       const projectId = requireString(args, 'project_id');
       const governance = core.accessor.get(IPlatformGovernanceService);
-      const project = await governance.getProject(projectId);
+      const project = await assertProjectAuthorization(core, {
+        projectId,
+        requestId: requestIdFor(args, 'get_project', extra.requestId),
+        capability: 'project.read',
+        actorId: options.actorId,
+      });
       if (project === undefined) throw notFound('project', projectId);
       return redact({
         project,
@@ -465,25 +588,27 @@ export function createSpyderbyteMcpServer(options: SpyderbyteMcpOptions): McpSer
         name: z.string().min(1).max(200),
         ...metadataSchema,
         ...idempotencySchema,
+        ...confirmationSchema,
       },
       annotations: {
         readOnlyHint: false,
         openWorldHint: false,
-        destructiveHint: false,
+        destructiveHint: true,
         idempotentHint: true,
       },
     },
-    (args, extra) => invokeTool('spiderbyte_create_project', extra, async () => redact(
-      await core.accessor.get(IPlatformGovernanceService).createProject(
+    (args, extra) => invokeTool('spiderbyte_create_project', extra, async () => {
+      requireConfirmation(args);
+      return redact(await core.accessor.get(IPlatformGovernanceService).createProject(
         projectCreateInputSchema.parse({
           request_id: requestIdFor(args, 'project'),
-          actor_id: options.actorId ?? actorId,
+          actor_id: resolveLocalActorId(options.actorId),
           organization_id: requireString(args, 'organization_id'),
           name: requireString(args, 'name'),
           metadata: optionalObject(args, 'metadata'),
         }),
-      ),
-    )),
+      ));
+    }),
   );
 
   register(
@@ -492,13 +617,19 @@ export function createSpyderbyteMcpServer(options: SpyderbyteMcpOptions): McpSer
       title: 'Inspect project permissions',
       description:
         'Use when you need to inspect local project members, roles, and workspace bindings before a governed action.',
-      inputSchema: { project_id: z.string().min(1), actor_id: z.string().min(1).optional() },
+      inputSchema: { project_id: z.string().min(1) },
       annotations: readOnlyAnnotations(),
     },
     (args, extra) => invokeTool('spiderbyte_project_permissions', extra, async () => {
       const projectId = requireString(args, 'project_id');
+      await assertProjectAuthorization(core, {
+        projectId,
+        requestId: requestIdFor(args, 'project_permissions', extra.requestId),
+        capability: 'project.read',
+        actorId: options.actorId,
+      });
       const governance = core.accessor.get(IPlatformGovernanceService);
-      const actor = optionalString(args, 'actor_id') ?? options.actorId ?? actorId;
+      const actor = resolveLocalActorId(options.actorId);
       return redact({
         project_id: projectId,
         members: await governance.listProjectMembers(projectId),
@@ -631,7 +762,7 @@ export function createSpyderbyteMcpServer(options: SpyderbyteMcpOptions): McpSer
         dataset_id: z.string().min(1),
         sql: z.string().min(1).max(50_000),
         version: z.number().int().positive().optional(),
-        max_rows: z.number().int().positive().max(10_000).default(1_000),
+        max_rows: z.number().int().positive().max(1_000).default(1_000),
         run_id: z.string().min(1).optional(),
         policy_decision_id: z.string().min(1).optional(),
         ...idempotencySchema,
@@ -713,8 +844,10 @@ export function createSpyderbyteMcpServer(options: SpyderbyteMcpOptions): McpSer
       inputSchema: { ...workspaceSchema, kind: z.string().min(1).optional() },
       annotations: readOnlyAnnotations(),
     },
-    (args, extra) => withWorkspaceTool('spiderbyte_list_artifacts', args, extra, options, async (workspace) =>
-      redact(await workspace.handle.accessor.get(IWorkspaceArtifactService).list(optionalString(args, 'kind') as ArtifactKind | undefined))),
+    (args, extra) => withWorkspaceTool('spiderbyte_list_artifacts', args, extra, options, async (workspace) => {
+      const artifacts = await workspace.handle.accessor.get(IWorkspaceArtifactService).list(optionalString(args, 'kind') as ArtifactKind | undefined);
+      return redact(artifacts.slice(0, profile === 'curated' ? SPIDERBYTE_MCP_MAX_CURATED_ITEMS : undefined));
+    }),
   );
 
   register(
@@ -1198,6 +1331,144 @@ export function createSpyderbyteMcpServer(options: SpyderbyteMcpOptions): McpSer
   );
 
   register(
+    'spiderbyte_train_baseline_model',
+    {
+      title: 'Train a baseline model',
+      description:
+        'Use when you need the complete local dataset-to-baseline-model workflow: resolve or ingest a dataset, profile it, analyze it, train, evaluate, register the model, and return durable artifact IDs.',
+      inputSchema: {
+        ...workspaceSchema,
+        session_id: z.string().min(1),
+        dataset_id: z.string().min(1).optional(),
+        dataset_name: z.string().min(1).max(500).optional(),
+        format: z.enum(['csv', 'jsonl']).optional(),
+        source_path: z.string().min(1).optional(),
+        content_base64: z.string().max(14_000_000).optional(),
+        dataset_version: z.number().int().positive().optional(),
+        dataset_policy_decision_id: z.string().min(1).optional(),
+        model_policy_decision_id: z.string().min(1).optional(),
+        execution_target_policy_decision_id: z.string().min(1).optional(),
+        target: z.string().min(1).max(500),
+        features: z.array(z.string().min(1).max(500)).min(1).max(256),
+        task: z.enum(['classification', 'regression']),
+        algorithm: z.string().min(1).max(256).optional(),
+        experiment_name: z.string().min(1).max(500).optional(),
+        model_name: z.string().min(1).max(256).optional(),
+        execution_target_id: z.string().min(1).optional(),
+        metrics: z.array(baselineMetricSchema).min(1).max(32).optional(),
+        hyperparameters: z.record(z.string(), z.unknown()).optional(),
+        seed: z.number().int().nonnegative().optional(),
+        ...metadataSchema,
+        ...idempotencySchema,
+        ...confirmationSchema,
+      },
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+    },
+    (args, extra) => withWorkspaceTool('spiderbyte_train_baseline_model', args, extra, options, async (workspace) => {
+      requireConfirmation(args);
+      const sessionId = requireString(args, 'session_id');
+      const requestId = requestIdFor(args, 'baseline', extra.requestId);
+      const task = requireString(args, 'task') as 'classification' | 'regression';
+      const metrics: readonly ExperimentMetricSpec[] = args['metrics'] === undefined
+        ? task === 'classification'
+          ? [{ name: 'accuracy', higher_is_better: true }]
+          : [{ name: 'mae', higher_is_better: false }, { name: 'rmse', higher_is_better: false }]
+        : z.array(baselineMetricSchema).parse(args['metrics']) as readonly ExperimentMetricSpec[];
+      const runs = await withSession(core, workspace.id, sessionId, async (session) => {
+        const runService = session.accessor.get(ISessionRunService);
+        const run = await runService.create(runCreateInputSchema.parse({
+          request_id: requestId,
+          plan: [{ id: 'baseline_workflow', title: 'Execute the baseline ML workflow', status: 'pending' }],
+          execution_target_id: optionalString(args, 'execution_target_id'),
+          metadata: { operation: 'baseline_workflow', source: 'curated_mcp' },
+        }));
+
+        // A completed or failed Run returned for the same request ID is an
+        // idempotent replay. The process-wide claim also coalesces concurrent
+        // retries on one daemon; durable restart recovery belongs to the
+        // unified Attempt phase.
+        if (run.status !== 'queued') return { run, replayed: true as const };
+        const activeClaim = CURATED_BASELINE_CLAIMS.get(run.id);
+        if (activeClaim !== undefined) return activeClaim;
+        const execution = (async (): Promise<unknown> => {
+          const started = await runService.transition(run.id, runTransitionInputSchema.parse({
+            request_id: childRequestId(requestId, 'start'),
+            status: 'running',
+            plan: [{ id: 'baseline_workflow', title: 'Execute the baseline ML workflow', status: 'running' }],
+            execution_target_id: optionalString(args, 'execution_target_id'),
+          }));
+          if (started === undefined) throw notFound('run', run.id);
+
+          try {
+            const workflow = await executeBaselineWorkflow({
+              datasets: workspace.handle.accessor.get(IWorkspaceDatasetService),
+              ml: workspace.handle.accessor.get(IWorkspaceMlService),
+              artifacts: workspace.handle.accessor.get(IWorkspaceArtifactService),
+            }, {
+              requestPrefix: requestId.slice(0, 220),
+              runId: run.id,
+              datasetId: optionalString(args, 'dataset_id'),
+              datasetName: optionalString(args, 'dataset_name'),
+              format: optionalString(args, 'format') as 'csv' | 'jsonl' | undefined,
+              sourcePath: optionalString(args, 'source_path'),
+              contentBase64: optionalString(args, 'content_base64'),
+              datasetVersion: optionalNumber(args, 'dataset_version'),
+              datasetPolicyDecisionId: optionalString(args, 'dataset_policy_decision_id'),
+              modelPolicyDecisionId: optionalString(args, 'model_policy_decision_id'),
+              executionTargetPolicyDecisionId: optionalString(args, 'execution_target_policy_decision_id'),
+              target: requireString(args, 'target'),
+              features: requireStringArray(args, 'features'),
+              task,
+              algorithm: optionalString(args, 'algorithm'),
+              experimentName: optionalString(args, 'experiment_name'),
+              modelName: optionalString(args, 'model_name'),
+              executionTargetId: optionalString(args, 'execution_target_id'),
+              metrics,
+              hyperparameters: optionalObject(args, 'hyperparameters'),
+              seed: optionalNumber(args, 'seed'),
+              metadata: optionalObject(args, 'metadata'),
+            },
+            undefined,
+          );
+          const completed = await runService.transition(run.id, runTransitionInputSchema.parse({
+            request_id: childRequestId(requestId, 'complete'),
+            status: 'succeeded',
+            plan: [{ id: 'baseline_workflow', title: 'Execute the baseline ML workflow', status: 'completed' }],
+            output_artifacts: workflow.artifacts.map((artifact) => ({ id: artifact.id, version: artifact.version })),
+          }));
+          return {
+            run: completed ?? run,
+            replayed: false as const,
+            workflow: baselineWorkflowProjection(workflow),
+            artifact_ids: workflow.artifacts.map((artifact) => artifact.id),
+          };
+        } catch (error) {
+          await runService.transition(run.id, runTransitionInputSchema.parse({
+            request_id: childRequestId(requestId, 'failed'),
+            status: 'failed',
+            plan: [{ id: 'baseline_workflow', title: 'Execute the baseline ML workflow', status: 'failed' }],
+            status_reason: error instanceof Error ? error.message.slice(0, 2_000) : 'baseline workflow failed',
+          })).catch(() => undefined);
+          throw error;
+        }
+        })();
+        CURATED_BASELINE_CLAIMS.set(run.id, execution);
+        try {
+          return await execution;
+        } finally {
+          if (CURATED_BASELINE_CLAIMS.get(run.id) === execution) CURATED_BASELINE_CLAIMS.delete(run.id);
+        }
+      });
+      return redact(runs);
+    }),
+  );
+
+  register(
     'spiderbyte_cancel_training',
     {
       title: 'Cancel training',
@@ -1439,8 +1710,10 @@ export function createSpyderbyteMcpServer(options: SpyderbyteMcpOptions): McpSer
       inputSchema: { ...workspaceSchema },
       annotations: readOnlyAnnotations(),
     },
-    (args, extra) => withWorkspaceTool('spiderbyte_list_execution_targets', args, extra, options, async (workspace) =>
-      redact(await workspace.handle.accessor.get(IWorkspaceExecutionTargetService).list())),
+    (args, extra) => withWorkspaceTool('spiderbyte_list_execution_targets', args, extra, options, async (workspace) => {
+      const targets = await workspace.handle.accessor.get(IWorkspaceExecutionTargetService).list();
+      return redact(targets.slice(0, profile === 'curated' ? SPIDERBYTE_MCP_MAX_CURATED_ITEMS : undefined));
+    }),
   );
 
   register(
@@ -1733,6 +2006,13 @@ async function withWorkspaceTool(
   let audit: { readonly events: IWorkspacePlatformEventService; readonly invocationId: string } | undefined;
   try {
     const workspace = await resolveWorkspace(options, args);
+    await assertWorkspaceAuthorization(options.core, {
+      workspaceId: workspace.id,
+      requestId,
+      capability: mcpCapabilityForTool(name),
+      actorId: options.actorId,
+      executionTargetId: optionalString(args, 'execution_target_id') ?? optionalString(args, 'target_id'),
+    });
     const events = workspace.handle.accessor.get(IWorkspacePlatformEventService);
     const invocationId = `mcp_${ulid()}`;
     audit = { events, invocationId };
@@ -1746,7 +2026,7 @@ async function withWorkspaceTool(
         tool_name: name,
         mode: options.mode,
         client: options.clientName ?? 'unknown',
-        actor_id: options.actorId ?? actorId,
+        actor_id: resolveLocalActorId(options.actorId),
       },
     });
     const result = await withDeadline(operation(workspace), extra.signal);
@@ -1800,6 +2080,87 @@ async function resolveWorkspace(
     workspaceId,
   });
   return { id: workspace.id, root: workspace.root, handle };
+}
+
+const MCP_TOOL_CAPABILITIES: Readonly<Record<string, PlatformCapability>> = {
+  spiderbyte_list_sessions: 'workspace.read',
+  spiderbyte_create_session: 'run.execute',
+  spiderbyte_close_session: 'run.execute',
+
+  spiderbyte_list_datasets: 'data.read',
+  spiderbyte_get_dataset: 'data.read',
+  spiderbyte_register_dataset: 'data.write',
+  spiderbyte_profile_dataset: 'data.write',
+  spiderbyte_query_dataset: 'data.read',
+  spiderbyte_transform_dataset: 'data.write',
+
+  spiderbyte_list_artifacts: 'data.read',
+  spiderbyte_get_artifact: 'data.read',
+  spiderbyte_get_artifact_lineage: 'data.read',
+  spiderbyte_get_artifact_content: 'data.read',
+
+  spiderbyte_list_runs: 'data.read',
+  spiderbyte_get_run: 'data.read',
+  spiderbyte_create_run: 'run.execute',
+  spiderbyte_transition_run: 'run.execute',
+  spiderbyte_cancel_run: 'run.execute',
+  spiderbyte_resume_run: 'run.execute',
+  spiderbyte_retry_run: 'run.execute',
+  spiderbyte_rerun_run: 'run.execute',
+  spiderbyte_compare_runs: 'data.read',
+
+  spiderbyte_analyze_dataset: 'data.write',
+  spiderbyte_list_analyses: 'data.read',
+  spiderbyte_get_analysis: 'data.read',
+  spiderbyte_list_experiments: 'data.read',
+  spiderbyte_get_experiment: 'data.read',
+  spiderbyte_create_experiment: 'data.write',
+  spiderbyte_list_training_runs: 'data.read',
+  spiderbyte_get_training_run: 'data.read',
+  spiderbyte_start_training: 'execution.execute',
+  spiderbyte_train_baseline_model: 'execution.execute',
+  spiderbyte_cancel_training: 'execution.execute',
+  spiderbyte_list_evaluations: 'data.read',
+  spiderbyte_get_evaluation: 'data.read',
+  spiderbyte_compare_experiments: 'data.write',
+  spiderbyte_list_models: 'data.read',
+  spiderbyte_get_model: 'data.read',
+  spiderbyte_register_model: 'data.write',
+  spiderbyte_stage_model: 'data.write',
+
+  spiderbyte_list_provider_connections: 'connection.read',
+  spiderbyte_get_provider_connection: 'connection.read',
+  spiderbyte_list_execution_targets: 'workspace.read',
+  spiderbyte_get_execution_target: 'workspace.read',
+
+  spiderbyte_list_policies: 'workspace.read',
+  spiderbyte_explain_policy: 'workspace.read',
+  // Evaluating a request is not granting it. A workspace reader may ask the
+  // policy engine whether an action needs approval; only approve/deny below
+  // requires the approver capability.
+  spiderbyte_request_approval: 'workspace.read',
+  spiderbyte_approve_approval: 'approval.grant',
+  spiderbyte_deny_approval: 'approval.grant',
+  spiderbyte_get_budget_status: 'usage.read',
+  spiderbyte_get_usage: 'usage.read',
+  spiderbyte_list_events: 'audit.read',
+
+  search: 'data.read',
+  fetch: 'data.read',
+};
+
+function mcpCapabilityForTool(name: string): PlatformCapability {
+  // Keep this allow-list explicit. A newly added workspace tool must not be
+  // allowed to execute under a guessed read capability; it needs an explicit
+  // authorization contract before it is exposed.
+  const capability = MCP_TOOL_CAPABILITIES[name];
+  if (capability === undefined) {
+    throw new McpToolError({
+      code: 'tool_authorization_unconfigured',
+      message: `MCP authorization is not configured for tool ${name}`,
+    });
+  }
+  return capability;
 }
 
 async function withSession<T>(
@@ -1910,6 +2271,9 @@ async function fetchWorkspace(core: Scope, workspace: WorkspaceContext, id: stri
   if (parsed.kind === 'session') {
     const value = await core.accessor.get(ISessionIndex).get(parsed.resourceId);
     if (value === undefined) throw notFound('session', parsed.resourceId);
+    if (value.workspaceId !== workspace.id) {
+      throw new McpToolError({ code: 'workspace_scope_violation', message: 'session is outside the requested workspace' });
+    }
     return redact(value);
   }
   throw invalid(`unsupported fetch resource type: ${parsed.kind}`);
@@ -1942,6 +2306,8 @@ function capabilityReport(options: SpyderbyteMcpOptions): Record<string, unknown
     plugin: 'Otis',
     mcp_server: SPIDERBYTE_MCP_SERVER_NAME,
     mcp_protocol_version: SPIDERBYTE_MCP_PROTOCOL_VERSION,
+    mcp_profile: options.profile ?? 'full',
+    curated_tools: options.profile === 'curated' ? [...SPIDERBYTE_MCP_CURATED_TOOLS] : undefined,
     transports: ['stdio', 'streamable-http'],
     mode: options.mode,
     supported_clients: ['Codex CLI', 'Codex IDE extension', 'ChatGPT MCP-compatible surfaces', 'future MCP-compatible clients'],
@@ -1953,6 +2319,7 @@ function capabilityReport(options: SpyderbyteMcpOptions): Record<string, unknown
       capability('local_governance', 'local-only', 'Implemented through local policy, approval, budget, usage, and event services.'),
       capability('provider_byok', 'credential-required', 'Supported when the operator configures a local or BYOK provider connection.'),
       capability('provider_oauth', 'provider-unavailable', 'Provider-specific OAuth adapters are not implemented in Open Core.'),
+      capability('mcp_oauth', 'hosted-required', 'Public MCP OAuth resource metadata, authorization-server integration, scope issuance, token validation, and PKCE are not supplied by this local daemon.'),
       capability('hosted_compute', 'hosted-required', 'No hosted worker, managed machine, or provider orchestration service ships here.'),
       capability('hosted_identity_and_tenancy', 'hosted-required', 'No hosted SpiderByte account or tenant authority ships here.'),
       capability('billing_and_entitlements', 'hosted-required', 'No billing, invoice, plan, or commercial usage ledger ships here.'),
@@ -2005,6 +2372,30 @@ function successResult(
       data: redact(data),
     },
     ...(meta === undefined ? {} : { _meta: redact(meta) as Record<string, unknown> }),
+  };
+}
+
+function boundCuratedResult(result: CallToolResult): CallToolResult {
+  const structured = result.structuredContent;
+  if (structured === undefined || typeof structured !== 'object' || structured === null) return result;
+  const data = (structured as Record<string, unknown>)['data'];
+  let encoded: string;
+  try {
+    encoded = JSON.stringify(data) ?? '';
+  } catch {
+    encoded = '';
+  }
+  if (encoded.length <= SPIDERBYTE_MCP_MAX_CURATED_STRUCTURED_BYTES) return result;
+  return {
+    ...result,
+    structuredContent: {
+      ...(structured as Record<string, unknown>),
+      data: {
+        truncated: true,
+        max_bytes: SPIDERBYTE_MCP_MAX_CURATED_STRUCTURED_BYTES,
+        summary: boundedJson(data),
+      },
+    },
   };
 }
 
@@ -2063,6 +2454,11 @@ function requestIdFor(args: Record<string, unknown>, prefix: string, mcpRequestI
   if (requested !== undefined) return requested;
   if (mcpRequestId !== undefined) return `mcp_${String(mcpRequestId)}`;
   return `mcp_${prefix}_${ulid()}`;
+}
+
+function childRequestId(requestId: string, suffix: string): string {
+  const suffixValue = `:${suffix}`;
+  return `${requestId.slice(0, 256 - suffixValue.length)}${suffixValue}`;
 }
 
 function requireString(args: Record<string, unknown>, key: string): string {

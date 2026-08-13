@@ -25,6 +25,7 @@
   "main": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
   "dependencies": {
+    "@clerk/backend": "^3.16.4",
     "@spiderbyte/commercial-domain": "workspace:^",
     "@spiderbyte/commercial-ports": "workspace:^"
   }

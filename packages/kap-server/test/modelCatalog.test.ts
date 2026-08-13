@@ -208,8 +208,6 @@ describe('server-v2 /api/v1 model/provider catalog', () => {
       has_api_key: true,
       status: 'connected',
       models: ['k2', 'turbo'],
-      // The single GET reveals the stored key; the list above never does.
-      api_key: 'sk-test',
     });
 
     const noKey = await getJson<Record<string, unknown>>('/api/v1/providers/openai');

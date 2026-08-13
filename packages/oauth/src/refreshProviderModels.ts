@@ -25,6 +25,8 @@ export interface RefreshProviderHost {
   setConfig(patch: SpiderByteConfigShape): Promise<SpiderByteConfigShape>;
   /** Optional external-provider token resolver. Open Core never uses it for hosted services. */
   resolveOAuthToken?(providerName: string, oauthRef?: ProviderOAuthRef): Promise<string>;
+  /** Resolve an opaque local credential reference only at the outbound call boundary. */
+  resolveSecretRef?(secretRef: string): Promise<string | undefined>;
   readonly userAgent?: string;
 }
 
@@ -57,9 +59,21 @@ function sourceOf(config: SpiderByteConfigShape, id: string): CustomRegistrySour
   const raw = provider(config, id)?.source;
   if (!isRecord(raw) || raw['kind'] !== 'apiJson') return undefined;
   const url = raw['url'];
-  const apiKey = raw['apiKey'];
-  if (typeof url !== 'string' || url.length === 0 || typeof apiKey !== 'string') return undefined;
-  return { kind: 'apiJson', url, apiKey };
+  const secretRef = raw['secretRef'];
+  if (typeof url !== 'string' || url.length === 0) return undefined;
+  if (secretRef !== undefined && typeof secretRef !== 'string') return undefined;
+  return { kind: 'apiJson', url, secretRef };
+}
+
+async function resolveProviderApiKey(
+  host: RefreshProviderHost,
+  current: ProviderConfigShape | undefined,
+  fallbackSecretRef?: string,
+): Promise<string | undefined> {
+  if (typeof current?.apiKey === 'string' && current.apiKey.length > 0) return current.apiKey;
+  const secretRef = current?.secretRef ?? fallbackSecretRef;
+  if (secretRef === undefined || host.resolveSecretRef === undefined) return undefined;
+  return host.resolveSecretRef(secretRef);
 }
 
 function aliasesFor(config: SpiderByteConfigShape, providerId: string): Set<string> {
@@ -111,7 +125,7 @@ async function refreshOpenPlatform(
 ): Promise<{ readonly config: SpiderByteConfigShape; readonly change?: ProviderChange }> {
   const current = provider(config, providerId);
   const platform = getOpenPlatformById(providerId);
-  const apiKey = current?.apiKey;
+  const apiKey = await resolveProviderApiKey(host, current);
   if (platform === undefined || typeof apiKey !== 'string' || apiKey.length === 0) {
     return { config };
   }
@@ -129,6 +143,7 @@ async function refreshOpenPlatform(
     selectedModel,
     thinking: false,
     apiKey,
+    secretRef: current?.secretRef,
   });
   restoreDefault(next, config.defaultModel);
   const nextAliases = aliasesFor(next, providerId);
@@ -150,7 +165,9 @@ async function refreshCustomProvider(
   providerId: string,
   source: CustomRegistrySource,
 ): Promise<{ readonly config: SpiderByteConfigShape; readonly change?: ProviderChange }> {
-  const entries = await fetchCustomRegistry(source, { userAgent: host.userAgent });
+  const current = provider(config, providerId);
+  const apiKey = await resolveProviderApiKey(host, current, source.secretRef);
+  const entries = await fetchCustomRegistry(source, { userAgent: host.userAgent, apiKey });
   const entry = Object.values(entries).find((candidate) => candidate.id === providerId);
   const previousAliases = aliasesFor(config, providerId);
   const previousIds = modelIds(config, previousAliases);

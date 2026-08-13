@@ -18,8 +18,9 @@
  * Service, same as the read side.
  *
  * `fs::content` is a server-v2 addition with no v1 counterpart: it serves ANY
- * absolute path on the host as a raw byte stream, so the global bearer auth
- * is its only access gate. The response is plain file content (no envelope)
+ * absolute path on the host as a raw byte stream. These unconfined routes are
+ * registered for wire compatibility but enabled only when the daemon is bound
+ * to loopback; the response is plain file content (no envelope)
  * with a best-effort `Content-Type`, `ETag` / `If-None-Match` caching, and
  * single-range `Range` support — the same serving semantics as the session
  * `fs/{path}:download` route, so browsers can render previews directly.
@@ -40,7 +41,7 @@
  *   GET /fs::browse?path=<abs-path>    list sub-directories (v1 mirror)
  *   GET /fs::home                      $HOME + recent workspace roots (v1 mirror)
  *   GET /fs::content?path=<abs-path>   raw content of any host file (server-v2 addition)
- *   POST /fs::mkdir { path }           create a directory by absolute path (server-v2 addition)
+ *   POST /fs::mkdir { path }           create a directory by absolute path (loopback-only)
  *
  * **Wire path vs source path.** The source path strings carry a double colon
  * (`/fs::browse`, `/fs::home`) because that is the v1 declaration this mirror
@@ -114,7 +115,16 @@ interface WorkspaceFsRouteHost {
   ): unknown;
 }
 
-export function registerWorkspaceFsRoutes(app: WorkspaceFsRouteHost, core: Scope): void {
+export interface WorkspaceFsRouteOptions {
+  /** The folder-picker routes operate on arbitrary host paths and are local-only. */
+  readonly allowUnconfinedHostFs?: boolean;
+}
+
+export function registerWorkspaceFsRoutes(
+  app: WorkspaceFsRouteHost,
+  core: Scope,
+  options: WorkspaceFsRouteOptions = {},
+): void {
   const browseRoute = defineRoute(
     {
       method: 'GET',
@@ -126,6 +136,16 @@ export function registerWorkspaceFsRoutes(app: WorkspaceFsRouteHost, core: Scope
       operationId: 'fsBrowse',
     },
     async (req, reply) => {
+      if (!options.allowUnconfinedHostFs) {
+        reply.send(
+          errEnvelope(
+            ErrorCode.PLATFORM_POLICY_DENIED,
+            'unconfined host filesystem access is available only on a loopback daemon',
+            req.id,
+          ),
+        );
+        return;
+      }
       try {
         const data = await core.accessor.get(IHostFolderBrowser).browse(req.query.path);
         reply.send(okEnvelope(data, req.id));
@@ -150,6 +170,16 @@ export function registerWorkspaceFsRoutes(app: WorkspaceFsRouteHost, core: Scope
       operationId: 'fsHome',
     },
     async (req, reply) => {
+      if (!options.allowUnconfinedHostFs) {
+        reply.send(
+          errEnvelope(
+            ErrorCode.PLATFORM_POLICY_DENIED,
+            'unconfined host filesystem access is available only on a loopback daemon',
+            req.id,
+          ),
+        );
+        return;
+      }
       try {
         const data = await core.accessor.get(IHostFolderBrowser).home();
         reply.send(okEnvelope(data, req.id));
@@ -185,6 +215,16 @@ export function registerWorkspaceFsRoutes(app: WorkspaceFsRouteHost, core: Scope
       operationId: 'fsContent',
     },
     async (req, reply) => {
+      if (!options.allowUnconfinedHostFs) {
+        reply.send(
+          errEnvelope(
+            ErrorCode.PLATFORM_POLICY_DENIED,
+            'unconfined host filesystem access is available only on a loopback daemon',
+            req.id,
+          ),
+        );
+        return;
+      }
       return handleFsContent(core, req, reply as unknown as FsContentReply);
     },
   );
@@ -212,6 +252,16 @@ export function registerWorkspaceFsRoutes(app: WorkspaceFsRouteHost, core: Scope
       operationId: 'fsMkdir',
     },
     async (req, reply) => {
+      if (!options.allowUnconfinedHostFs) {
+        reply.send(
+          errEnvelope(
+            ErrorCode.PLATFORM_POLICY_DENIED,
+            'unconfined host filesystem access is available only on a loopback daemon',
+            req.id,
+          ),
+        );
+        return;
+      }
       return handleFsMkdir(req, reply);
     },
   );

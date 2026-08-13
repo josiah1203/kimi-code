@@ -63,6 +63,15 @@ describe('PlatformGovernanceService', () => {
     await expect(service.projectForWorkspace('wd_local_project_0123456789ab')).resolves.toEqual(bound);
   });
 
+  it('does not hand an existing local organization to an unlisted actor', async () => {
+    const service = ix.get(IPlatformGovernanceService);
+    await service.ensureLocalOrganization('user_local');
+
+    await expect(service.ensureLocalOrganization('other_actor')).rejects.toMatchObject({
+      code: 'governance.membership_denied',
+    });
+  });
+
   it('rejects project mutation by a member without administration authority', async () => {
     const service = ix.get(IPlatformGovernanceService);
     const organization = await service.createOrganization({

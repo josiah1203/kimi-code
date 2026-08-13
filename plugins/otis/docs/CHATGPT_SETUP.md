@@ -9,7 +9,7 @@ local MCP hosts; it is not directly reachable by ChatGPT.
 
 ## Developer Mode workflow
 
-1. Start SpiderByte locally with `spyderbyte web --no-open`.
+1. Start SpiderByte locally with `SPIDERBYTE_MCP_PROFILE=curated spyderbyte web --no-open`.
 2. Keep the server bound to loopback and retain bearer authentication.
 3. Expose only the `/mcp` route through an HTTPS development tunnel or an
    authenticating reverse proxy.
@@ -17,12 +17,18 @@ local MCP hosts; it is not directly reachable by ChatGPT.
    the MCP server using the HTTPS `/mcp` URL.
 5. Supply the bearer credential through the supported connection setup; never
    paste it into a repository file or model prompt.
-6. Call `spiderbyte_capabilities` and verify that the response says
+6. Call `get_capabilities` and verify that the response says
    `local-only` for local workflows and `hosted-required` for hosted compute.
 
 The exact UI labels and account availability are controlled by ChatGPT. This
 repository does not claim that a developer-mode connection is a public
 ChatGPT app listing.
+
+The customer-controlled daemon currently authenticates MCP HTTP with its
+persistent bearer token. A public plugin OAuth deployment is not implemented
+in this checkout: protected-resource metadata, authorization-server discovery,
+scope issuance, token validation, and PKCE must be supplied and verified by
+the customer’s identity/reverse-proxy deployment before public publication.
 
 ## Production ChatGPT configuration
 

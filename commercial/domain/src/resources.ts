@@ -239,6 +239,9 @@ export const COMMERCIAL_ACTIONS = [
   'audit.read',
   'support.grant',
   'enterprise.manage',
+  'license.read',
+  'license.manage',
+  'seat.manage',
  ] as const;
 export const commercialActionSchema = z.enum(COMMERCIAL_ACTIONS);
 export type CommercialAction = z.infer<typeof commercialActionSchema>;

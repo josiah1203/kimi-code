@@ -1,0 +1,29 @@
+{
+  "name": "@spiderbyte/commercial-hosted",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SpiderByte Cloudflare Workers hosted control-plane runtime",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "types": "wrangler types",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf .wrangler worker-configuration.d.ts"
+  },
+  "dependencies": {
+    "@spiderbyte/commercial-domain": "workspace:^",
+    "@spiderbyte/commercial-persistence": "workspace:^",
+    "@spiderbyte/commercial-ports": "workspace:^",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260812.1",
+    "@types/pg": "8.21.0",
+    "typescript": "6.0.2",
+    "vitest": "4.1.4",
+    "wrangler": "4.122.0"
+  }
+}

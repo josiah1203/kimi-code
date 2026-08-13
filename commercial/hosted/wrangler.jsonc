@@ -1,0 +1,73 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "spiderbyte-commercial-hosted",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-12",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "vars": {
+    "SPIDERBYTE_ENVIRONMENT": "development"
+  },
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "00000000000000000000000000000000"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ARTIFACTS",
+      "bucket_name": "spiderbyte-commercial-artifacts"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "EVENTS_QUEUE",
+        "queue": "spiderbyte-commercial-events"
+      },
+      {
+        "binding": "DISPATCH_QUEUE",
+        "queue": "spiderbyte-commercial-dispatch"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "spiderbyte-commercial-events",
+        "max_batch_size": 20,
+        "max_batch_timeout": 5,
+        "max_retries": 5
+      },
+      {
+        "queue": "spiderbyte-commercial-dispatch",
+        "max_batch_size": 10,
+        "max_batch_timeout": 5,
+        "max_retries": 5
+      }
+    ]
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "RUN_EVENTS",
+        "class_name": "RunEventsDurableObject"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["RunEventsDurableObject"]
+    }
+  ],
+  "workflows": [
+    {
+      "name": "run-orchestration",
+      "binding": "RUN_ORCHESTRATION",
+      "class_name": "RunOrchestrationWorkflow"
+    }
+  ]
+}

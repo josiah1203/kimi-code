@@ -10,6 +10,10 @@
 import {
   analysisCreateInputSchema,
   analysisSchema,
+  attemptActionInputSchema,
+  attemptCreateInputSchema,
+  attemptSchema,
+  attemptTransitionInputSchema,
   artifactDownloadChunkSchema,
   artifactDownloadSchema,
   artifactLineageSchema,
@@ -42,6 +46,10 @@ import {
   trainingRunSchema,
   type Analysis,
   type AnalysisCreateInput,
+  type Attempt,
+  type AttemptActionInput,
+  type AttemptCreateInput,
+  type AttemptTransitionInput,
   type Artifact,
   type ArtifactDownload,
   type ArtifactDownloadChunk,
@@ -157,6 +165,13 @@ export interface BrowserPlatformWorkspace {
   subscribeEvents(handlers: BrowserPlatformEventHandlers, options?: BrowserPlatformEventOptions): BrowserPlatformEventSubscription;
   listRuns(sessionId: string): Promise<readonly Run[]>;
   getRun(sessionId: string, runId: string): Promise<Run | undefined>;
+  listAttempts(sessionId: string, runId: string): Promise<readonly Attempt[]>;
+  getAttempt(sessionId: string, runId: string, attemptId: string): Promise<Attempt | undefined>;
+  createAttempt(sessionId: string, runId: string, input: AttemptCreateInput): Promise<Attempt | undefined>;
+  transitionAttempt(sessionId: string, runId: string, attemptId: string, input: AttemptTransitionInput): Promise<Attempt | undefined>;
+  resumeAttempt(sessionId: string, runId: string, attemptId: string, input: AttemptActionInput): Promise<Attempt | undefined>;
+  cancelAttempt(sessionId: string, runId: string, attemptId: string, input: AttemptActionInput): Promise<Attempt | undefined>;
+  retryAttempt(sessionId: string, runId: string, input: AttemptActionInput): Promise<Attempt | undefined>;
   getTranscript(sessionId: string, agentId?: string, options?: BrowserTranscriptPageOptions): Promise<BrowserTranscriptPage | undefined>;
   getTranscriptOps(sessionId: string, agentId: string, sinceSequence: number): Promise<BrowserTranscriptOps | undefined>;
 }
@@ -280,6 +295,13 @@ export class BrowserPlatformClient {
       subscribeEvents: (handlers, options) => new PlatformEventStream(this, workspaceKey, handlers, options, this.webSocket, this.reconnectDelayMs),
       listRuns: (sessionId) => runRequest<readonly Run[]>(sessionId, '/runs', 'GET', undefined, z.array(runSchema)) as Promise<readonly Run[]>,
       getRun: (sessionId, runId) => runRequest<Run>(sessionId, `/runs/${encodeURIComponent(requireId(runId, 'runId'))}`, 'GET', undefined, runSchema),
+      listAttempts: (sessionId, runId) => runRequest<readonly Attempt[]>(sessionId, `/runs/${encodeURIComponent(requireId(runId, 'runId'))}/attempts`, 'GET', undefined, z.array(attemptSchema)) as Promise<readonly Attempt[]>,
+      getAttempt: (sessionId, runId, attemptId) => runRequest<Attempt>(sessionId, `/runs/${encodeURIComponent(requireId(runId, 'runId'))}/attempts/${encodeURIComponent(requireId(attemptId, 'attemptId'))}`, 'GET', undefined, attemptSchema),
+      createAttempt: (sessionId, runId, input) => runRequest<Attempt>(sessionId, `/runs/${encodeURIComponent(requireId(runId, 'runId'))}/attempts`, 'POST', attemptCreateInputSchema.parse(input), attemptSchema),
+      transitionAttempt: (sessionId, runId, attemptId, input) => runRequest<Attempt>(sessionId, `/runs/${encodeURIComponent(requireId(runId, 'runId'))}/attempts/${encodeURIComponent(requireId(attemptId, 'attemptId'))}/transition`, 'POST', attemptTransitionInputSchema.parse(input), attemptSchema),
+      resumeAttempt: (sessionId, runId, attemptId, input) => runRequest<Attempt>(sessionId, `/runs/${encodeURIComponent(requireId(runId, 'runId'))}/attempts/${encodeURIComponent(requireId(attemptId, 'attemptId'))}/resume`, 'POST', attemptActionInputSchema.parse(input), attemptSchema),
+      cancelAttempt: (sessionId, runId, attemptId, input) => runRequest<Attempt>(sessionId, `/runs/${encodeURIComponent(requireId(runId, 'runId'))}/attempts/${encodeURIComponent(requireId(attemptId, 'attemptId'))}/cancel`, 'POST', attemptActionInputSchema.parse(input), attemptSchema),
+      retryAttempt: (sessionId, runId, input) => runRequest<Attempt>(sessionId, `/runs/${encodeURIComponent(requireId(runId, 'runId'))}/attempts/retry`, 'POST', attemptActionInputSchema.parse(input), attemptSchema),
       getTranscript: (sessionId, agentId = 'main', options) => this.request<BrowserTranscriptPage>(
         `/api/v1/sessions/${encodeURIComponent(requireId(sessionId, 'sessionId'))}/transcript${query({
           agent_id: requireId(agentId, 'agentId'),

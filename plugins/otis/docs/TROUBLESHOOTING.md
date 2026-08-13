@@ -5,7 +5,7 @@
 Pass `workspace_id` to the tool, set `SPIDERBYTE_MCP_WORKSPACE_ID`, or launch:
 
 ```bash
-spyderbyte mcp --workspace <workspace-id>
+spyderbyte mcp --profile curated --workspace <workspace-id>
 ```
 
 ## `401 Unauthorized` from HTTP MCP
@@ -30,7 +30,9 @@ the package-artifact rehearsal verifies its installable export layout.
 
 ## `hosted-required`, `provider-unavailable`, or `enterprise-only`
 
-Call `spiderbyte_explain_unavailable`. The response is the source of truth for
+Call `get_capabilities` when the daemon was started with
+`SPIDERBYTE_MCP_PROFILE=curated`; otherwise use the full-profile
+`spiderbyte_capabilities`. The response is the source of truth for
 the current checkout. Hosted compute, billing, hosted identity, provider
 OAuth, and enterprise controls cannot be enabled by changing a local flag.
 
@@ -42,8 +44,8 @@ retry with `confirmed: true`.
 
 ## Provider or model failures
 
-Inspect `spiderbyte_list_provider_connections` and
-`spiderbyte_get_provider_connection`; credentials are configured locally and
+Inspect the configured provider through the local CLI/full MCP profile;
+credentials are configured locally and
 are never returned. Then inspect execution targets and policy/budget state.
 
 ## Empty search/fetch results

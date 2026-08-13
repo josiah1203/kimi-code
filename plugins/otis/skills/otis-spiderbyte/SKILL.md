@@ -17,11 +17,13 @@ CLI, server, SDK, protocol, provider, persistence, or open-core boundary work.
 
 ## Required MCP tools
 
-Use `spiderbyte_capabilities` first when the task may cross a local/hosted
-boundary. Then use the narrowest applicable `search`, `fetch`, workspace,
-project, Run, artifact, provider, policy, or event tool. Native engine work
-inside the repository still uses the canonical service and platform-tool
-contracts described below.
+Use `get_capabilities` first when the task may cross a local/hosted boundary.
+In the bundled Otis profile, use the narrow semantic tools: workspace/project
+discovery, Run creation/inspection/cancellation, bounded artifact inspection,
+dataset profiling/SQL analysis, baseline training, and approval requests. The
+full developer profile additionally exposes search, fetch, provider, policy,
+and event tools. Native engine work inside the repository still uses the
+canonical service and platform-tool contracts described below.
 
 ## Workflow
 
@@ -38,8 +40,8 @@ visible changes. Honor server-side confirmation, policy, and workspace checks.
 ## Failure handling
 
 Stop on scope, policy, credential, or provider failures. Inspect the capability
-report or `spiderbyte_explain_unavailable`; do not bypass a failed check with a
-direct database, shell, or arbitrary HTTP call.
+report; do not bypass a failed check with a direct database, shell, or
+arbitrary HTTP call.
 
 ## Expected output
 
@@ -145,13 +147,15 @@ SpiderByte has two plugin concepts that must not be conflated:
   hooks, and plugin commands.
 
 The SpiderByte runtime has an MCP client and connection manager for outbound
-connections. It now also exposes a standalone, headless MCP adapter from
-`packages/kap-server/src/mcp`: `spyderbyte mcp` serves stdio for local Codex
-workflows, while `spyderbyte web` serves authenticated Streamable HTTP at
-`/mcp`. The adapter resolves canonical App/Workspace/Session services rather
-than reaching into MiniDB or duplicating business rules. Every workspace call
-records an `mcp_invocation` audit event and enforces workspace scope, existing
-policy services, confirmation gates, bounded outputs, and secret redaction.
+connections. It also exposes a standalone, headless MCP adapter from
+`packages/kap-server/src/mcp`: `spyderbyte mcp --profile curated` serves the
+Otis semantic surface over stdio, while `spyderbyte web` serves authenticated
+Streamable HTTP at `/mcp` (select `SPIDERBYTE_MCP_PROFILE=curated` for the
+same surface). The adapter resolves canonical App/Workspace/Session services
+rather than reaching into MiniDB or duplicating business rules. Every
+workspace call records an `mcp_invocation` audit event and enforces workspace
+scope, existing policy services, confirmation gates, bounded outputs, and
+secret redaction.
 
 Otis can therefore expose the supported platform workflows through MCP, but it
 must still distinguish the two tool surfaces:
@@ -160,15 +164,15 @@ must still distinguish the two tool surfaces:
   `Governance`, `ExecutionTarget`, `Pipeline`, and `Serving` remain internal
   agent contributions. Use their canonical service contracts and platform
   tools when working inside the repository.
-- MCP tools are stable user-goal adapters such as
-  `spiderbyte_profile_dataset`, `spiderbyte_create_experiment`,
-  `spiderbyte_compare_runs`, `spiderbyte_get_artifact_content`, `search`, and
-  `fetch`. They are headless and intentionally return local capability status.
+- Curated MCP tools are stable user-goal adapters such as `profile_dataset`,
+  `run_sql_analysis`, `train_baseline_model`, `get_run`, and `get_artifact`.
+  They are headless and intentionally return local capability status. The
+  full developer profile retains the broader `spiderbyte_*` names.
 
 Hosted identity, billing, managed compute, provider OAuth, SSO/SCIM, and
 enterprise controls are not implemented in Open Core. Otis must call
-`spiderbyte_capabilities` or `spiderbyte_explain_unavailable` before presenting
-those workflows as available. It must never turn an unavailable hosted tool
+`get_capabilities` before presenting those workflows as available. It must
+never turn an unavailable hosted tool
 into a generic HTTP or shell wrapper that bypasses policy, Run, approval, or
 audit boundaries.
 

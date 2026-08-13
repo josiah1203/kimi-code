@@ -44,6 +44,7 @@ import { resolveRequestId } from './request-id';
 import { registerApiV1Routes } from './routes/registerApiV1Routes';
 import { registerApiV2Routes } from './routes/registerApiV2Routes';
 import { registerMcpRoutes } from './mcp/routes';
+import { resolveSpyderbyteMcpProfile } from './mcp/server';
 import { registerWebAssetRoutes } from './routes/webAssets';
 import {
   createServerLogger,
@@ -215,6 +216,12 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
     serverVersion,
   });
   const exposureClass = classify(host, { bindClass: opts.bindClass });
+  if (opts.disableAuth === true && exposureClass !== 'loopback') {
+    await registration.release();
+    throw new Error(
+      `Refusing --dangerous-bypass-auth on ${host} (${exposureClass}); unauthenticated mode is permitted only on a loopback bind.`,
+    );
+  }
   if (exposureClass !== 'loopback' && opts.insecureNoTls !== true) {
     await registration.release();
     throw new Error(
@@ -530,6 +537,7 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
     debugEndpoints,
     enableShutdown,
     enableTerminals,
+    allowUnconfinedHostFs: exposureClass === 'loopback',
     guiStore,
     onShutdown: () => {
       void close().catch((err: unknown) => logger.error({ err }, 'server close failed'));
@@ -544,6 +552,7 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
   // Mounted after v1; the root auth/host/origin hooks cover it identically.
   await registerApiV2Routes(app, core);
   await registerMcpRoutes(app, core, {
+    profile: resolveSpyderbyteMcpProfile(process.env['SPIDERBYTE_MCP_PROFILE']),
     defaultWorkspaceId: process.env['SPIDERBYTE_MCP_WORKSPACE_ID'],
     actorId: process.env['SPIDERBYTE_LOCAL_ACTOR_ID'],
     logger,

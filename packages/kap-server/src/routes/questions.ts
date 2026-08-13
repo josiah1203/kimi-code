@@ -83,6 +83,7 @@ import { errEnvelope, okEnvelope } from '../envelope';
 import { requestLog } from '../lib/requestLog';
 import { defineRoute } from '../middleware/defineRoute';
 import { parseActionSuffix } from './action-suffix';
+import { assertSessionAuthorization } from '../services/platformAuthorization';
 
 interface QuestionRouteHost {
   get(
@@ -131,6 +132,11 @@ export function registerQuestionsRoutes(app: QuestionRouteHost, core: Scope): vo
     },
     async (req, reply) => {
       const { session_id } = req.params;
+      await assertSessionAuthorization(core, {
+        sessionId: session_id,
+        requestId: req.id,
+        capability: 'workspace.read',
+      });
       const handle = await resumeSessionById(core.accessor, session_id);
       if (handle === undefined) {
         reply.send(
@@ -174,6 +180,11 @@ export function registerQuestionsRoutes(app: QuestionRouteHost, core: Scope): vo
         resourceLabel: 'question',
       });
 
+      await assertSessionAuthorization(core, {
+        sessionId: session_id,
+        requestId: req.id,
+        capability: 'run.execute',
+      });
       const handle = await resumeSessionById(core.accessor, session_id);
       if (handle === undefined) {
         reply.send(

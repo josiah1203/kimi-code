@@ -25,6 +25,7 @@ export type PlatformIdentifier = z.infer<typeof platformIdentifierSchema>;
 
 export const agentSessionIdSchema = platformIdentifierSchema;
 export const runIdSchema = platformIdentifierSchema;
+export const attemptIdSchema = platformIdentifierSchema;
 export const artifactIdSchema = platformIdentifierSchema;
 export const providerConnectionIdSchema = platformIdentifierSchema;
 export const providerSecretRefSchema = z
@@ -41,6 +42,7 @@ export const executionTargetIdSchema = platformIdentifierSchema;
 
 export type AgentSessionId = z.infer<typeof agentSessionIdSchema>;
 export type RunId = z.infer<typeof runIdSchema>;
+export type AttemptId = z.infer<typeof attemptIdSchema>;
 export type ArtifactId = z.infer<typeof artifactIdSchema>;
 export type ProviderConnectionId = z.infer<typeof providerConnectionIdSchema>;
 export type ProviderSecretRef = z.infer<typeof providerSecretRefSchema>;
@@ -322,6 +324,151 @@ export const artifactLineageSchema = z.strictObject({
 
 export type ArtifactLineage = z.infer<typeof artifactLineageSchema>;
 
+/**
+ * The durable result retained when an execution stops after producing only a
+ * subset of its outputs. A partial result is not a successful Run; it is an
+ * inspectable hand-off from an Attempt that ended before completion.
+ */
+export const partialResultSchema = z.strictObject({
+  attempt_id: attemptIdSchema,
+  artifact_refs: z.array(artifactRefSchema).default([]),
+  reason: z.string().min(1).max(2_000),
+  recorded_at: isoDateTimeSchema,
+});
+
+export type PartialResult = z.infer<typeof partialResultSchema>;
+
+export const attemptKindSchema = z.enum([
+  'initial',
+  'retry',
+  'rerun',
+  'fork',
+  'recovery',
+]);
+
+export type AttemptKind = z.infer<typeof attemptKindSchema>;
+
+export const attemptStatusSchema = z.enum([
+  'queued',
+  'planning',
+  'awaiting_approval',
+  'running',
+  'succeeded',
+  'failed',
+  'cancelled',
+  'partial',
+  'recovered',
+]);
+
+export type AttemptStatus = z.infer<typeof attemptStatusSchema>;
+
+/** Provider usage summary safe to retain on an Attempt or invocation trace. */
+export const attemptUsageSchema = z.strictObject({
+  input_tokens: z.number().int().nonnegative().optional(),
+  output_tokens: z.number().int().nonnegative().optional(),
+  total_tokens: z.number().int().nonnegative().optional(),
+  cost: z.number().finite().nonnegative().optional(),
+  duration_ms: z.number().int().nonnegative().optional(),
+});
+
+export type AttemptUsage = z.infer<typeof attemptUsageSchema>;
+
+/**
+ * Shared provenance carried by provider/tool/worker invocation records. The
+ * Run and Attempt are the durable owners; invocation records are child facts
+ * and must never become an alternative execution authority.
+ */
+export const invocationTraceContextSchema = z.strictObject({
+  run_id: runIdSchema,
+  attempt_id: attemptIdSchema,
+  workspace_id: workspaceIdSchema,
+  project_id: platformIdentifierSchema.optional(),
+  execution_target_id: executionTargetIdSchema.optional(),
+  provider: z.string().min(1).max(160).optional(),
+  model: z.string().min(1).max(256).optional(),
+  user_id: platformIdentifierSchema.optional(),
+  policy_decision_ids: z.array(policyDecisionIdSchema).default([]),
+  approval_ids: z.array(platformIdentifierSchema).default([]),
+  artifact_ids: z.array(artifactIdSchema).default([]),
+  usage_record_ids: z.array(usageRecordIdSchema).default([]),
+});
+
+export type InvocationTraceContext = z.infer<typeof invocationTraceContextSchema>;
+
+export const attemptSchema = z.strictObject({
+  id: attemptIdSchema,
+  run_id: runIdSchema,
+  workspace_id: workspaceIdSchema,
+  agent_session_id: agentSessionIdSchema,
+  request_id: platformIdentifierSchema.optional(),
+  attempt_number: z.number().int().positive(),
+  kind: attemptKindSchema,
+  status: attemptStatusSchema,
+  parent_attempt_id: attemptIdSchema.optional(),
+  retry_of_attempt_id: attemptIdSchema.optional(),
+  created_at: isoDateTimeSchema,
+  updated_at: isoDateTimeSchema,
+  started_at: isoDateTimeSchema.optional(),
+  completed_at: isoDateTimeSchema.optional(),
+  project_id: platformIdentifierSchema.optional(),
+  execution_target_id: executionTargetIdSchema.optional(),
+  provider: z.string().min(1).max(160).optional(),
+  model: z.string().min(1).max(256).optional(),
+  user_id: platformIdentifierSchema.optional(),
+  policy_decision_ids: z.array(policyDecisionIdSchema).optional(),
+  approval_ids: z.array(platformIdentifierSchema).optional(),
+  input_artifacts: z.array(artifactRefSchema).optional(),
+  output_artifacts: z.array(artifactRefSchema).optional(),
+  partial_artifacts: z.array(artifactRefSchema).optional(),
+  usage: attemptUsageSchema.optional(),
+  status_reason: z.string().max(2_000).optional(),
+  metadata: platformMetadataSchema.optional(),
+});
+
+export type Attempt = z.infer<typeof attemptSchema>;
+
+export const attemptCreateInputSchema = z.strictObject({
+  request_id: platformIdentifierSchema,
+  kind: attemptKindSchema.default('retry'),
+  parent_attempt_id: attemptIdSchema.optional(),
+  retry_of_attempt_id: attemptIdSchema.optional(),
+  project_id: platformIdentifierSchema.optional(),
+  execution_target_id: executionTargetIdSchema.optional(),
+  provider: z.string().min(1).max(160).optional(),
+  model: z.string().min(1).max(256).optional(),
+  user_id: platformIdentifierSchema.optional(),
+  policy_decision_ids: z.array(policyDecisionIdSchema).optional(),
+  approval_ids: z.array(platformIdentifierSchema).optional(),
+  input_artifacts: z.array(artifactRefSchema).optional(),
+  metadata: platformMetadataSchema.optional(),
+});
+
+export type AttemptCreateInput = z.input<typeof attemptCreateInputSchema>;
+
+export const attemptTransitionInputSchema = z.strictObject({
+  request_id: platformIdentifierSchema,
+  status: attemptStatusSchema,
+  status_reason: z.string().max(2_000).optional(),
+  execution_target_id: executionTargetIdSchema.optional(),
+  provider: z.string().min(1).max(160).optional(),
+  model: z.string().min(1).max(256).optional(),
+  policy_decision_ids: z.array(policyDecisionIdSchema).optional(),
+  approval_ids: z.array(platformIdentifierSchema).optional(),
+  output_artifacts: z.array(artifactRefSchema).optional(),
+  partial_artifacts: z.array(artifactRefSchema).optional(),
+  usage: attemptUsageSchema.optional(),
+  metadata: platformMetadataSchema.optional(),
+});
+
+export type AttemptTransitionInput = z.input<typeof attemptTransitionInputSchema>;
+
+export const attemptActionInputSchema = z.strictObject({
+  request_id: platformIdentifierSchema,
+  metadata: platformMetadataSchema.optional(),
+});
+
+export type AttemptActionInput = z.input<typeof attemptActionInputSchema>;
+
 export const runStatusSchema = z.enum([
   'queued',
   'planning',
@@ -356,6 +503,8 @@ export const runSchema = z.strictObject({
   agent_session_id: agentSessionIdSchema,
   request_id: platformIdentifierSchema.optional(),
   parent_run_id: runIdSchema.optional(),
+  project_id: platformIdentifierSchema.optional(),
+  user_id: platformIdentifierSchema.optional(),
   status: runStatusSchema,
   created_at: isoDateTimeSchema,
   updated_at: isoDateTimeSchema,
@@ -366,6 +515,11 @@ export const runSchema = z.strictObject({
   output_artifacts: z.array(artifactRefSchema).optional(),
   policy_decision_ids: z.array(policyDecisionIdSchema).optional(),
   execution_target_id: executionTargetIdSchema.optional(),
+  attempt_ids: z.array(attemptIdSchema).optional(),
+  active_attempt_id: attemptIdSchema.optional(),
+  attempt_count: z.number().int().nonnegative().optional(),
+  partial_result: partialResultSchema.optional(),
+  approval_ids: z.array(platformIdentifierSchema).optional(),
   status_reason: z.string().max(2_000).optional(),
   metadata: platformMetadataSchema.optional(),
 });
@@ -376,9 +530,13 @@ export type Run = z.infer<typeof runSchema>;
 export const runCreateInputSchema = z.strictObject({
   request_id: platformIdentifierSchema,
   parent_run_id: runIdSchema.optional(),
+  project_id: platformIdentifierSchema.optional(),
+  user_id: platformIdentifierSchema.optional(),
   plan: z.array(runPlanStepSchema).optional(),
   input_resources: z.array(resourceRefSchema).optional(),
   execution_target_id: executionTargetIdSchema.optional(),
+  policy_decision_ids: z.array(policyDecisionIdSchema).optional(),
+  approval_ids: z.array(platformIdentifierSchema).optional(),
   metadata: platformMetadataSchema.optional(),
 });
 
@@ -394,6 +552,9 @@ export const runTransitionInputSchema = z.strictObject({
   output_artifacts: z.array(artifactRefSchema).optional(),
   policy_decision_ids: z.array(policyDecisionIdSchema).optional(),
   execution_target_id: executionTargetIdSchema.optional(),
+  approval_ids: z.array(platformIdentifierSchema).optional(),
+  partial_artifacts: z.array(artifactRefSchema).optional(),
+  usage: attemptUsageSchema.optional(),
   metadata: platformMetadataSchema.optional(),
 });
 
@@ -411,6 +572,10 @@ export const runForkInputSchema = z.strictObject({
   plan: z.array(runPlanStepSchema).optional(),
   input_resources: z.array(resourceRefSchema).optional(),
   execution_target_id: executionTargetIdSchema.optional(),
+  project_id: platformIdentifierSchema.optional(),
+  user_id: platformIdentifierSchema.optional(),
+  policy_decision_ids: z.array(policyDecisionIdSchema).optional(),
+  approval_ids: z.array(platformIdentifierSchema).optional(),
   metadata: platformMetadataSchema.optional(),
 });
 
@@ -424,10 +589,46 @@ export const providerConnectionProviderSchema = z.enum([
   'openrouter',
   'openai-compatible',
   'local',
+  'provider-cli',
   'custom',
 ]);
 
 export type ProviderConnectionProvider = z.infer<typeof providerConnectionProviderSchema>;
+
+const providerCommandArgSchema = z.string().min(1).max(4_096);
+const providerCommandEnvironmentNameSchema = z
+  .string()
+  .min(1)
+  .max(256)
+  .regex(/^[A-Za-z_][A-Za-z0-9_]*$/, {
+    message: 'provider command environment names must be valid environment variable names',
+  });
+
+/**
+ * Secret-free provider command configuration stored in a ProviderConnection
+ * metadata object. The credential itself remains in `secret_ref`; `auth_env`
+ * names the child-process environment slot that receives it at runtime.
+ */
+export const providerCommandConfigSchema = z.strictObject({
+  executable: z.string().min(1).max(4_096),
+  version_args: z.array(providerCommandArgSchema).max(32).optional(),
+  models_args: z.array(providerCommandArgSchema).max(32).optional(),
+  run_args: z.array(providerCommandArgSchema).max(64),
+  input: z.enum(['jsonl', 'text', 'none']).optional(),
+  models_output: z.enum(['json', 'jsonl']).optional(),
+  supported_version_range: z.string().min(1).max(256).optional(),
+  capabilities: z.strictObject({
+    streaming: z.boolean().optional(),
+    cancellation: z.boolean().optional(),
+    model_selection: z.boolean().optional(),
+    model_listing: z.boolean().optional(),
+    usage_metadata: z.boolean().optional(),
+  }).optional(),
+  max_output_bytes: z.number().int().positive().max(64 * 1024 * 1024).optional(),
+  auth_env: providerCommandEnvironmentNameSchema.optional(),
+});
+
+export type ProviderCommandConfig = z.infer<typeof providerCommandConfigSchema>;
 
 export const providerConnectionScopeSchema = z.enum(['workspace', 'member']);
 export const providerConnectionStateSchema = z.enum([
@@ -653,6 +854,7 @@ export const usageRecordSchema = z.strictObject({
   id: usageRecordIdSchema,
   workspace_id: workspaceIdSchema,
   run_id: runIdSchema,
+  attempt_id: attemptIdSchema.optional(),
   meter: usageMeterSchema,
   unit: usageUnitSchema,
   amount: z.number().finite().nonnegative(),
@@ -668,10 +870,89 @@ export type UsageRecord = z.infer<typeof usageRecordSchema>;
 
 export const executionTargetTypeSchema = z.enum([
   'local',
+  'ssh',
+  'docker',
+  'kubernetes',
   'customer-managed',
+  'private-gateway',
 ]);
 
 export type ExecutionTargetType = z.infer<typeof executionTargetTypeSchema>;
+
+export const executionTargetAuthenticationMethodSchema = z.enum([
+  'none',
+  'secret_ref',
+  'ssh_key',
+  'ssh_agent',
+  'bearer',
+  'mtls',
+  'workload_identity',
+  'unknown',
+]);
+
+export type ExecutionTargetAuthenticationMethod = z.infer<
+  typeof executionTargetAuthenticationMethodSchema
+>;
+
+/**
+ * Explicit, secret-free SSH transport configuration.
+ *
+ * Private key material is never part of this object; key authentication uses
+ * the target's opaque `credential_ref`, while agent authentication uses the
+ * configured local agent socket. The host fingerprint is a lower-case or
+ * upper-case hexadecimal digest of the SSH host key using `host_key_hash`.
+ */
+export const executionTargetSshConfigSchema = z.strictObject({
+  host: z.string().min(1).max(253).regex(/^[^\s\u0000-\u001F\u007F]+$/),
+  port: z.number().int().min(1).max(65_535).default(22),
+  user: z.string().min(1).max(128).regex(/^[A-Za-z_][A-Za-z0-9_.-]*[$]?$/),
+  host_key_hash: z.enum(['sha256', 'sha512', 'md5']).default('sha256'),
+  host_key_fingerprint: z.string().min(32).max(256).regex(/^[A-Fa-f0-9]+$/),
+  remote_root: z.string().min(1).max(4_096).regex(/^\/[^\u0000-\u001F\u007F]*$/),
+  agent_socket: z.string().min(1).max(4_096).regex(/^[^\u0000-\u001F\u007F]+$/).optional(),
+  connection_timeout_ms: z.number().int().min(100).max(60_000).default(10_000),
+  command_timeout_ms: z.number().int().min(100).max(300_000).default(300_000),
+});
+
+export type ExecutionTargetSshConfig = z.infer<typeof executionTargetSshConfigSchema>;
+
+export const executionTargetHealthStatusSchema = z.enum([
+  'unknown',
+  'healthy',
+  'unhealthy',
+  'unavailable',
+  'adapter-dependent',
+]);
+
+export type ExecutionTargetHealthStatus = z.infer<typeof executionTargetHealthStatusSchema>;
+
+export const executionTargetResourceInfoSchema = z.strictObject({
+  cpu_cores: z.number().finite().nonnegative().optional(),
+  memory_bytes: z.number().int().nonnegative().optional(),
+  gpu_count: z.number().int().nonnegative().optional(),
+  gpu_models: z.array(z.string().min(1).max(200)).optional(),
+});
+
+export type ExecutionTargetResourceInfo = z.infer<typeof executionTargetResourceInfoSchema>;
+
+export const executionTargetPolicySchema = z.strictObject({
+  policy_decision_id: policyDecisionIdSchema.optional(),
+  approval_required: z.boolean(),
+  allowed_operations: z.array(z.string().min(1).max(100)).default([]),
+});
+
+export type ExecutionTargetPolicy = z.infer<typeof executionTargetPolicySchema>;
+
+export const executionTargetVersionCompatibilitySchema = z.strictObject({
+  required_protocol_version: z.number().int().positive().optional(),
+  observed_protocol_version: z.number().int().positive().optional(),
+  compatible: z.boolean().optional(),
+  message: z.string().min(1).max(500).optional(),
+});
+
+export type ExecutionTargetVersionCompatibility = z.infer<
+  typeof executionTargetVersionCompatibilitySchema
+>;
 
 export const executionTargetStateSchema = z.enum([
   'configured',
@@ -699,7 +980,17 @@ export const executionTargetSchema = z.strictObject({
   state: executionTargetStateSchema,
   locality: executionTargetLocalitySchema,
   region: z.string().min(1).optional(),
+  endpoint: z.string().min(1).max(2_048).optional(),
   capabilities: z.array(z.string().min(1)),
+  available_models: z.array(z.string().min(1).max(256)).optional(),
+  available_providers: z.array(z.string().min(1).max(256)).optional(),
+  resources: executionTargetResourceInfoSchema.optional(),
+  authentication_method: executionTargetAuthenticationMethodSchema.optional(),
+  ssh: executionTargetSshConfigSchema.optional(),
+  policy: executionTargetPolicySchema.optional(),
+  health_status: executionTargetHealthStatusSchema.optional(),
+  last_health_check_at: isoDateTimeSchema.optional(),
+  version_compatibility: executionTargetVersionCompatibilitySchema.optional(),
   credential_ref: providerSecretRefSchema.optional(),
   lease_ref: platformIdentifierSchema.optional(),
   created_at: isoDateTimeSchema,
@@ -715,7 +1006,15 @@ export const executionTargetCreateInputSchema = z.strictObject({
   type: executionTargetTypeSchema,
   locality: executionTargetLocalitySchema,
   region: z.string().min(1).optional(),
+  endpoint: z.string().min(1).max(2_048).optional(),
   capabilities: z.array(z.string().min(1)).default([]),
+  available_models: z.array(z.string().min(1).max(256)).optional(),
+  available_providers: z.array(z.string().min(1).max(256)).optional(),
+  resources: executionTargetResourceInfoSchema.optional(),
+  authentication_method: executionTargetAuthenticationMethodSchema.optional(),
+  ssh: executionTargetSshConfigSchema.optional(),
+  policy: executionTargetPolicySchema.optional(),
+  version_compatibility: executionTargetVersionCompatibilitySchema.optional(),
   credential_ref: providerSecretRefSchema.optional(),
   metadata: platformMetadataSchema.optional(),
 });
@@ -728,7 +1027,15 @@ export const executionTargetUpdateInputSchema = z.strictObject({
   state: executionTargetStateSchema.optional(),
   locality: executionTargetLocalitySchema.optional(),
   region: z.string().min(1).optional(),
+  endpoint: z.string().min(1).max(2_048).optional(),
   capabilities: z.array(z.string().min(1)).optional(),
+  available_models: z.array(z.string().min(1).max(256)).optional(),
+  available_providers: z.array(z.string().min(1).max(256)).optional(),
+  resources: executionTargetResourceInfoSchema.optional(),
+  authentication_method: executionTargetAuthenticationMethodSchema.optional(),
+  ssh: executionTargetSshConfigSchema.optional(),
+  policy: executionTargetPolicySchema.optional(),
+  version_compatibility: executionTargetVersionCompatibilitySchema.optional(),
   credential_ref: providerSecretRefSchema.optional(),
   metadata: platformMetadataSchema.optional(),
 });
@@ -740,6 +1047,28 @@ export const executionTargetCommandInputSchema = z.strictObject({
 });
 
 export type ExecutionTargetCommandInput = z.infer<typeof executionTargetCommandInputSchema>;
+
+export const executionTargetTestInputSchema = z.strictObject({
+  request_id: platformIdentifierSchema,
+  timeout_ms: z.number().int().min(100).max(30_000).default(5_000),
+});
+
+export type ExecutionTargetTestInput = z.input<typeof executionTargetTestInputSchema>;
+
+export const executionTargetTestResultSchema = z.strictObject({
+  target_id: executionTargetIdSchema,
+  workspace_id: workspaceIdSchema,
+  status: executionTargetHealthStatusSchema,
+  checked_at: isoDateTimeSchema,
+  message: z.string().min(1).max(500).optional(),
+  capabilities: z.array(z.string().min(1)).optional(),
+  available_models: z.array(z.string().min(1).max(256)).optional(),
+  available_providers: z.array(z.string().min(1).max(256)).optional(),
+  resources: executionTargetResourceInfoSchema.optional(),
+  version_compatibility: executionTargetVersionCompatibilitySchema.optional(),
+});
+
+export type ExecutionTargetTestResult = z.infer<typeof executionTargetTestResultSchema>;
 
 export const executionLeaseStateSchema = z.enum([
   'awaiting_approval',
@@ -881,6 +1210,7 @@ export const usageRecordCreateInputSchema = z.strictObject({
   request_id: platformIdentifierSchema,
   actor_id: platformIdentifierSchema,
   run_id: runIdSchema,
+  attempt_id: attemptIdSchema.optional(),
   meter: usageMeterSchema,
   unit: usageUnitSchema,
   amount: z.number().finite().nonnegative(),
@@ -925,6 +1255,7 @@ export const platformEntityTypeSchema = z.enum([
   'workspace',
   'agent_session',
   'run',
+  'attempt',
   'artifact',
   'provider_connection',
   'resource',
@@ -943,6 +1274,8 @@ export const platformEntityTypeSchema = z.enum([
   'model_package',
   'serving_endpoint',
   'mcp_invocation',
+  'provider_invocation',
+  'tool_invocation',
 ]);
 
 export type PlatformEntityType = z.infer<typeof platformEntityTypeSchema>;
@@ -950,7 +1283,7 @@ export type PlatformEntityType = z.infer<typeof platformEntityTypeSchema>;
 export const platformLifecycleEventTypeSchema = z
   .string()
   .regex(
-    /^(workspace|agent_session|run|artifact|provider_connection|resource|policy_decision|usage_record|execution_target|automation|experiment|training_run|evaluation|model|comparison|analysis|pipeline|pipeline_run|model_package|serving_endpoint|mcp_invocation)\.(created|updated|state_changed|completed|failed|cancelled|archived|revoked|validated|activated|evaluated|approved|denied|audited|fired)$/,
+    /^(workspace|agent_session|run|attempt|artifact|provider_connection|provider_invocation|tool_invocation|resource|policy_decision|usage_record|execution_target|automation|experiment|training_run|evaluation|model|comparison|analysis|pipeline|pipeline_run|model_package|serving_endpoint|mcp_invocation)\.(created|updated|state_changed|completed|failed|cancelled|archived|revoked|validated|activated|evaluated|approved|denied|audited|fired)$/,
     {
       message: 'must be a supported <entity>.<lifecycle> event name',
     },
@@ -969,6 +1302,9 @@ export const platformLifecycleEventSchema = z
     actor: platformActorSchema,
     state: z.string().min(1).optional(),
     payload: platformMetadataSchema.optional(),
+    /** SHA-256 chain fields are optional only for pre-chain legacy events. */
+    previous_event_hash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+    event_hash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   })
   .superRefine((event, ctx) => {
     const entityType = event.event_type.slice(0, event.event_type.indexOf('.'));

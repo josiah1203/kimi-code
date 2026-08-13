@@ -19,6 +19,9 @@ Environment variables are explicit overrides for local configuration. They are u
 | `SPIDERBYTE_MODEL_THINKING_KEEP` | Controls preserved reasoning content. |
 | `SPIDERBYTE_MODEL_THINKING_EFFORT` | Sets the model's thinking effort. |
 | `SPIDERBYTE_MODEL_REASONING_KEY` | Selects a non-standard reasoning field for compatible gateways. |
+| `SPIDERBYTE_SECRET_STORE_KEY` | 32-byte hex or base64url key used to encrypt local provider credentials at rest. Required before creating or migrating a persisted provider credential. |
+| `SPIDERBYTE_LOCAL_ACTOR_ID` | Server-owned local principal used for local project/workspace authorization and audit attribution; request-body actor IDs are ignored by the REST platform edge. |
+| `SPIDERBYTE_MCP_PROFILE` | HTTP MCP tool profile: `full` for the developer inventory or `curated` for Otis's narrow semantic surface. Defaults to `full`; the bundled Otis stdio configuration passes `--profile curated`. |
 
 Example:
 
@@ -30,7 +33,21 @@ SPIDERBYTE_MODEL_API_KEY=local \
 spyderbyte
 ```
 
-The environment overlay is process-local. It is not written back to `config.toml`; use a provider record when the setting should persist.
+The environment overlay is process-local. It is not written back to `config.toml`; use `spyderbyte configure` or a provider import command when an encrypted credential should persist.
+
+Provider-connection credentials are stored as authenticated AES-256-GCM
+envelopes under the credentials scope. SpiderByte never falls back to plaintext when
+`SPIDERBYTE_SECRET_STORE_KEY` is absent or invalid. Keep this key in the
+operator's secret manager or process environment and back it up separately
+from `SPIDERBYTE_HOME`; losing it makes encrypted local credentials
+unrecoverable. The key is never included in provider records, artifacts,
+transcripts, MCP results, or logs.
+
+The compatibility model-catalog route accepts `api_key` only as a transient
+setup input. Legacy `providers.*.api_key` entries are migrated at startup to
+opaque references; the raw value is not returned or persisted after a
+successful migration. Migration fails closed when the secret-store key is
+missing.
 
 ## Runtime controls
 

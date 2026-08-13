@@ -130,7 +130,7 @@ export function buildWebCommand(cmd: Command): Command {
     )
     .option(
       '--dangerous-bypass-auth',
-      'Disable bearer-token auth on every REST and WebSocket route, and advertise it via /api/v1/meta so a browser client connects without a token. Only use on a trusted network or behind your own authenticating proxy.',
+      'Disable bearer-token auth on every REST and WebSocket route, and advertise it via /api/v1/meta so a browser client connects without a token. Loopback binds only; LAN/public binds are rejected.',
       false,
     )
     .option(
@@ -325,7 +325,6 @@ export function formatReadyBanner(
   host: string,
   opts: FormatReadyBannerOptions = {},
 ): string {
-  const primary = (text: string): string => chalk.hex(darkColors.primary)(text);
   const title = (text: string): string => chalk.bold.hex(darkColors.primary)(text);
   const dim = (text: string): string => chalk.hex(darkColors.textDim)(text);
   const muted = (text: string): string => chalk.hex(darkColors.textMuted)(text);
@@ -339,13 +338,12 @@ export function formatReadyBanner(
   };
 
   const port = Number(new URL(origin).port);
-  // Borderless header: the SpiderByte sprite sits next to the title, keeping
-  // the brand without the enclosing box.
-  const logo = ['▐█▛█▛█▌', '▐█████▌'] as const;
+  // Borderless header: keep the server state and product name immediately
+  // visible without rendering the legacy terminal character/pixel.
   const lines: string[] = [
     '',
-    `  ${primary(logo[0])}  ${title('SpiderByte server ready')}  ${dim(getVersion())}`,
-    `  ${primary(logo[1])}  ${dim('Local REST/WebSocket API is available from this machine.')}`,
+    `  ${title('SpiderByte server ready')}  ${dim(getVersion())}`,
+    `  ${dim('Local REST/WebSocket API is available from this machine.')}`,
     '',
   ];
 

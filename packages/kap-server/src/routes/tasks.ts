@@ -61,6 +61,7 @@ import { requestLog } from '../lib/requestLog';
 import { defineRoute } from '../middleware/defineRoute';
 import { ensureMainAgent } from '../transport/mainAgent';
 import { parseActionSuffix } from './action-suffix';
+import { assertSessionAuthorization } from '../services/platformAuthorization';
 
 /** Default cap (bytes) for the opt-in output preview on GET-by-id. */
 const DEFAULT_TASK_OUTPUT_PREVIEW_BYTES = 32 * 1024;
@@ -117,6 +118,11 @@ export function registerTasksRoutes(app: TasksRouteHost, core: Scope): void {
     },
     async (req, reply) => {
       const { session_id } = req.params;
+      await assertSessionAuthorization(core, {
+        sessionId: session_id,
+        requestId: req.id,
+        capability: 'data.read',
+      });
       const resolved = await resolveSessionTasks(core, session_id);
       if (resolved.kind === 'not_found') {
         reply.send(sessionNotFound(session_id, req.id));
@@ -154,6 +160,11 @@ export function registerTasksRoutes(app: TasksRouteHost, core: Scope): void {
     },
     async (req, reply) => {
       const { session_id, task_id } = req.params;
+      await assertSessionAuthorization(core, {
+        sessionId: session_id,
+        requestId: req.id,
+        capability: 'data.read',
+      });
       const resolved = await resolveSessionTasks(core, session_id);
       if (resolved.kind === 'not_found') {
         reply.send(sessionNotFound(session_id, req.id));
@@ -235,6 +246,12 @@ export function registerTasksRoutes(app: TasksRouteHost, core: Scope): void {
         reply.send(errEnvelope(ErrorCode.VALIDATION_FAILED, 'invalid path params', req.id));
         return;
       }
+
+      await assertSessionAuthorization(core, {
+        sessionId: session_id,
+        requestId: req.id,
+        capability: 'run.execute',
+      });
 
       const resolved = await resolveSessionTasks(core, session_id);
       if (resolved.kind === 'not_found') {

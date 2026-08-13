@@ -3,7 +3,7 @@
  *
  * Single-column layout showing one row per "platform / source":
  *   - each Open Platform provider setup (1 source = 1 provider)
- *   - each Custom Registry connection grouping by `{url, apiKey}`
+ *   - each Custom Registry connection grouping by `{url, secretRef}`
  *     (1 source = N providers from the same api.json fetch)
  *   - any other configured provider (1 source = 1 provider)
  *   - a synthetic final `[ Add New Platform ]` action row
@@ -102,12 +102,12 @@ function readCustomRegistrySource(provider: unknown): CustomRegistrySource | und
   const candidate = source as {
     readonly kind?: unknown;
     readonly url?: unknown;
-    readonly apiKey?: unknown;
+    readonly secretRef?: unknown;
   };
   if (candidate.kind !== 'apiJson') return undefined;
   if (typeof candidate.url !== 'string' || candidate.url.length === 0) return undefined;
-  if (typeof candidate.apiKey !== 'string') return undefined;
-  return { kind: 'apiJson', url: candidate.url, apiKey: candidate.apiKey };
+  if (candidate.secretRef !== undefined && typeof candidate.secretRef !== 'string') return undefined;
+  return { kind: 'apiJson', url: candidate.url, secretRef: candidate.secretRef };
 }
 
 /**
@@ -129,14 +129,14 @@ function sourceUrlLabel(url: string): string {
  * The grouping rules:
  *   - Open Platform id (`isOpenPlatformId(id)`) → 1 source per provider,
  *     label = `OpenPlatformDefinition.name`.
- *   - `cfg.source.kind === 'apiJson'` → one source per `{url, apiKey}`
+ *   - `cfg.source.kind === 'apiJson'` → one source per `{url, secretRef}`
  *     pair, label = hostname + pathname.
  *   - Anything else → 1 source per provider, label = provider id.
  */
 function buildRows(opts: ProviderManagerOptions): readonly Row[] {
   const sources: SourceRow[] = [];
 
-  // Map from `${url}${apiKey}` → index into `sources`, so we can
+  // Map from `${url}${secretRef}` → index into `sources`, so we can
   // append further providers into the same group.
   const customRegistryIndex = new Map<string, number>();
 
@@ -162,7 +162,7 @@ function buildRows(opts: ProviderManagerOptions): readonly Row[] {
 
     const customSource = readCustomRegistrySource(cfg);
     if (customSource !== undefined) {
-      const key = `${customSource.url}${customSource.apiKey}`;
+      const key = `${customSource.url}\u0000${customSource.secretRef ?? ''}`;
       const existingIdx = customRegistryIndex.get(key);
       if (existingIdx !== undefined) {
         const existing = sources[existingIdx];

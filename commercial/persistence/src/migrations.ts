@@ -68,6 +68,38 @@ CREATE TABLE commercial_audit_events (
 `,
     down: 'DROP TABLE IF EXISTS commercial_audit_events; DROP TABLE IF EXISTS commercial_idempotency;',
   },
+  {
+    id: 'commercial-004-offline-licensing',
+    version: 4,
+    up: `
+CREATE INDEX commercial_license_tenant_idx
+  ON commercial_records (account_id, organization_id, collection, record_id)
+  WHERE collection IN ('licenses', 'license_activations', 'license_seats');
+CREATE INDEX commercial_license_state_idx
+  ON commercial_records (organization_id, state, collection, record_id)
+  WHERE collection IN ('license_activations', 'license_seats');
+`,
+    down: 'DROP INDEX IF EXISTS commercial_license_state_idx; DROP INDEX IF EXISTS commercial_license_tenant_idx;',
+  },
+  {
+    id: 'commercial-005-event-history',
+    version: 5,
+    up: `
+CREATE TABLE commercial_event_log (
+  sequence BIGSERIAL PRIMARY KEY,
+  event_id TEXT NOT NULL UNIQUE,
+  account_id TEXT,
+  organization_id TEXT NOT NULL,
+  workspace_id TEXT,
+  type TEXT NOT NULL,
+  occurred_at TIMESTAMPTZ NOT NULL,
+  payload JSONB NOT NULL
+);
+CREATE INDEX commercial_event_log_scope_idx
+  ON commercial_event_log (organization_id, workspace_id, sequence);
+`,
+    down: 'DROP TABLE IF EXISTS commercial_event_log;',
+  },
 ] as const;
 
 export interface CommercialSqlQueryResult<Row extends Record<string, unknown> = Record<string, unknown>> {

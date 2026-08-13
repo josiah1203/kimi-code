@@ -41,6 +41,10 @@ import { ScopeActivation, registerScopedService } from '#/_base/di/scope';
 import { Emitter, type Event } from '#/_base/event';
 import { BugIndicatingError, onUnexpectedError } from '#/errors';
 import { IBootstrapService } from '#/app/bootstrap/bootstrap';
+import { IPlatformSecretStore } from '#/app/secrets/platformSecretStore';
+import { migrateProviderSecrets } from '#/app/kosongConfig/providerSecrets';
+import type { ModelsSection } from '#/kosong/model/model';
+import type { ProvidersSection } from '#/kosong/provider/provider';
 import { ILogService } from '#/_base/log/log';
 import {
   IAtomicTomlDocumentStore,
@@ -353,6 +357,9 @@ export class ConfigService extends Disposable implements IConfigService {
     @IBootstrapService private readonly bootstrap: IBootstrapService,
     @ILogService private readonly log: ILogService,
     @IAtomicTomlDocumentStore private readonly documentStore: IAtomicDocumentStore,
+    // Keep the dependency optional for small embedded/test containers, but
+    // fail closed if one tries to persist provider credentials without it.
+    @IPlatformSecretStore private readonly secrets?: IPlatformSecretStore,
   ) {
     super();
     this.configKey = this.bootstrap.configKey;
@@ -448,7 +455,7 @@ export class ConfigService extends Disposable implements IConfigService {
         delete this.raw[domain];
       } else {
         this.registry.validate(domain, stripped);
-        this.raw[domain] = stripped;
+        this.raw[domain] = await this.secureProviderConfig(domain, stripped);
       }
       await this.persist(domain);
       this.rebuildEffective('set', [domain]);
@@ -476,7 +483,8 @@ export class ConfigService extends Disposable implements IConfigService {
       if (stripped === undefined) {
         delete this.raw[domain];
       } else {
-        this.raw[domain] = this.registry.validate(domain, stripped);
+        const validated = this.registry.validate(domain, stripped);
+        this.raw[domain] = await this.secureProviderConfig(domain, validated);
       }
       await this.persist(domain);
       this.rebuildEffective('set', [domain]);
@@ -514,6 +522,10 @@ export class ConfigService extends Disposable implements IConfigService {
         } else {
           staged[domain] = this.registry.validate(domain, stripped);
         }
+      }
+      for (const domain of domains) {
+        if (!Object.prototype.hasOwnProperty.call(staged, domain)) continue;
+        staged[domain] = await this.secureProviderConfig(domain, staged[domain]);
       }
       this.raw = staged;
       await this.persistDomains(domains);
@@ -775,6 +787,29 @@ export class ConfigService extends Disposable implements IConfigService {
 
     this.applyEnvOverlay(this.effective);
     this.commit('reload', [domain]);
+  }
+
+  /**
+   * Provider/model credentials are the one config family whose runtime shape
+   * intentionally differs from its persisted shape. Perform this conversion
+   * after schema validation but before the user layer is written, so every
+   * config caller (REST, SDK, klient, or an internal service) shares the same
+   * encrypted-reference boundary.
+   */
+  private async secureProviderConfig(domain: string, value: unknown): Promise<unknown> {
+    if (domain === 'providers' && isPlainObject(value)) {
+      if (this.secrets === undefined) {
+        throw new Error('provider credential persistence requires the platform secret store');
+      }
+      return (await migrateProviderSecrets(value as ProvidersSection, {}, this.secrets)).providers;
+    }
+    if (domain === 'models' && isPlainObject(value)) {
+      if (this.secrets === undefined) {
+        throw new Error('provider credential persistence requires the platform secret store');
+      }
+      return (await migrateProviderSecrets({}, value as ModelsSection, this.secrets)).models;
+    }
+    return value;
   }
 
   private async persist(domain: string): Promise<void> {

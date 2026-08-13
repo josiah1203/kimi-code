@@ -19,6 +19,7 @@
 
 import { errEnvelope } from './envelope';
 import { ErrorCode } from './protocol/error-codes';
+import { ErrorCodes, isError2 } from '@spiderbyte/agent-core';
 import type { FastifyError } from 'fastify';
 
 /**
@@ -40,6 +41,12 @@ interface ErrorHandlerHost {
 export function installErrorHandler(app: ErrorHandlerHost): void {
   app.setErrorHandler((err, req, reply) => {
     const requestId = req.id;
+    if (isError2(err) && err.code === ErrorCodes.AUTHORIZATION_DENIED) {
+      reply.status(200).send(
+        errEnvelope(ErrorCode.PLATFORM_POLICY_DENIED, 'platform policy denied the request', requestId),
+      );
+      return;
+    }
     req.log.error({ err, request_id: requestId }, 'unhandled error');
     reply.status(200).send(
       errEnvelope(

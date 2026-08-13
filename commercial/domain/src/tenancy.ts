@@ -168,6 +168,14 @@ export type AcceptInvitationInput = z.infer<typeof acceptInvitationInputSchema>;
 
 export const membershipStateInputSchema = commandContextSchema.extend({
   membership_id: membershipIdSchema,
+  organization_id: organizationIdSchema.optional(),
   state: z.enum(['active', 'suspended', 'removed']),
 });
 export type MembershipStateInput = z.infer<typeof membershipStateInputSchema>;
+
+export const membershipRolesInputSchema = commandContextSchema.extend({
+  membership_id: membershipIdSchema,
+  organization_id: organizationIdSchema.optional(),
+  role_ids: z.array(roleIdSchema).min(1).max(100).readonly(),
+});
+export type MembershipRolesInput = z.infer<typeof membershipRolesInputSchema>;

@@ -24,6 +24,7 @@ import { isProxyConfigured, makeNoProxyMatcher, resolveNoProxy } from '#/_base/u
 import { Error2, ErrorCodes } from '#/errors';
 
 import { HttpFetchError, type UrlFetcher, type UrlFetchResult } from '../tools/fetch-url-types';
+import { readResponseTextBounded } from '../../net/responseBody';
 
 type ReadabilityDocument = ConstructorParameters<typeof Readability>[0];
 
@@ -112,14 +113,12 @@ export class LocalFetchURLProvider implements UrlFetcher {
       }
     }
 
-    const body = await response.text();
-
-    const actualBytes = Buffer.byteLength(body, 'utf8');
-    if (actualBytes > this.maxBytes) {
+    const body = await readResponseTextBounded(response, this.maxBytes);
+    if (body === undefined) {
       throw new Error2(
         ErrorCodes.WEB_FETCH_FAILED,
-        `Response body too large: ${String(actualBytes)} bytes exceeds maxBytes (${String(this.maxBytes)}).`,
-        { details: { bytes: actualBytes, maxBytes: this.maxBytes } },
+        `Response body too large: exceeds maxBytes (${String(this.maxBytes)}).`,
+        { details: { maxBytes: this.maxBytes } },
       );
     }
 

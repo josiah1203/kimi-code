@@ -43,7 +43,7 @@ if (mcp !== undefined) {
   } else {
     const local = servers['spiderbyte-local'];
     if (local?.command !== 'spyderbyte') failures.push('.mcp.json.spiderbyte-local.command: expected spyderbyte');
-    if (JSON.stringify(local?.args) !== JSON.stringify(['mcp'])) failures.push('.mcp.json.spiderbyte-local.args: expected ["mcp"]');
+    if (JSON.stringify(local?.args) !== JSON.stringify(['mcp', '--profile', 'curated'])) failures.push('.mcp.json.spiderbyte-local.args: expected curated MCP profile');
     if (/(sk-[A-Za-z0-9]|Bearer\s+[^<$`\s]+|api[_-]?key\s*[:=])/i.test(JSON.stringify(mcp))) {
       failures.push('.mcp.json: possible secret or bearer credential');
     }

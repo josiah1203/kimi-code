@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import {
   artifactIdSchema,
+  attemptIdSchema,
   executionTargetIdSchema,
   platformIdentifierSchema,
   platformMetadataSchema,
@@ -85,6 +86,7 @@ export type ServingEndpoint = z.infer<typeof servingEndpointSchema>;
 export const servingEndpointCreateInputSchema = z.strictObject({
   request_id: platformIdentifierSchema,
   run_id: runIdSchema,
+  attempt_id: attemptIdSchema.optional(),
   name: z.string().min(1).max(500),
   model_package_id: modelPackageIdSchema,
   execution_target_id: executionTargetIdSchema.optional(),
@@ -100,6 +102,7 @@ export type ServingEndpointAction = z.infer<typeof servingEndpointActionSchema>;
 export const servingEndpointActionInputSchema = z.strictObject({
   request_id: platformIdentifierSchema,
   run_id: runIdSchema.optional(),
+  attempt_id: attemptIdSchema.optional(),
   deploy_policy_decision_id: platformIdentifierSchema.optional(),
   execution_target_policy_decision_id: platformIdentifierSchema.optional(),
   model_package_id: modelPackageIdSchema.optional(),

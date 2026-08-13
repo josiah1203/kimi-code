@@ -18,6 +18,7 @@ export interface RefreshProviderHost {
   getConfig(): Promise<SpiderByteConfig>;
   removeProvider(providerId: string): Promise<SpiderByteConfig>;
   setConfig(patch: SpiderByteConfigPatch): Promise<SpiderByteConfig>;
+  resolveSecretRef?(secretRef: string): Promise<string | undefined>;
   /** Product User-Agent sent on custom-registry (api.json) fetches. */
   readonly userAgent?: string;
 }
@@ -37,6 +38,7 @@ export async function refreshAllProviderModels(
     getConfig: () => host.getConfig() as unknown as Promise<SpiderByteConfigShape>,
     removeProvider: (providerId: string) => host.removeProvider(providerId),
     setConfig: (patch: SpiderByteConfigPatch) => host.setConfig(patch),
+    resolveSecretRef: host.resolveSecretRef,
     userAgent: host.userAgent,
   };
   return refreshProviderModels(providerHost as unknown as OAuthRefreshProviderHost, options);

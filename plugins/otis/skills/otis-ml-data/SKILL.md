@@ -16,9 +16,10 @@ provider, transcript, search, MiniDB, or ML/data execution requests.
 
 ## Required MCP tools
 
-Use `spiderbyte_capabilities`, then the applicable dataset, artifact, analysis,
-experiment, training, evaluation, model, execution-target, Run, policy, and
-usage tools. Use `search` and `fetch` for stable result inspection.
+Use `get_capabilities`, then the applicable curated dataset, artifact,
+execution-target, baseline-training, Run, and approval tools. Use the full
+developer profile or local service APIs for search, fetch, detailed experiment
+management, policy, usage, and evaluation operations not exposed by Otis.
 
 ## Confirmation
 

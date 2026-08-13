@@ -115,6 +115,22 @@ describe('server-v2 /api/v1/config', () => {
     expect(toml).toContain('default_effort = "high"');
   });
 
+  it('POST provider api_key persists only an encrypted secret reference', async () => {
+    await boot();
+
+    const cfg = await patchConfig({
+      providers: {
+        openai: { type: 'openai', api_key: 'sk-config-post-secret' },
+      },
+    });
+    expect(cfg.providers.openai).toMatchObject({ type: 'openai', has_api_key: true });
+
+    const toml = await readFile(join(home as string, 'config.toml'), 'utf-8');
+    expect(toml).toContain('secret_ref');
+    expect(toml).not.toContain('sk-config-post-secret');
+    expect(toml).not.toContain('api_key');
+  });
+
   it('GET hides the synthesized __secondary__ derived entry from models', async () => {
     await boot('[models.k2-test]\nprovider = "example"\nmodel = "example-model"\n');
     // `default_effort` is a patch field, so the overlay synthesizes the

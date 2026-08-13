@@ -19,6 +19,7 @@
 
 import { createDecorator, type ServiceIdentifier } from '#/_base/di/instantiation';
 import type { Event, IWaitUntil } from '#/_base/event';
+import type { ProviderSecretRef } from '@spiderbyte/protocol';
 
 export type ProviderType = string;
 
@@ -38,6 +39,8 @@ export interface ProviderConfig {
   defaultModel?: string;
 
   type?: ProviderType;
+  /** Opaque reference to encrypted credential material. Raw apiKey is runtime-only. */
+  secretRef?: ProviderSecretRef;
   apiKey?: string;
   oauth?: OAuthRef;
   env?: Record<string, string>;

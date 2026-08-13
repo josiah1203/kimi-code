@@ -18,6 +18,7 @@ import { z } from 'zod';
 
 import { ErrorCode } from '../../../protocol/error-codes';
 import { mapPlatformError } from '../../../routes/v2/platformErrors';
+import { assertWorkspaceAuthorization } from '../../../services/platformAuthorization';
 
 export const WS_PATH_V2_PLATFORM = '/api/v2/platform/ws';
 
@@ -124,6 +125,11 @@ class PlatformWsConnection {
         });
         return;
       }
+      await assertWorkspaceAuthorization(this.core, {
+        workspaceId,
+        requestId: control.request_id,
+        capability: 'workspace.read',
+      });
       const events = accessor.get(IWorkspacePlatformEventService);
       await events.ready;
       if (control.type === 'subscribe') {

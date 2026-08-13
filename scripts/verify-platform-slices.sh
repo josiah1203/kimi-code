@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Node 24 is the repository's release engine. The current offline development
-# image may expose Node 22, so keep pnpm's engine warning non-fatal here while
-# still running the same package checks.
-COREPACK_HOME="${COREPACK_HOME:-/tmp/kimi-corepack}"
-export COREPACK_HOME
+# Node 24 is the repository's release engine. Keep pnpm's engine warning
+# non-fatal for this focused slice, while preserving the caller's pnpm/Corepack
+# configuration so an already-installed package manager is not forced through
+# a network download.
 
 pnpm --config.engine-strict=false --filter @spiderbyte/protocol typecheck
 pnpm --config.engine-strict=false --filter @spiderbyte/agent-core typecheck

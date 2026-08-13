@@ -45,6 +45,7 @@ import { defineRoute } from '../../middleware/defineRoute';
 import { errEnvelope, okEnvelope } from '../../protocol/envelope';
 import { ErrorCode } from '../../protocol/error-codes';
 import { resolveSessionFacts, type SessionFacts } from '../sessions';
+import { isWorkspaceAuthorized } from '../../services/platformAuthorization';
 
 interface V2SessionsRouteHost {
   get(
@@ -422,7 +423,16 @@ export function registerV2SessionsRoutes(app: V2SessionsRouteHost, core: Scope):
         return facts;
       };
 
-      const filtered = page.items.filter((summary) => {
+      const visibleItems: SessionSummary[] = [];
+      for (const summary of page.items) {
+        if (await isWorkspaceAuthorized(core, {
+          workspaceId: summary.workspaceId,
+          requestId: `session_list:${summary.id}`,
+          capability: 'workspace.read',
+        })) visibleItems.push(summary);
+      }
+
+      const filtered = visibleItems.filter((summary) => {
         if (query.archived === 'true' && !summary.archived) return false;
         if (query.updatedAfter !== undefined && summary.updatedAt < query.updatedAfter) {
           return false;

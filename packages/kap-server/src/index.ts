@@ -11,9 +11,13 @@ export {
   SPIDERBYTE_MCP_MAX_ARTIFACT_BYTES,
   SPIDERBYTE_MCP_MAX_RESULT_TEXT,
   SPIDERBYTE_MCP_PROTOCOL_VERSION,
+  SPIDERBYTE_MCP_CURATED_TOOLS,
+  SPIDERBYTE_MCP_MAX_CURATED_STRUCTURED_BYTES,
+  SPIDERBYTE_MCP_PROFILES,
   SPIDERBYTE_MCP_SERVER_NAME,
+  resolveSpyderbyteMcpProfile,
 } from './mcp/server';
-export type { SpyderbyteMcpOptions } from './mcp/server';
+export type { SpyderbyteMcpOptions, SpyderbyteMcpProfile } from './mcp/server';
 export { createSpyderbyteMcpHandler } from './mcp/routes';
 export type { RegisterMcpRoutesOptions } from './mcp/routes';
 export { okEnvelope, errEnvelope } from './envelope';

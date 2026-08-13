@@ -45,7 +45,7 @@ function assert(cond: boolean, message: string): asserts cond {
 }
 
 interface ProvidersSectionView {
-  readonly [name: string]: { readonly apiKey?: string } | undefined;
+  readonly [name: string]: { readonly apiKey?: string; readonly secretRef?: string } | undefined;
 }
 
 interface ModelsSectionView {
@@ -65,6 +65,16 @@ const anonymousModel = (id: string) => ({
   auth: { method: 'api-key' as const, apiKey: `sk-${id}` },
   maxContextSize: 8192,
 });
+
+function assertPersistedProviderSecret(
+  provider: { readonly apiKey?: string; readonly secretRef?: string } | undefined,
+  message: string,
+): void {
+  assert(
+    provider?.apiKey === undefined && typeof provider?.secretRef === 'string',
+    message,
+  );
+}
 
 /** Key-order-independent deep equality (post-restart TOML round-trips reorder keys). */
 const stable = (value: unknown): string =>
@@ -104,9 +114,9 @@ async function main(): Promise<void> {
         const name = `seq_${String(i)}`;
         await kosong.addProvider(name, apiKeyProvider(`sk-seq-${String(i)}`));
         const providers = await config.get<ProvidersSectionView>('providers');
-        assert(
-          providers[name]?.apiKey === `sk-seq-${String(i)}`,
-          `providers.${name} persisted before addProvider resolved`,
+        assertPersistedProviderSecret(
+          providers[name],
+          `providers.${name} persisted as an opaque reference before addProvider resolved`,
         );
         const got = await kosong.getProvider(name);
         assert(got !== undefined, `providers.${name} visible to the registry facade`);
@@ -119,7 +129,7 @@ async function main(): Promise<void> {
       for (let i = 0; i < 15; i += 1) {
         await kosong.addProvider('flip', apiKeyProvider(`sk-flip-${String(i)}`));
         let providers = await config.get<ProvidersSectionView>('providers');
-        assert(providers['flip']?.apiKey === `sk-flip-${String(i)}`, 'flip add persisted');
+        assertPersistedProviderSecret(providers['flip'], 'flip add persisted as an opaque reference');
         await kosong.removeProvider('flip');
         providers = await config.get<ProvidersSectionView>('providers');
         assert(providers['flip'] === undefined, 'flip remove persisted');
@@ -149,9 +159,9 @@ async function main(): Promise<void> {
       );
       const providers = await config.get<ProvidersSectionView>('providers');
       for (let i = 0; i < 40; i += 1) {
-        assert(
-          providers[`burst_${String(i)}`]?.apiKey === `sk-burst-${String(i)}`,
-          `burst_${String(i)} survived the concurrent burst`,
+        assertPersistedProviderSecret(
+          providers[`burst_${String(i)}`],
+          `burst_${String(i)} survived the concurrent burst as an opaque reference`,
         );
       }
     });
@@ -200,7 +210,10 @@ async function main(): Promise<void> {
 
       await config.set({ domain: 'providers', patch: { cfg_only: { apiKey: 'sk-cfg-updated' } } });
       const providers = await config.get<ProvidersSectionView>('providers');
-      assert(providers['cfg_only']?.apiKey === 'sk-cfg-updated', 'config.set merge persisted');
+      assertPersistedProviderSecret(
+        providers['cfg_only'],
+        'config.set merge persisted an opaque reference',
+      );
 
       await kosong.removeProvider('cfg_only');
       assert(
@@ -258,7 +271,11 @@ async function main(): Promise<void> {
 }
 
 const pinnedModelEnv = process.env['SPIDERBYTE_MODEL_NAME'];
+const pinnedSecretStoreKey = process.env['SPIDERBYTE_SECRET_STORE_KEY'];
 delete process.env['SPIDERBYTE_MODEL_NAME'];
+if (pinnedSecretStoreKey === undefined) {
+  process.env['SPIDERBYTE_SECRET_STORE_KEY'] = Buffer.alloc(32, 17).toString('base64url');
+}
 try {
   await main();
 } catch (error) {
@@ -266,4 +283,6 @@ try {
   process.exit(1);
 } finally {
   if (pinnedModelEnv !== undefined) process.env['SPIDERBYTE_MODEL_NAME'] = pinnedModelEnv;
+  if (pinnedSecretStoreKey === undefined) delete process.env['SPIDERBYTE_SECRET_STORE_KEY'];
+  else process.env['SPIDERBYTE_SECRET_STORE_KEY'] = pinnedSecretStoreKey;
 }

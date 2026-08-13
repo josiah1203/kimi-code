@@ -134,6 +134,8 @@ import {
 import { workspaceIdParamSchema } from '../protocol/rest-workspace';
 import type { SkillDescriptor } from '../protocol/skill';
 import { parseActionSuffix } from './action-suffix';
+import { mapPlatformError } from './v2/platformErrors';
+import { assertWorkspaceAuthorization } from '../services/platformAuthorization';
 
 interface SkillsRouteHost {
   get(
@@ -176,7 +178,21 @@ async function resolveActivatedSession(
   core: Scope,
   sessionId: string,
   requestId: string,
+  capability: 'workspace.read' | 'run.execute',
 ): Promise<ResolvedSession> {
+  const summary = await core.accessor.get(ISessionIndex).get(sessionId);
+  if (summary === undefined) {
+    return { envelope: errEnvelope(ErrorCode.SESSION_NOT_FOUND, `session ${sessionId} does not exist`, requestId) };
+  }
+  try {
+    await assertWorkspaceAuthorization(core, {
+      workspaceId: summary.workspaceId,
+      requestId,
+      capability,
+    });
+  } catch (error) {
+    return { envelope: mapPlatformError(error, requestId) };
+  }
   // `resume` (not `get`) so listing/activating skills on a freshly-opened cold
   // session cold-loads it instead of reporting "not activated"; matches v1's
   // `resumeSession` in SkillService. `resume` returns undefined only when the
@@ -184,11 +200,8 @@ async function resolveActivatedSession(
   const handle = await resumeSessionById(core.accessor, sessionId);
   if (handle !== undefined) return { handle };
 
-  const summary = await core.accessor.get(ISessionIndex).get(sessionId);
   const msg =
-    summary === undefined
-      ? `session ${sessionId} does not exist`
-      : `session ${sessionId} is not activated, you need to activate it first`;
+    `session ${sessionId} is not activated, you need to activate it first`;
   return { envelope: errEnvelope(ErrorCode.SESSION_NOT_FOUND, msg, requestId) };
 }
 
@@ -209,7 +222,7 @@ export function registerSkillsRoutes(app: SkillsRouteHost, core: Scope): void {
     },
     async (req, reply) => {
       const { session_id } = req.params;
-      const resolved = await resolveActivatedSession(core, session_id, req.id);
+      const resolved = await resolveActivatedSession(core, session_id, req.id, 'workspace.read');
       if ('envelope' in resolved) {
         reply.send(resolved.envelope);
         return;
@@ -251,6 +264,16 @@ export function registerSkillsRoutes(app: SkillsRouteHost, core: Scope): void {
             req.id,
           ),
         );
+        return;
+      }
+      try {
+        await assertWorkspaceAuthorization(core, {
+          workspaceId: workspace_id,
+          requestId: req.id,
+          capability: 'workspace.read',
+        });
+      } catch (error) {
+        reply.send(mapPlatformError(error, req.id));
         return;
       }
       const skills = (await listWorkspaceSkillsForRoot(core, ws.root)).map(toProtocolSkill);
@@ -301,7 +324,7 @@ export function registerSkillsRoutes(app: SkillsRouteHost, core: Scope): void {
         return;
       }
 
-      const resolved = await resolveActivatedSession(core, session_id, req.id);
+      const resolved = await resolveActivatedSession(core, session_id, req.id, 'run.execute');
       if ('envelope' in resolved) {
         reply.send(resolved.envelope);
         return;

@@ -1,7 +1,8 @@
 /**
  * `@spiderbyte/client` public surface — the transport-agnostic client facade
- * over the SpiderByte Agent Core engine. Create a klient with one of the transport
- * entry points (`@spiderbyte/client/ipc` or `/memory`); everything
+ * over the SpiderByte Agent Core engine. Create a client facade with one of the
+ * transport entry points (`@spiderbyte/client/ipc` or `/memory`); exported
+ * `Klient*` names are retained compatibility identifiers; everything
  * exported here behaves identically regardless of which one carried the
  * bytes.
  */

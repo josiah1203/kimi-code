@@ -335,7 +335,7 @@ describe('server-v2 /api/v1 catalog browse + import endpoints', () => {
     expect(providers['openai']).toMatchObject({
       type: 'openai',
       base_url: 'https://api.openai.com/v1',
-      api_key: 'sk-imported',
+      secret_ref: expect.stringMatching(/^secret_/),
     });
     const models = config['models'] as Record<string, Record<string, unknown>>;
     expect(models['openai/gpt-4.1']).toMatchObject({
@@ -373,7 +373,7 @@ describe('server-v2 /api/v1 catalog browse + import endpoints', () => {
     expect(config['default_model']).toBe('openai/gpt-4.1');
   });
 
-  it('re-imports an existing id as a refresh: credentials replaced, stale aliases dropped', async () => {
+  it('re-imports an existing id as a refresh: credential material replaced, stale aliases dropped', async () => {
     await boot(DEFAULTED_TOML);
     const first = await postJson('/api/v1/providers:import_catalog', {
       catalog_id: 'openai',
@@ -402,14 +402,14 @@ describe('server-v2 /api/v1 catalog browse + import endpoints', () => {
 
     const after = await readConfigToml();
     const providers = after['providers'] as Record<string, Record<string, unknown>>;
-    expect(providers['openai']?.['api_key']).toBe('sk-two');
+    expect(providers['openai']?.['secret_ref']).toEqual(expect.stringMatching(/^secret_/));
     const afterModels = after['models'] as Record<string, unknown>;
     expect(afterModels['openai/retired']).toBeUndefined();
     expect(afterModels['openai/gpt-4.1']).toBeDefined();
     expect(afterModels['k2']).toBeDefined();
   });
 
-  it('keeps the stored api_key when a re-import omits it (tri-state like PUT)', async () => {
+  it('keeps the stored secret reference when a re-import omits the transient key', async () => {
     await boot(DEFAULTED_TOML);
     const first = await postJson('/api/v1/providers:import_catalog', {
       catalog_id: 'openai',
@@ -426,7 +426,7 @@ describe('server-v2 /api/v1 catalog browse + import endpoints', () => {
 
     const after = await readConfigToml();
     const providers = after['providers'] as Record<string, Record<string, unknown>>;
-    expect(providers['openai']?.['api_key']).toBe('sk-one');
+    expect(providers['openai']?.['secret_ref']).toEqual(expect.stringMatching(/^secret_/));
   });
 
   it('clears stale on-disk alias fields the upstream no longer lists (two-pass swap)', async () => {
@@ -631,8 +631,12 @@ describe('server-v2 /api/v1 catalog browse + import endpoints', () => {
     expect(providers['acme-claude']).toMatchObject({
       type: 'anthropic',
       base_url: 'https://acme.example/anthropic',
-      api_key: 'tok-1',
-      source: { kind: 'apiJson', url: REGISTRY_URL, apiKey: 'tok-1' },
+      secret_ref: expect.stringMatching(/^secret_/),
+      source: {
+        kind: 'apiJson',
+        url: REGISTRY_URL,
+        secret_ref: expect.stringMatching(/^secret_/),
+      },
     });
     const models = config['models'] as Record<string, Record<string, unknown>>;
     expect(models['acme-claude/claude-opus']).toMatchObject({
@@ -715,7 +719,7 @@ describe('server-v2 /api/v1 catalog browse + import endpoints', () => {
     const after = await readConfigToml();
     const providers = after['providers'] as Record<string, Record<string, unknown>>;
     expect(providers['acme-claude']).toBeUndefined();
-    expect(providers['acme-gpt']?.['api_key']).toBe('tok-2');
+    expect(providers['acme-gpt']?.['secret_ref']).toEqual(expect.stringMatching(/^secret_/));
     const models = after['models'] as Record<string, Record<string, unknown>>;
     expect(models['acme-claude/claude-opus']).toBeUndefined();
     expect(models['acme-gpt/gpt-x']).toEqual({

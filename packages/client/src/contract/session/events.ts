@@ -12,7 +12,7 @@ import type {
   InteractionResolution,
 } from '@spiderbyte/agent-core/session/interaction/interaction';
 import type { SessionMetadataChangedEvent } from '@spiderbyte/agent-core/session/sessionMetadata/sessionMetadata';
-import type { Run } from '../platform.js';
+import type { Attempt, Run } from '../platform.js';
 
 import type { EventRegistration } from '../types.js';
 import {
@@ -20,7 +20,7 @@ import {
   interactionSchema,
 } from './interaction.js';
 import { sessionMetadataChangedEventSchema } from './metadata.js';
-import { runSchema } from '../platform.js';
+import { attemptSchema, runSchema } from '../platform.js';
 
 /**
  * Scope-stream registration (`kind: 'stream'`). Declared structurally here
@@ -44,6 +44,7 @@ export interface SessionEventPayloads {
   /** The merged skill catalog changed; the payload is the changed source id. */
   'skills.changed': string;
   'runs.changed': Run;
+  'attempts.changed': Attempt;
 }
 
 export type SessionEventName = keyof SessionEventPayloads;
@@ -67,6 +68,12 @@ export const sessionEvents = {
     service: 'sessionRunService',
     event: 'onDidChange',
     schema: runSchema,
+  },
+  'attempts.changed': {
+    kind: 'emitter',
+    service: 'sessionRunService',
+    event: 'onDidChangeAttempt',
+    schema: attemptSchema,
   },
   // Passthrough stream (no `type` filter): the source pushes the full
   // pending interaction set on every change.

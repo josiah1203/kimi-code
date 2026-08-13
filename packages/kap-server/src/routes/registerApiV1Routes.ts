@@ -70,6 +70,8 @@ export interface RegisterApiV1RoutesOptions {
   readonly debugEndpoints?: boolean;
   readonly enableShutdown?: boolean;
   readonly enableTerminals?: boolean;
+  /** Unconfined folder-picker host FS is safe only on a loopback daemon. */
+  readonly allowUnconfinedHostFs?: boolean;
   readonly guiStore: IGuiStoreService;
   readonly onShutdown: () => void;
   readonly connectionRegistry: IConnectionRegistry;
@@ -155,6 +157,7 @@ export async function registerApiV1Routes(
       registerWorkspaceFsRoutes(
         apiV1 as unknown as Parameters<typeof registerWorkspaceFsRoutes>[0],
         core,
+        { allowUnconfinedHostFs: opts.allowUnconfinedHostFs === true },
       );
       registerFilesRoutes(apiV1 as unknown as Parameters<typeof registerFilesRoutes>[0], core);
       registerFsRoutes(apiV1 as unknown as Parameters<typeof registerFsRoutes>[0], core);

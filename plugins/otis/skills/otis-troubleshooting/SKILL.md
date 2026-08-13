@@ -12,11 +12,8 @@ provider connection problems, stale artifacts, or hosted-feature questions.
 
 ## Required tools
 
-`spiderbyte_capabilities`, `spiderbyte_account_status`,
-`spiderbyte_explain_unavailable`, `spiderbyte_get_workspace`,
-`spiderbyte_list_events`, `spiderbyte_get_run`,
-`spiderbyte_list_provider_connections`, and
-`spiderbyte_list_execution_targets`.
+`get_capabilities`, `get_run`, `list_execution_targets`, `list_artifacts`,
+and `get_artifact`.
 
 ## Workflow
 

@@ -351,7 +351,7 @@ function assertCredentialReference(
   provider: ProviderConnection['provider'],
   reference: ProviderConnection['secret_ref'],
 ): void {
-  if (reference === PLATFORM_NO_CREDENTIAL_SECRET_REF && provider !== 'local') {
+  if (reference === PLATFORM_NO_CREDENTIAL_SECRET_REF && provider !== 'local' && provider !== 'provider-cli') {
     throw new ProviderConnectionError(
       ProviderConnectionErrors.codes.PROVIDER_CONNECTION_SECRET_MATERIAL,
       'only local provider connections may use the no-credential reference',

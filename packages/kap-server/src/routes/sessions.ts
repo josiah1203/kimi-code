@@ -138,6 +138,12 @@ import { errEnvelope, okEnvelope } from '../envelope';
 import { requestLog } from '../lib/requestLog';
 import { defineRoute } from '../middleware/defineRoute';
 import { ensureMainAgent } from '../transport/mainAgent';
+import {
+  assertWorkspaceAuthorization,
+  assertSessionAuthorization,
+  isWorkspaceAuthorized,
+} from '../services/platformAuthorization';
+import { mapPlatformError } from './v2/platformErrors';
 import { parseActionSuffix } from './action-suffix';
 
 interface SessionRouteHost {
@@ -297,6 +303,11 @@ export function registerSessionsRoutes(app: SessionRouteHost, core: Scope): void
           );
           return;
         }
+        await assertWorkspaceAuthorization(core, {
+          workspaceId: workspace.id,
+          requestId: req.id,
+          capability: 'run.execute',
+        });
         if (callerCwd !== undefined && callerCwd !== workspace.root) {
           reply.send(
             buildValidationEnvelope(
@@ -323,6 +334,11 @@ export function registerSessionsRoutes(app: SessionRouteHost, core: Scope): void
       // lifecycle entry point.
       try {
         const touched = await registry.createOrTouch(workDir);
+        await assertWorkspaceAuthorization(core, {
+          workspaceId: touched.id,
+          requestId: req.id,
+          capability: 'run.execute',
+        });
 
         const handler = await core.accessor.get(IWorkspaceLifecycleService).handlerFor({
           root: workDir,
@@ -443,6 +459,11 @@ export function registerSessionsRoutes(app: SessionRouteHost, core: Scope): void
             const cwd = summary.cwd ?? roots.get(summary.workspaceId);
             if (cwd === undefined) continue;
             if (raw.exclude_empty === true && (summary.lastPrompt ?? '').length === 0) continue;
+            if (!await isWorkspaceAuthorized(core, {
+              workspaceId: summary.workspaceId,
+              requestId: `session_list:${summary.id}`,
+              capability: 'workspace.read',
+            })) continue;
             if (archivedOnly) {
               if (!summary.archived) continue;
               const facts = resolveSessionFacts(core, summary.id);
@@ -472,6 +493,11 @@ export function registerSessionsRoutes(app: SessionRouteHost, core: Scope): void
           const cwd = summary.cwd ?? roots.get(summary.workspaceId);
           if (cwd === undefined) continue;
           if (raw.exclude_empty === true && (summary.lastPrompt ?? '').length === 0) continue;
+          if (!await isWorkspaceAuthorized(core, {
+            workspaceId: summary.workspaceId,
+            requestId: `session_list:${summary.id}`,
+            capability: 'workspace.read',
+          })) continue;
           eligible.push({ summary, cwd });
         }
         const projected = eligible.map(({ summary, cwd }) =>
@@ -521,13 +547,8 @@ export function registerSessionsRoutes(app: SessionRouteHost, core: Scope): void
     },
     async (req, reply) => {
       const { session_id } = req.params;
-      const summary = await core.accessor.get(ISessionIndex).get(session_id);
-      if (summary === undefined) {
-        reply.send(
-          errEnvelope(ErrorCode.SESSION_NOT_FOUND, `session ${session_id} does not exist`, req.id),
-        );
-        return;
-      }
+      const summary = await authorizeSessionOrReply(core, session_id, req.id, 'workspace.read', reply);
+      if (summary === undefined) return;
       const cwd =
         summary.cwd ?? (await core.accessor.get(IWorkspaceService).get(summary.workspaceId))?.root;
       if (cwd === undefined) {
@@ -568,13 +589,8 @@ export function registerSessionsRoutes(app: SessionRouteHost, core: Scope): void
     },
     async (req, reply) => {
       const { session_id } = req.params;
-      const summary = await core.accessor.get(ISessionIndex).get(session_id);
-      if (summary === undefined) {
-        reply.send(
-          errEnvelope(ErrorCode.SESSION_NOT_FOUND, `session ${session_id} does not exist`, req.id),
-        );
-        return;
-      }
+      const summary = await authorizeSessionOrReply(core, session_id, req.id, 'workspace.read', reply);
+      if (summary === undefined) return;
       const cwd =
         summary.cwd ?? (await core.accessor.get(IWorkspaceService).get(summary.workspaceId))?.root;
       if (cwd === undefined) {
@@ -615,6 +631,7 @@ export function registerSessionsRoutes(app: SessionRouteHost, core: Scope): void
     async (req, reply) => {
       try {
         const { session_id } = req.params;
+        if (await authorizeSessionOrReply(core, session_id, req.id, 'data.write', reply) === undefined) return;
         const fields = await core.accessor
           .get(ISessionLegacyService)
           .updateProfile(session_id, req.body);
@@ -684,6 +701,14 @@ export function registerSessionsRoutes(app: SessionRouteHost, core: Scope): void
           const message = parsed.kind === 'invalid' ? parsed.reason : `unsupported action: ${tail}`;
           reply.send(buildValidationEnvelope([{ path: 'session_id', message }], req.id));
           return;
+        }
+
+        if (await assertSessionAuthorization(core, {
+          sessionId: parsed.id,
+          requestId: req.id,
+          capability: 'run.execute',
+        }) === undefined) {
+          throw new Error2(ErrorCodes.SESSION_NOT_FOUND, `session ${parsed.id} does not exist`);
         }
 
         const legacy = core.accessor.get(ISessionLegacyService);
@@ -858,6 +883,7 @@ export function registerSessionsRoutes(app: SessionRouteHost, core: Scope): void
     async (req, reply) => {
       try {
         const { session_id } = req.params;
+        if (await authorizeSessionOrReply(core, session_id, req.id, 'workspace.read', reply) === undefined) return;
         // 404 when the parent is unknown — the live handle wins, otherwise the
         // persisted index (a closed parent can still list children, like v1).
         const exists =
@@ -887,13 +913,18 @@ export function registerSessionsRoutes(app: SessionRouteHost, core: Scope): void
         const roots = new Map(
           (await core.accessor.get(IWorkspaceService).list()).map((w) => [w.id, w.root]),
         );
-        const projected = window.map((summary) =>
-          toWireSession(
+        const projected = (await Promise.all(window.map(async (summary) => {
+          if (!await isWorkspaceAuthorized(core, {
+            workspaceId: summary.workspaceId,
+            requestId: `session_children:${summary.id}`,
+            capability: 'workspace.read',
+          })) return undefined;
+          return toWireSession(
             summary,
             summary.cwd ?? roots.get(summary.workspaceId) ?? '',
             resolveSessionFacts(core, summary.id),
-          ),
-        );
+          );
+        }))).filter((session): session is Session => session !== undefined);
         // v1 filters the projected page by the busy fact (post-page); `has_more`
         // reflects the pre-filter page.
         const items =
@@ -930,6 +961,7 @@ export function registerSessionsRoutes(app: SessionRouteHost, core: Scope): void
     async (req, reply) => {
       try {
         const { session_id } = req.params;
+        if (await authorizeSessionOrReply(core, session_id, req.id, 'run.execute', reply) === undefined) return;
         // `createChild` throws `session.not_found` for an unknown source (via
         // `fork`), so no explicit existence check is needed here. The child
         // markers (`parent_session_id` / `child_session_kind`) and the default
@@ -982,6 +1014,7 @@ export function registerSessionsRoutes(app: SessionRouteHost, core: Scope): void
     async (req, reply) => {
       try {
         const { session_id } = req.params;
+        if (await authorizeSessionOrReply(core, session_id, req.id, 'workspace.read', reply) === undefined) return;
         const status = await core.accessor.get(ISessionLegacyService).status(session_id);
         reply.send(okEnvelope(status, req.id));
       } catch (error) {
@@ -1011,6 +1044,7 @@ export function registerSessionsRoutes(app: SessionRouteHost, core: Scope): void
     async (req, reply) => {
       try {
         const { session_id } = req.params;
+        if (await authorizeSessionOrReply(core, session_id, req.id, 'workspace.read', reply) === undefined) return;
         const goal = await core.accessor.get(ISessionLegacyService).goal(session_id);
         reply.send(okEnvelope(goal, req.id));
       } catch (error) {
@@ -1039,6 +1073,7 @@ export function registerSessionsRoutes(app: SessionRouteHost, core: Scope): void
     },
     async (req, reply) => {
       const { session_id } = req.params;
+      if (await authorizeSessionOrReply(core, session_id, req.id, 'workspace.read', reply) === undefined) return;
       // `resume` (not `get`) so a freshly-opened cold session still computes its
       // warnings; matches v1's best-effort `resumeSession` before reading them.
       const session = await resumeSessionById(core.accessor, session_id);
@@ -1263,6 +1298,31 @@ function buildValidationEnvelope(
   };
 }
 
+/** Authorize a session before any route resumes it or projects its data. */
+async function authorizeSessionOrReply(
+  core: Scope,
+  sessionId: string,
+  requestId: string,
+  capability: 'workspace.read' | 'data.write' | 'run.execute',
+  reply: { send(payload: unknown): unknown },
+): Promise<SessionSummary | undefined> {
+  try {
+    const summary = await assertSessionAuthorization(core, {
+      sessionId,
+      requestId,
+      capability,
+    });
+    if (summary === undefined) {
+      reply.send(errEnvelope(ErrorCode.SESSION_NOT_FOUND, `session ${sessionId} does not exist`, requestId));
+      return undefined;
+    }
+    return summary;
+  } catch (error) {
+    reply.send(mapPlatformError(error, requestId));
+    return undefined;
+  }
+}
+
 function sendMappedError(
   reply: { send(payload: unknown): unknown },
   req: { id: string },
@@ -1275,6 +1335,9 @@ function sendMappedError(
       case 'session.not_found':
       case 'agent.not_found':
         reply.send(errEnvelope(ErrorCode.SESSION_NOT_FOUND, err.message, requestId, err.stack));
+        return;
+      case ErrorCodes.AUTHORIZATION_DENIED:
+        reply.send(errEnvelope(ErrorCode.PLATFORM_POLICY_DENIED, 'platform policy denied the request', requestId));
         return;
       case 'session.fork_active_turn':
       case ErrorCodes.SESSION_BUSY:

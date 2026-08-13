@@ -9,12 +9,14 @@ import type {
   ExecutionTarget,
   ExecutionTargetCommandInput,
   ExecutionTargetCreateInput,
+  ExecutionTargetTestInput,
+  ExecutionTargetTestResult,
   ExecutionTargetUpdateInput,
 } from '@spiderbyte/protocol';
 
 export interface WorkspaceExecutionTargetsChangedEvent {
   readonly target: ExecutionTarget;
-  readonly kind: 'created' | 'updated' | 'ready' | 'disabled' | 'lease_changed';
+  readonly kind: 'created' | 'updated' | 'ready' | 'disabled' | 'revoked' | 'health_changed' | 'lease_changed';
   readonly lease?: ExecutionLease;
 }
 
@@ -28,6 +30,8 @@ export interface IWorkspaceExecutionTargetService {
   update(id: string, input: ExecutionTargetUpdateInput): Promise<ExecutionTarget | undefined>;
   markReady(id: string, input: ExecutionTargetCommandInput): Promise<ExecutionTarget | undefined>;
   disable(id: string, input: ExecutionTargetCommandInput): Promise<ExecutionTarget | undefined>;
+  revoke(id: string, input: ExecutionTargetCommandInput): Promise<ExecutionTarget | undefined>;
+  test(id: string, input: ExecutionTargetTestInput): Promise<ExecutionTargetTestResult>;
   getLease(targetId: string, leaseId: string): Promise<ExecutionLease | undefined>;
   acquireLease(id: string, input: ExecutionLeaseAcquireInput): Promise<ExecutionLease>;
   releaseLease(id: string, leaseId: string, input: ExecutionLeaseReleaseInput): Promise<ExecutionLease | undefined>;

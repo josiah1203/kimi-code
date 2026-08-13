@@ -95,7 +95,8 @@ export interface ApplyCatalogProviderOptions {
   readonly providerId: string;
   readonly wire: ProviderType;
   readonly baseUrl?: string;
-  readonly apiKey: string;
+  readonly apiKey?: string;
+  readonly secretRef?: string | undefined;
   readonly models: readonly CatalogModel[];
   readonly selectedModelId: string;
   readonly thinking: boolean;
@@ -134,7 +135,8 @@ export function applyCatalogProvider(
   config.providers[options.providerId] = {
     type: options.wire,
     baseUrl: options.baseUrl,
-    apiKey: options.apiKey,
+    secretRef: options.secretRef,
+    apiKey: options.secretRef === undefined ? options.apiKey : undefined,
   };
 
   const models = config.models ?? {};

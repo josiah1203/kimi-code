@@ -1,6 +1,11 @@
-# klient Agent Guide
+# SpiderByte client Agent Guide
 
 Package-local rules for `packages/client`.
+
+The package is the SpiderByte client facade. Exported `Klient*` identifiers
+are retained compatibility names from the predecessor implementation; they
+must not be treated as the public product name or expanded with new legacy
+terminology.
 
 ## Architecture
 

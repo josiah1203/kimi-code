@@ -1,6 +1,7 @@
 # ADR-0001: Establish one platform contract authority
 
-- **Status:** Accepted
+- **Status:** Accepted historical decision; current product authority is
+  [`SPIDERBYTE_PRODUCT_AUTHORITY.md`](./SPIDERBYTE_PRODUCT_AUTHORITY.md)
 - **Date:** 2026-08-08
 - **Scope:** SpiderByte Platform Enhancement Program, PEP-01
 - **Base commit:** `01c74e9372fcbbbe99614e859b53b505ed1664a8`
@@ -12,10 +13,10 @@ connections, resources, usage, and execution targets while preserving the
 existing SpiderByte CLI, TUI, session behavior, and client integrations. The current
 repository already contains several compatible but different boundaries:
 
-- `packages/SpiderByte Agent Core` owns the in-process agent and session runtime.
+- `packages/agent-core` owns the in-process agent and session runtime.
 - `packages/protocol` owns the existing REST and WebSocket wire schemas.
-- `packages/klient` provides the contract-driven client facade.
-- `packages/node-sdk` exposes the public harness and legacy compatibility API.
+- `packages/client` provides the contract-driven client facade.
+- `packages/sdk` exposes the public harness and SDK API.
 - `packages/kap-server` exposes daemon routes and replayable session events.
 
 Without an explicit authority, platform features could create a second session
@@ -24,17 +25,17 @@ Run and usage semantics.
 
 ## Decision
 
-1. `packages/SpiderByte Agent Core` remains the only runtime and session authority. The
+1. `packages/agent-core` remains the only runtime and session authority. The
    enhancement program adds platform services around it; it does not introduce
    another agent engine or session lifecycle.
 2. `packages/protocol` is the canonical public contract authority. Platform
    entities, lifecycle states, command acknowledgements, machine-readable
    events, and compatibility fixtures are defined there before implementation
    code consumes them.
-3. `packages/klient` is the canonical typed client facade. CLI, TUI, SDK,
+3. `packages/client` is the canonical typed client facade. CLI, TUI, SDK,
    ACP, VS Code, REST, and WebSocket adapters consume the same contracts rather
    than importing agent-core internals.
-4. `packages/node-sdk` preserves its current API by adapting platform contracts
+4. `packages/sdk` preserves its current API by adapting platform contracts
    to the existing SpiderByte session and harness types. Existing sessions remain
    readable without a storage rewrite.
 5. A platform `AgentSession` is the durable conversational container and a
@@ -83,7 +84,7 @@ contracts are reviewed and versioned.
 
 - **Rewrite the SpiderByte session engine:** rejected because it creates a second
   authority and risks breaking the CLI/TUI interaction model.
-- **Expose `SpiderByte Agent Core` internals directly to clients:** rejected because it
+- **Expose `packages/agent-core` internals directly to clients:** rejected because it
   couples every client to runtime implementation details.
 - **Reuse the existing live `/connections` resource for provider credentials:**
   rejected because it conflates WebSocket transport state with customer-owned

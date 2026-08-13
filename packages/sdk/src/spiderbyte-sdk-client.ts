@@ -123,7 +123,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import type { PlatformModelSelection } from '@spiderbyte/protocol';
+import type { PlatformModelSelection, ProviderSecretRef } from '@spiderbyte/protocol';
 
 import { ErrorCodes, normalizeSpiderByteError, SpiderByteError } from '#/errors';
 import { noopTelemetryClient } from '#/telemetry';
@@ -167,6 +167,7 @@ import {
   IAgentSwarmService,
   IAgentTaskService,
   IPlatformModelBindingService,
+  IPlatformSecretStore,
   IAgentTokenCountingService,
   IBootstrapService,
   IConfigService,
@@ -177,6 +178,7 @@ import {
   IModelCatalog,
   IModelService,
   IProviderService,
+  IKosongConfigService,
   ISessionBtwService,
   ISessionContext,
   ISessionCronService,
@@ -217,13 +219,17 @@ import {
   resolveLoggingConfig,
   resolvePrintBackgroundMode,
   summarizeSkill,
+  normalizeProviderModelConfigPatch,
   type IAgentScopeHandle,
   type IDisposable,
   type ISessionScopeHandle,
   type Scope,
   type SecondaryModelConfig,
   type ServicesAccessor,
+  secretRefForInput,
 } from '@spiderbyte/agent-core';
+import type { ModelsSection } from '@spiderbyte/agent-core/kosong/model/model';
+import type { ProvidersSection } from '@spiderbyte/agent-core/kosong/provider/provider';
 import type { AgentHandle, Klient } from '@spiderbyte/client';
 import { createKlient } from '@spiderbyte/client/memory';
 import { assertSpiderByteHostIdentity, createSpiderByteDefaultHeaders } from '@spiderbyte/oauth';
@@ -447,7 +453,10 @@ export class SpiderByteSdkClient extends SDKRpcClientBase {
     this.app = app;
     this.klient = createKlient({ scope: app });
     this.globalMcpConfig = new GlobalMcpConfigStore(this.homeDir);
-    this.configReady = app.accessor.get(IConfigService).ready;
+    this.configReady = Promise.all([
+      app.accessor.get(IConfigService).ready,
+      app.accessor.get(IKosongConfigService).ready,
+    ]).then(() => undefined);
     this.installEngineTelemetry(options.telemetry);
     this.modelReady = Promise.all([
       this.configReady,
@@ -611,6 +620,27 @@ export class SpiderByteSdkClient extends SDKRpcClientBase {
     return resolvedConfigToSpiderByteConfig(await this.klient.global.config.getAll());
   }
 
+  /** Store provider material in the encrypted local vault and return its opaque reference. */
+  async storeProviderSecret(
+    secret: string,
+    existing?: ProviderSecretRef,
+  ): Promise<ProviderSecretRef> {
+    const reference = await secretRefForInput(
+      this.appServices.get(IPlatformSecretStore),
+      secret,
+      existing,
+    );
+    if (reference === undefined) {
+      throw new Error('provider secret must not be empty');
+    }
+    return reference;
+  }
+
+  /** Resolve provider material only for an outbound provider/registry request. */
+  async resolveProviderSecret(reference: ProviderSecretRef): Promise<string | undefined> {
+    return this.appServices.get(IPlatformSecretStore).get(reference);
+  }
+
   override async getConfigDiagnostics(): Promise<ConfigDiagnostics> {
     await this.configReady;
     return diagnosticsToConfigDiagnostics(await this.klient.global.config.diagnostics());
@@ -625,9 +655,22 @@ export class SpiderByteSdkClient extends SDKRpcClientBase {
    */
   override async setConfig(patch: SpiderByteConfigPatch): Promise<SpiderByteConfig> {
     await this.configReady;
+    const config = this.appServices.get(IConfigService);
+    const normalized = await normalizeProviderModelConfigPatch(
+      config.inspect<ProvidersSection>('providers').userValue ?? {},
+      config.inspect<ModelsSection>('models').userValue ?? {},
+      patch,
+      this.appServices.get(IPlatformSecretStore),
+    );
     for (const [domain, domainPatch] of Object.entries(patch)) {
       if (domainPatch === undefined) continue;
-      await this.klient.global.config.set({ domain, patch: domainPatch });
+      if (domain === 'providers' && normalized.providers !== undefined) {
+        await this.klient.global.config.replace({ domain, value: normalized.providers });
+      } else if (domain === 'models' && normalized.models !== undefined) {
+        await this.klient.global.config.replace({ domain, value: normalized.models });
+      } else {
+        await this.klient.global.config.set({ domain, patch: domainPatch });
+      }
     }
     return this.getConfig();
   }
@@ -676,7 +719,29 @@ export class SpiderByteSdkClient extends SDKRpcClientBase {
 
   override async replaceConfigSections(sections: Record<string, unknown>): Promise<void> {
     await this.configReady;
-    await this.klient.global.config.replaceSections({ sections });
+    const normalizedSections = { ...sections };
+    const secretfulSections = await normalizeProviderModelConfigPatch(
+      {},
+      {},
+      {
+        providers:
+          sections['providers'] === null || sections['providers'] === undefined
+            ? undefined
+            : sections['providers'],
+        models:
+          sections['models'] === null || sections['models'] === undefined
+            ? undefined
+            : sections['models'],
+      },
+      this.appServices.get(IPlatformSecretStore),
+    );
+    if (secretfulSections.providers !== undefined) {
+      normalizedSections['providers'] = secretfulSections.providers;
+    }
+    if (secretfulSections.models !== undefined) {
+      normalizedSections['models'] = secretfulSections.models;
+    }
+    await this.klient.global.config.replaceSections({ sections: normalizedSections });
   }
 
   override async listPlugins(): Promise<readonly PluginSummary[]> {

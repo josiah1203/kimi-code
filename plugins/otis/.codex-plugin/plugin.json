@@ -1,7 +1,7 @@
 {
   "name": "otis",
   "version": "0.2.0+codex.20260811203945",
-  "description": "Repo-aware SpiderByte runtime, tool, ML, and data workflows for Codex.",
+  "description": "Curated SpiderByte workflows for governed datasets, Runs, artifacts, local ML, and approvals in Codex.",
   "author": {
     "name": "SpiderByte contributors"
   },
@@ -28,8 +28,8 @@
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Otis",
-    "shortDescription": "Repo-aware SpiderByte tools, runtime, ML, and data workflows.",
-    "longDescription": "Otis helps Codex work safely in SpiderByte's governed agent runtime and its ML/data platform, covering the built-in tool registry, governed platform tools, plugins and MCP boundaries, model catalogs, providers, datasets, artifacts, experiments, training, evaluation, transcript/search read models, SDK/server surfaces, and MiniDB persistence.",
+    "shortDescription": "Curated SpiderByte Runs, datasets, artifacts, ML, and approvals.",
+    "longDescription": "Otis provides a narrow semantic MCP surface for customer-controlled SpiderByte daemons: workspace and project discovery, governed Runs, bounded dataset profiling and SQL analysis, baseline ML workflows, artifact inspection, capability discovery, and approval requests. It does not provide SpiderByte-hosted compute or identity.",
     "developerName": "SpiderByte contributors",
     "category": "Data & ML",
     "websiteURL": "https://github.com/SpiderByte/spiderbyte",
@@ -40,9 +40,9 @@
       "Test"
     ],
     "defaultPrompt": [
-      "Review this change through SpiderByte's tool, runtime, ML, and data architecture.",
-      "Trace a SpiderByte tool, dataset, artifact, experiment, model, plugin, or API flow end to end.",
-      "Check policy, Run, persistence, search, transcript, MCP, and model-catalog invariants."
+      "Analyze a dataset through SpiderByte's governed local workflow.",
+      "Inspect a completed Run and its bounded artifacts.",
+      "Request approval before a restricted or compute-consuming action."
     ],
     "brandColor": "#1F6FEB"
   }

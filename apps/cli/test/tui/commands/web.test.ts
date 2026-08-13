@@ -116,6 +116,8 @@ describe('handleWebCommand', () => {
     expect(written).toContain('SpiderByte server ready');
     expect(written).toContain('Ctrl+C');
     expect(written).toContain('/sessions/ses-1');
+    expect(written).not.toContain('▐█▛█▛█▌');
+    expect(written).not.toContain('▐█████▌');
     writeSpy.mockRestore();
   });
 });

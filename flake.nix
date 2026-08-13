@@ -72,9 +72,11 @@
         ./commercial/artifacts
         ./commercial/admin
         ./commercial/enterprise
+        ./commercial/licensing
         ./commercial/persistence
         ./commercial/sdk
         ./commercial/mcp
+        ./commercial/hosted
         ./packages/acp-server
         ./packages/agent-core
         ./packages/kap-server
@@ -92,6 +94,7 @@
         ./apps/cli
         ./apps/spiderbyte-vscode
         ./apps/inspect
+        ./apps/web
         ./docs
       ];
 
@@ -106,9 +109,11 @@
         "@spiderbyte/commercial-artifacts"
         "@spiderbyte/commercial-admin"
         "@spiderbyte/commercial-enterprise"
+        "@spiderbyte/commercial-licensing"
         "@spiderbyte/commercial-persistence"
         "@spiderbyte/commercial-sdk"
         "@spiderbyte/commercial-mcp"
+        "@spiderbyte/commercial-hosted"
         "@spiderbyte/acp-server"
         "@spiderbyte/agent-core"
         "@spiderbyte/kap-server"
@@ -126,6 +131,7 @@
         "@spiderbyte/cli"
         "spiderbyte-vscode"
         "@spiderbyte/inspect"
+        "@spiderbyte/web"
         "spiderbyte-docs"
       ];
     in

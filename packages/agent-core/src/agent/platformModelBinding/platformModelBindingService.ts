@@ -324,6 +324,7 @@ class PlatformModelRequester implements ModelRequester {
         });
       }
       const requestBaseId = `platform:model:${ulid()}`;
+      let traceContext = runId === undefined ? undefined : await providerTraceForRun(this.runs, runId);
       let policyDecisionId: string | undefined = this.initialPolicyDecisionId;
       let approvalAttempted = false;
       for (;;) {
@@ -331,6 +332,13 @@ class PlatformModelRequester implements ModelRequester {
           const stream = await this.runtime.request(this.connectionId, {
             request_id: `${requestBaseId}:request`,
             run_id: runId,
+            attempt_id: traceContext?.attempt_id,
+            project_id: traceContext?.project_id,
+            execution_target_id: traceContext?.execution_target_id,
+            user_id: traceContext?.user_id,
+            policy_decision_ids: traceContext?.policy_decision_ids,
+            approval_ids: traceContext?.approval_ids,
+            artifact_ids: traceContext?.artifact_ids,
             policy_decision_id: policyDecisionId,
             model: this.modelName,
             fallback_connection_ids: this.fallbackConnectionIds,
@@ -357,6 +365,7 @@ class PlatformModelRequester implements ModelRequester {
             throw error;
           }
           policyDecisionId = await this.requestProviderApproval(runId, decisionId, error);
+          traceContext = await providerTraceForRun(this.runs, runId);
           approvalAttempted = true;
         }
       }
@@ -425,15 +434,18 @@ class PlatformModelRequester implements ModelRequester {
     }
     const current = await this.runs.get(runId);
     const policyDecisionIds = [...new Set([...(current?.policy_decision_ids ?? []), decisionId])];
+    const approvalId = `platform:model:${decisionId}:approval`;
+    const approvalIds = [...new Set([...(current?.approval_ids ?? []), approvalId])];
     await this.runs.transition(runId, {
       request_id: `platform:model:${decisionId}:awaiting-approval`,
       status: 'awaiting_approval',
       policy_decision_ids: policyDecisionIds,
+      approval_ids: approvalIds,
       status_reason: error instanceof Error ? error.message.slice(0, 2_000) : 'provider policy approval is required',
       metadata: { policy_decision_id: decisionId },
     });
     const response = await approvals.request({
-      id: `platform:model:${decisionId}:approval`,
+      id: approvalId,
       sessionId: this.session?.sessionId,
       agentId: this.agent?.agentId,
       toolName: 'Provider',
@@ -468,6 +480,39 @@ class PlatformModelRequester implements ModelRequester {
     });
     return decisionId;
   }
+}
+
+async function providerTraceForRun(
+  runs: ISessionRunService,
+  runId: string,
+): Promise<{
+  readonly attempt_id?: string;
+  readonly project_id?: string;
+  readonly execution_target_id?: string;
+  readonly user_id?: string;
+  readonly policy_decision_ids?: readonly string[];
+  readonly approval_ids?: readonly string[];
+  readonly artifact_ids?: readonly string[];
+} | undefined> {
+  const run = await runs.get(runId);
+  if (run === undefined) return undefined;
+  const attempt = run.active_attempt_id === undefined
+    ? undefined
+    : await runs.getAttempt(run.active_attempt_id);
+  const artifactIds = [
+    ...(attempt?.input_artifacts ?? []).map((artifact) => artifact.id),
+    ...(attempt?.output_artifacts ?? []).map((artifact) => artifact.id),
+    ...(attempt?.partial_artifacts ?? []).map((artifact) => artifact.id),
+  ];
+  return {
+    attempt_id: attempt?.id,
+    project_id: attempt?.project_id ?? run.project_id,
+    execution_target_id: attempt?.execution_target_id ?? run.execution_target_id,
+    user_id: attempt?.user_id ?? run.user_id,
+    policy_decision_ids: attempt?.policy_decision_ids ?? run.policy_decision_ids,
+    approval_ids: attempt?.approval_ids ?? run.approval_ids,
+    artifact_ids: artifactIds.length === 0 ? undefined : [...new Set(artifactIds)],
+  };
 }
 
 function isProviderPolicyRequired(error: unknown): boolean {

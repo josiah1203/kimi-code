@@ -114,6 +114,31 @@ export function defineKlientConformance(
         expect(connection).not.toHaveProperty('api_key');
         expect(await platform.connections.list(workspace.id)).toEqual([connection]);
 
+        const executionTarget = await platform.executionTargets.register(workspace.id, {
+          request_id: 'platform-target-create',
+          name: 'conformance-local-target',
+          type: 'local',
+          locality: 'local',
+          capabilities: ['analysis'],
+        });
+        expect(executionTarget).toMatchObject({
+          workspace_id: workspace.id,
+          type: 'local',
+          health_status: 'unknown',
+          authentication_method: 'none',
+        });
+        await expect(platform.executionTargets.test(workspace.id, executionTarget.id, {
+          request_id: 'platform-target-test',
+        })).resolves.toMatchObject({
+          target_id: executionTarget.id,
+          workspace_id: workspace.id,
+          status: 'healthy',
+          capabilities: ['analysis'],
+        });
+        await expect(platform.executionTargets.revoke(workspace.id, executionTarget.id, {
+          request_id: 'platform-target-revoke',
+        })).resolves.toMatchObject({ state: 'disabled' });
+
         // Exercise optional positional arguments through both transports. IPC
         // must omit trailing undefined values instead of serializing nulls.
         expect(await platform.resources.list(workspace.id)).toEqual([]);
@@ -126,13 +151,14 @@ export function defineKlientConformance(
         await waitFor(() => liveEvents.includes('provider_connection.created'), 5_000);
 
         const replay = await platform.platformEvents.replay(workspace.id);
-        expect(replay.events).toHaveLength(1);
-        expect(replay.events[0]).toMatchObject({
+        expect(replay.events).toEqual(expect.arrayContaining([
+          expect.objectContaining({
           event_type: 'provider_connection.created',
           entity_type: 'provider_connection',
           entity_id: connection.id,
           request_id: 'platform-connection-create',
-        });
+          }),
+        ]));
         liveSubscription.dispose();
 
         const organization = await platform.governance.ensureLocalOrganization('conformance-owner');

@@ -45,12 +45,14 @@ import {
   type RefreshProviderHost,
   type RefreshResult,
 } from '@spiderbyte/oauth';
+import type { ProviderSecretRef } from '@spiderbyte/protocol';
 import { LifecycleScope } from '#/app/scopes';
 import { ScopeActivation, registerScopedService } from '#/_base/di/scope';
 import { Error2 } from '#/_base/errors/errors';
 import { IAgentIdentity } from '#/app/agentIdentity/agentIdentity';
 import { IConfigService } from '#/app/config/config';
 import { IEventService } from '#/app/event/event';
+import { IPlatformSecretStore } from '#/app/secrets/platformSecretStore';
 import { ModelCatalogErrors } from '#/kosong/model/errors';
 import { type ModelRecord } from '#/kosong/model/model';
 import {
@@ -91,6 +93,7 @@ export class ProviderDiscoveryService implements IProviderDiscoveryService {
     @IConfigService private readonly config: IConfigService,
     @IEventService private readonly events: IEventService,
     @IAgentIdentity private readonly identity: IAgentIdentity,
+    @IPlatformSecretStore private readonly secrets: IPlatformSecretStore,
   ) {}
 
   refreshProviderModels(
@@ -181,6 +184,7 @@ export class ProviderDiscoveryService implements IProviderDiscoveryService {
       getConfig: async () => this.readUserConfigShape(exclusion),
       removeProvider: (providerId) => this.shapeWithoutProvider(providerId),
       setConfig: (patch) => this.applyRefreshPatch(patch, exclusion),
+      resolveSecretRef: (secretRef) => this.secrets.get(secretRef as ProviderSecretRef),
       userAgent,
     };
   }

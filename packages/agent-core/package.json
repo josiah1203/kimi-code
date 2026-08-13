@@ -63,6 +63,7 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@mozilla/readability": "^0.6.0",
     "@spiderbyte/minidb": "workspace:^",
+    "@spiderbyte/kaos": "workspace:^",
     "@spiderbyte/oauth": "workspace:^",
     "@spiderbyte/protocol": "workspace:^",
     "@spiderbyte/tree-sitter-bash": "workspace:^",

@@ -250,7 +250,7 @@ export class WorkspaceDatasetService extends Disposable implements IWorkspaceDat
         }), 'utf8').toString('base64'),
         media_type: 'application/json',
         source_artifact_ids: [version.artifact_id],
-        metadata: { dataset_id: id, version: version.version },
+        metadata: { dataset_id: id, version: version.version, attempt_id: command.attempt_id },
       });
       const result = datasetProfileSchema.parse({
         dataset_id: id,

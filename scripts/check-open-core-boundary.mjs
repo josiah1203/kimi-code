@@ -68,6 +68,7 @@ function assertManifestAuthority(manifest, authority) {
     migration_plan: authority.documents.migration_plan,
     package_rename_map: authority.documents.package_rename_map,
     open_core_boundary: authority.documents.open_core_boundary,
+    product_authority: authority.documents.product_authority,
     machine_readable_authority: 'config/spiderbyte-release-authority.json',
     baseline: authority.documents.baseline,
   };

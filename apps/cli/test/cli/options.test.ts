@@ -579,6 +579,8 @@ describe('CLI options parsing', () => {
         'auth',
         'run',
         'provider',
+        'providers',
+        'capabilities',
         'connections',
         'usage',
         'plugins',
@@ -586,9 +588,19 @@ describe('CLI options parsing', () => {
         'project',
         'workspace',
         'acp',
+        'mcp',
         'web',
         'doctor',
+        'daemon',
         'upgrade',
+      ]);
+      expect(program.commands.find((command) => command.name() === 'connections')?.commands.map((command) => command.name())).toEqual([
+        'list',
+        'add',
+        'inspect',
+        'test',
+        'ready',
+        'remove',
       ]);
     });
 

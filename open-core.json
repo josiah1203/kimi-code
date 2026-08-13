@@ -10,6 +10,7 @@
     "migration_plan": "docs/release/SPIDERBYTE_OPEN_CORE_MIGRATION_PLAN.md",
     "package_rename_map": "docs/release/PACKAGE_RENAME_MAP.md",
     "open_core_boundary": "docs/architecture/OPEN_CORE_BOUNDARY.md",
+    "product_authority": "docs/architecture/SPIDERBYTE_PRODUCT_AUTHORITY.md",
     "machine_readable_authority": "config/spiderbyte-release-authority.json",
     "baseline": "docs/release/SPIDERBYTE_OPEN_CORE_BASELINE.json",
     "inventory_command": "pnpm run inventory:release",
@@ -19,9 +20,82 @@
     "status": "not-ready",
     "code_implementation": "canonical local accountless runtime is present; release readiness is gated by the verification matrix",
     "consumer_integration": "CLI/TUI, local REST/WebSocket, SDK, client facade, MCP, ACP, provider configuration, persistence, and local governance are in the Open Core graph",
-    "user_reachability": "local accountless and BYOK workflows are supported; the browser frontend is an external surface and is not packaged",
+    "user_reachability": "local accountless and BYOK workflows are supported; the hosted Next.js frontend is present but remains outside the Open Core release surface",
     "verification": "not-ready until the final boundary, branding, packaging, dependency, security, licensing, SBOM, clean-checkout, and CI gates pass",
     "production_readiness": "not claimed; hosted Business and Enterprise capabilities remain excluded from this checkout"
+  },
+  "release_surfaces": {
+    "open_core": {
+      "status": "release-candidate-not-ready",
+      "classification": "Open Core",
+      "includes": [
+        "accountless local CLI/TUI",
+        "local REST/WebSocket daemon",
+        "local persistence, Runs, Attempts, artifacts, policy, budgets, and usage",
+        "explicit local or customer-owned provider connections",
+        "SDK, client, ACP, and curated local MCP"
+      ],
+      "excludes": [
+        "hosted SpiderByte identity",
+        "hosted compute and managed model access",
+        "billing, subscriptions, and paid entitlements",
+        "production enterprise administration"
+      ],
+      "release_gate": "pnpm run verify:open-core-release"
+    },
+    "self_hosted_commercial": {
+      "status": "implemented-but-incomplete",
+      "classification": "self-hosted commercial",
+      "includes": [
+        "seat-based offline license and entitlement contracts",
+        "commercial identity, tenancy, billing, compute, artifact, admin, and enterprise adapters"
+      ],
+      "requires": [
+        "customer-selected identity and database deployment",
+        "production signing/key distribution and license operations",
+        "customer-owned workers, storage, networking, backups, and observability"
+      ],
+      "production_claim": "not authorized by this checkout"
+    },
+    "optional_future_hosted": {
+      "status": "unavailable",
+      "classification": "optional future hosted",
+      "capabilities": [
+        "SpiderByte-operated identity and tenancy",
+        "managed compute and provider proxy",
+        "hosted storage, billing, and hosted model-usage metering"
+      ],
+      "production_claim": "not implemented or deployed"
+    },
+    "plugin_integration": {
+      "status": "implemented-but-incomplete",
+      "classification": "plugin integration",
+      "local_entrypoint": "spyderbyte mcp --profile curated",
+      "transport_boundary": "customer-controlled SpiderByte daemon",
+      "public_hosted_oauth": "unavailable"
+    },
+    "private_integrations": {
+      "status": "adapter-dependent",
+      "classification": "private integrations",
+      "examples": [
+        "governed SSH target",
+        "customer-managed HTTP worker",
+        "private gateway",
+        "Docker or Kubernetes transport"
+      ],
+      "requirement": "the customer supplies and verifies the transport, daemon, credentials, isolation, and operations"
+    },
+    "unavailable": {
+      "status": "unavailable",
+      "classification": "unavailable features",
+      "capabilities": [
+        "hosted SpiderByte account login",
+        "provider-specific OAuth in the Open Core provider boundary",
+        "public ChatGPT plugin listing or plugin OAuth authority",
+        "arbitrary SSH or shell execution through MCP",
+        "deployed Kubernetes, GPU scheduling, backup, restore, or disaster-recovery service"
+      ]
+    }
   },
   "open_core": {
     "packages": [
@@ -59,12 +133,12 @@
       "ACP"
     ],
     "external_frontend_source": {
-      "repository": "code-app",
+      "repository": "this repository",
       "path": "apps/web",
       "generated_bundle": null,
       "required_for_open_core": false,
-      "distribution": "external",
-      "status": "external-source-not-present; no generated bundle is packaged"
+      "distribution": "commercial hosted frontend",
+      "status": "source-present; excluded from the Open Core package graph"
     },
     "legacy_compatibility_paths": [
       "compat/legacy-acp-adapter/src",
@@ -86,7 +160,8 @@
       "commercial",
       "compat/commercial-agent-core",
       "compat/commercial-cli",
-      "compat/commercial-oauth"
+      "compat/commercial-oauth",
+      "apps/web"
     ],
     "public_contract_paths": [],
     "capabilities": [

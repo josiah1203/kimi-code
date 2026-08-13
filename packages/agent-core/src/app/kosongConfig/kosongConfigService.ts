@@ -36,6 +36,7 @@ import { retryBackoffDelays, sleepForRetry } from '#/_base/utils/retry';
 import { type ConfigSectionChangedEvent, IConfigService } from '#/app/config/config';
 import { describeUnknownError } from '#/app/config/configPure';
 import { deepEqual } from '#/app/config/sectionDiff';
+import { IPlatformSecretStore } from '#/app/secrets/platformSecretStore';
 import { IModelService, type ModelsSection } from '#/kosong/model/model';
 import { IProviderService, type ProvidersSection } from '#/kosong/provider/provider';
 
@@ -45,7 +46,9 @@ import {
   DEFAULT_PROVIDER_SECTION,
   MODELS_SECTION,
   PROVIDERS_SECTION,
+  ENV_MODEL_PROVIDER_KEY,
 } from './configSection';
+import { hydrateProviderSecrets, migrateProviderSecrets } from './providerSecrets';
 
 const PERSIST_MAX_ATTEMPTS = 3;
 
@@ -56,12 +59,14 @@ export class KosongConfigService extends Disposable implements IKosongConfigServ
   readonly ready: Promise<void>;
 
   private persistChain: Promise<void> = Promise.resolve();
+  private configHydrationChain: Promise<void> = Promise.resolve();
 
   constructor(
     @IConfigService private readonly config: IConfigService,
     @IProviderService private readonly providers: IProviderService,
     @IModelService private readonly models: IModelService,
     @ILogService private readonly log: ILogService,
+    @IPlatformSecretStore private readonly secrets: IPlatformSecretStore,
   ) {
     super();
     this.ready = this.initialize();
@@ -74,12 +79,18 @@ export class KosongConfigService extends Disposable implements IKosongConfigServ
 
   private async initialize(): Promise<void> {
     await this.config.ready;
-    this.providers.loadAll(
+    await this.migratePersistedSecrets();
+    const hydrated = await hydrateProviderSecrets(
       this.config.get<ProvidersSection>(PROVIDERS_SECTION) ?? {},
+      this.config.get<ModelsSection>(MODELS_SECTION) ?? {},
+      this.secrets,
+    );
+    this.providers.loadAll(
+      hydrated.providers,
       this.config.get<string>(DEFAULT_PROVIDER_SECTION),
     );
     this.models.loadAll(
-      this.config.get<ModelsSection>(MODELS_SECTION) ?? {},
+      hydrated.models,
       this.config.get<string>(DEFAULT_MODEL_SECTION),
     );
     this._register(this.config.onDidSectionChange((e) => this.onConfigSectionChanged(e)));
@@ -118,18 +129,34 @@ export class KosongConfigService extends Disposable implements IKosongConfigServ
 
   private onConfigSectionChanged(e: ConfigSectionChangedEvent): void {
     switch (e.domain) {
-      case PROVIDERS_SECTION:
-        this.providers.loadAll(
-          (e.value as ProvidersSection | undefined) ?? {},
-          this.providers.getDefaultProvider(),
-        );
+      case PROVIDERS_SECTION: {
+        const providers = (e.value as ProvidersSection | undefined) ?? {};
+        this.providers.loadAll(providers, this.providers.getDefaultProvider());
+        this.configHydrationChain = this.configHydrationChain.then(async () => {
+          const hydrated = await hydrateProviderSecrets(
+            providers,
+            this.config.get<ModelsSection>(MODELS_SECTION) ?? {},
+            this.secrets,
+          );
+          this.providers.loadAll(hydrated.providers, this.providers.getDefaultProvider());
+        });
+        void this.configHydrationChain.catch((error) => this.logPersistFailure(error));
         break;
-      case MODELS_SECTION:
-        this.models.loadAll(
-          (e.value as ModelsSection | undefined) ?? {},
-          this.models.getDefaultModel(),
-        );
+      }
+      case MODELS_SECTION: {
+        const models = (e.value as ModelsSection | undefined) ?? {};
+        this.models.loadAll(models, this.models.getDefaultModel());
+        this.configHydrationChain = this.configHydrationChain.then(async () => {
+          const hydrated = await hydrateProviderSecrets(
+            this.config.get<ProvidersSection>(PROVIDERS_SECTION) ?? {},
+            models,
+            this.secrets,
+          );
+          this.models.loadAll(hydrated.models, this.models.getDefaultModel());
+        });
+        void this.configHydrationChain.catch((error) => this.logPersistFailure(error));
         break;
+      }
       case DEFAULT_PROVIDER_SECTION:
         void this.providers
           .setDefaultProvider(e.value as string | undefined)
@@ -146,17 +173,33 @@ export class KosongConfigService extends Disposable implements IKosongConfigServ
 
   private enqueuePersistProviders(): Promise<void> {
     return this.enqueue(async () => {
-      const next = this.providers.list();
-      if (deepEqual(this.config.get<ProvidersSection>(PROVIDERS_SECTION) ?? {}, next)) return;
+      const runtime = { ...this.providers.list() };
+      delete runtime[ENV_MODEL_PROVIDER_KEY];
+      const { providers: next } = await migrateProviderSecrets(runtime, {}, this.secrets);
+      const current = this.config.inspect<ProvidersSection>(PROVIDERS_SECTION).userValue ?? {};
+      if (deepEqual(current, next)) return;
       await this.replaceWithRetry(PROVIDERS_SECTION, next);
     });
   }
 
   private enqueuePersistModels(): Promise<void> {
     return this.enqueue(async () => {
-      const next = this.models.list();
-      if (deepEqual(this.config.get<ModelsSection>(MODELS_SECTION) ?? {}, next)) return;
+      const { models: next } = await migrateProviderSecrets({}, { ...this.models.list() }, this.secrets);
+      const current = this.config.inspect<ModelsSection>(MODELS_SECTION).userValue ?? {};
+      if (deepEqual(current, next)) return;
       await this.replaceWithRetry(MODELS_SECTION, next);
+    });
+  }
+
+  /** Migrate only the user layer; env overlays must never become persisted secrets. */
+  private async migratePersistedSecrets(): Promise<void> {
+    const providers = this.config.inspect<ProvidersSection>(PROVIDERS_SECTION).userValue ?? {};
+    const models = this.config.inspect<ModelsSection>(MODELS_SECTION).userValue ?? {};
+    const migrated = await migrateProviderSecrets(providers, models, this.secrets);
+    if (!migrated.changed) return;
+    await this.config.replaceSections({
+      [PROVIDERS_SECTION]: migrated.providers,
+      [MODELS_SECTION]: migrated.models,
     });
   }
 

@@ -6,6 +6,7 @@ import { registerAcpCommand } from './sub/acp';
 import { registerAuthCommands } from './sub/auth';
 import { registerConfigureCommand } from './sub/configure';
 import { registerDoctorCommand } from './sub/doctor';
+import { registerDaemonCommand } from './sub/daemon';
 import { registerExportCommand } from './sub/export';
 import { registerProviderCommand } from './sub/provider';
 import { registerPlatformCommands } from './sub/platform';
@@ -123,6 +124,7 @@ export function createProgram(
   registerMcpCommand(program);
   registerWebCommand(program);
   registerDoctorCommand(program);
+  registerDaemonCommand(program);
   program
     .command('upgrade')
     .alias('update')

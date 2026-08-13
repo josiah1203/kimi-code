@@ -7,6 +7,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { fileURLToPath } from 'node:url';
 
 import type { IProtocolAdapterRegistry } from '#/kosong/protocol/protocol';
 import type { IPlatformSecretStore } from '#/app/secrets/platformSecretStore';
@@ -14,9 +15,12 @@ import type { IWorkspaceProviderConnectionService } from '#/workspace/providerCo
 import type { IWorkspacePolicyService } from '#/workspace/policy/policy';
 import type { IWorkspaceUsageService } from '#/workspace/usage/usage';
 import type { IWorkspacePlatformEventService } from '#/workspace/platformEvents/platformEvents';
+import type { IWorkspaceContext } from '#/workspace/workspaceContext/workspaceContext';
 import { WorkspaceProviderRuntimeService } from '#/workspace/providerConnections/providerRuntimeService';
 import '#/kosong/provider/providers/standard.contrib';
 import { PLATFORM_NO_CREDENTIAL_SECRET_REF, type ProviderConnection } from '@spiderbyte/protocol';
+
+const providerCommandFixture = fileURLToPath(new URL('../../../../kaos/test/fixtures/provider-cli.cjs', import.meta.url));
 
 function connection(overrides: Partial<ProviderConnection> = {}): ProviderConnection {
   return {
@@ -77,6 +81,7 @@ function runtime(options: {
   readonly createResult?: ProviderConnection;
   readonly policyOutcome?: 'allow' | 'deny' | 'approval_required';
   readonly transientFailures?: number;
+  readonly context?: IWorkspaceContext;
 } = {}): {
   readonly service: WorkspaceProviderRuntimeService;
   readonly removed: string[];
@@ -95,8 +100,9 @@ function runtime(options: {
     set: vi.fn(async () => undefined),
     get: vi.fn(async (ref: string) =>
       ref === 'secret_first' ? 'sk-first-fails' :
-        ref === 'secret_second' ? 'sk-second-works' :
+          ref === 'secret_second' ? 'sk-second-works' :
           ref === 'secret_error' ? 'sk-secret-error' :
+          ref === 'secret_cli' ? 'super-secret' :
           ref === 'secret_existing' || ref === 'secret_new' ? 'sk-test-secret' : undefined),
     remove: vi.fn(async (ref: string) => { removed.push(ref); }),
   };
@@ -161,7 +167,16 @@ function runtime(options: {
     replay: vi.fn(async () => ({ events: [], next_sequence: 0, has_more: false })),
   } as unknown as IWorkspacePlatformEventService;
   return {
-    service: new WorkspaceProviderRuntimeService(connections, secrets, protocols(options.transientFailures), policy, usage, events),
+    service: new WorkspaceProviderRuntimeService(
+      connections,
+      secrets,
+      protocols(options.transientFailures),
+      policy,
+      usage,
+      events,
+      undefined,
+      options.context,
+    ),
     removed,
     policy,
     usage,
@@ -247,6 +262,117 @@ describe('WorkspaceProviderRuntimeService', () => {
     expect(JSON.stringify(discovered)).not.toContain('sk-test-secret');
   });
 
+  it('bounds a chunked remote model catalog before parsing it', async () => {
+    let pulls = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulls += 1;
+        controller.enqueue(new Uint8Array(1024 * 1024));
+      },
+    });
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(body, {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })));
+    const { service } = runtime();
+
+    await expect(service.discoverModels('connection_openai', { force_remote: true })).rejects.toMatchObject({
+      code: 'provider_runtime.discovery_failed',
+    });
+    expect(pulls).toBeLessThanOrEqual(3);
+  });
+
+  it('runs an explicitly configured provider CLI through the governed runtime', async () => {
+    const cli = connection({
+      id: 'connection_provider_cli',
+      name: 'Fixture Provider CLI',
+      provider: 'provider-cli',
+      secret_ref: PLATFORM_NO_CREDENTIAL_SECRET_REF,
+      metadata: {
+        model: 'fixture-small',
+        provider_command: {
+          executable: process.execPath,
+          version_args: [providerCommandFixture, 'version'],
+          models_args: [providerCommandFixture, 'models'],
+          run_args: [providerCommandFixture, 'run', '--json', '--model', '{model}'],
+          capabilities: { streaming: true, usage_metadata: true },
+        },
+      },
+    });
+    const { service, usage } = runtime({ current: cli, connections: [cli] });
+
+    await expect(service.describe(cli.id)).resolves.toMatchObject({
+      provider: 'provider-cli',
+      model: 'fixture-small',
+      provider_type: 'provider-command',
+      transport: 'provider-command',
+    });
+    await expect(service.discoverModels(cli.id, { force_remote: true })).resolves.toMatchObject({
+      connection_id: cli.id,
+      models: expect.arrayContaining([
+        expect.objectContaining({ id: 'fixture-small' }),
+        expect.objectContaining({ id: 'fixture-large' }),
+      ]),
+    });
+
+    const events = [];
+    const stream = await service.request(cli.id, {
+      request_id: 'provider_cli_request',
+      run_id: 'run_provider_cli',
+      model: 'fixture-small',
+      input: {
+        systemPrompt: 'Be concise.',
+        tools: [],
+        messages: [{ role: 'user', content: [{ type: 'text', text: 'hello' }], toolCalls: [] }],
+      },
+    });
+    for await (const event of stream) events.push(event);
+    expect(events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'part', part: { type: 'text', text: expect.stringContaining('hello') } }),
+      expect.objectContaining({ type: 'usage' }),
+      expect.objectContaining({ type: 'finish' }),
+    ]));
+    expect(usage.recordUsage).toHaveBeenCalledWith(expect.objectContaining({
+      run_id: 'run_provider_cli',
+      source: 'local',
+    }));
+  });
+
+  it('keeps provider CLI credentials out of provider output and runtime events', async () => {
+    const cli = connection({
+      id: 'connection_provider_cli_secret',
+      name: 'Secret Fixture Provider CLI',
+      provider: 'provider-cli',
+      secret_ref: 'secret_cli',
+      metadata: {
+        model: 'fixture-small',
+        provider_command: {
+          executable: process.execPath,
+          version_args: [providerCommandFixture, 'version'],
+          models_args: [providerCommandFixture, 'models'],
+          run_args: [providerCommandFixture, 'run', '--json', '--model', '{model}'],
+          auth_env: 'PROVIDER_AUTH',
+        },
+      },
+    });
+    const { service } = runtime({ current: cli, connections: [cli] });
+    const stream = await service.request(cli.id, {
+      request_id: 'provider_cli_secret_request',
+      run_id: 'run_provider_cli_secret',
+      input: {
+        systemPrompt: 'Be concise.',
+        tools: [],
+        messages: [{ role: 'user', content: [{ type: 'text', text: 'hello' }], toolCalls: [] }],
+      },
+    });
+    const events = [];
+    for await (const event of stream) events.push(event);
+    expect(JSON.stringify(events)).not.toContain('super-secret');
+    expect(events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'part', part: { type: 'text', text: 'provider output token=[REDACTED]' } }),
+    ]));
+  });
+
   it('supports an unauthenticated local endpoint without resolving a secret', async () => {
     const local = connection({
       id: 'connection_local',
@@ -270,6 +396,56 @@ describe('WorkspaceProviderRuntimeService', () => {
     }
     expect(parts.join('')).toBe('pong');
     expect(secrets.get).not.toHaveBeenCalled();
+  });
+
+  it('records provider invocation lifecycle events with the active Attempt provenance', async () => {
+    const { service, events, usage } = runtime({
+      context: {
+        _serviceBrand: undefined,
+        workspaceId: 'wd_test_0123456789ab',
+      } as IWorkspaceContext,
+    });
+    const stream = await service.request('connection_openai', {
+      request_id: 'provider_trace_request',
+      run_id: 'run_provider_trace',
+      attempt_id: 'attempt_provider_trace',
+      project_id: 'project_provider_trace',
+      execution_target_id: 'target_local',
+      user_id: 'user_provider_trace',
+      approval_ids: ['approval_provider_trace'],
+      input: {
+        systemPrompt: 'test',
+        tools: [],
+        messages: [{ role: 'user', content: [{ type: 'text', text: 'hello' }], toolCalls: [] }],
+      },
+    });
+    for await (const _event of stream) {
+      // Consume the stream so completion and usage are recorded.
+    }
+
+    expect(events.append).toHaveBeenCalledWith(expect.objectContaining({
+      event_type: 'provider_invocation.state_changed',
+      entity_type: 'provider_invocation',
+      payload: expect.objectContaining({
+        run_id: 'run_provider_trace',
+        attempt_id: 'attempt_provider_trace',
+        workspace_id: 'wd_test_0123456789ab',
+        project_id: 'project_provider_trace',
+        execution_target_id: 'target_local',
+        provider: 'openai',
+        model: 'gpt-test',
+        approval_ids: ['approval_provider_trace'],
+      }),
+    }));
+    expect(events.append).toHaveBeenCalledWith(expect.objectContaining({
+      event_type: 'provider_invocation.completed',
+      entity_type: 'provider_invocation',
+      payload: expect.objectContaining({ attempt_id: 'attempt_provider_trace' }),
+    }));
+    expect(usage.recordUsage).toHaveBeenCalledWith(expect.objectContaining({
+      run_id: 'run_provider_trace',
+      attempt_id: 'attempt_provider_trace',
+    }));
   });
 
   it('enforces model policy before constructing a provider requester', async () => {

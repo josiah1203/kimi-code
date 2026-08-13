@@ -9,7 +9,7 @@
  *   POST /search   body: SearchMessagesBody   data: SearchMessagesResponse
  */
 
-import { type Scope } from '@spiderbyte/agent-core';
+import { ErrorCodes, isError2, type Scope } from '@spiderbyte/agent-core';
 import { z } from 'zod';
 
 import { errEnvelope, okEnvelope } from '../envelope';
@@ -24,6 +24,7 @@ import {
 } from '../protocol/rest-search';
 import type { GlobalSearchPage, GlobalSearchQuery } from '../search/contract';
 import { GlobalSearchError, IGlobalSearchService } from '../search/searchService';
+import { isWorkspaceAuthorized } from '../services/platformAuthorization';
 
 interface SearchRouteHost {
   post(
@@ -102,13 +103,25 @@ export function registerSearchRoutes(app: SearchRouteHost, core: Scope): void {
     async (req, reply) => {
       try {
         const page = await core.accessor.get(IGlobalSearchService).search(toServiceQuery(req.body));
-        reply.send(okEnvelope(toWirePage(page), req.id));
+        const visibleItems: typeof page.items = [];
+        for (const item of page.items) {
+          if (await isWorkspaceAuthorized(core, {
+            workspaceId: item.workspaceId,
+            requestId: `search:${req.id}:${item.sessionId}`,
+            capability: 'data.read',
+          })) visibleItems.push(item);
+        }
+        reply.send(okEnvelope(toWirePage({ ...page, items: visibleItems }), req.id));
       } catch (error) {
         if (
           error instanceof GlobalSearchError &&
           (error.reason === 'invalid_query' || error.reason === 'invalid_page_token')
         ) {
           reply.send(errEnvelope(ErrorCode.VALIDATION_FAILED, error.message, req.id, error.stack));
+          return;
+        }
+        if (isError2(error) && error.code === ErrorCodes.AUTHORIZATION_DENIED) {
+          reply.send(errEnvelope(ErrorCode.PLATFORM_POLICY_DENIED, 'platform policy denied the request', req.id));
           return;
         }
         requestLog(req)?.error({ err: error }, 'global search request failed');

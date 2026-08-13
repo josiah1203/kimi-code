@@ -136,6 +136,8 @@ export type BroadcastDelivery = 'subscription' | 'immediate';
 /** A connection (or test double) that receives sequenced envelopes. */
 export interface BroadcastTarget {
   send(envelope: EventEnvelope, delivery?: BroadcastDelivery): void;
+  /** Optional tenant filter for global events before they reach a connection. */
+  authorizeGlobalEvent?(envelope: EventEnvelope): Promise<boolean>;
 }
 
 /**
@@ -1284,6 +1286,9 @@ export class SessionEventBroadcaster {
       const diGated = event.type.startsWith('event.di.');
       for (const target of recipients) {
         if (diGated && !this.diEventTargets.has(target)) continue;
+        if (target.authorizeGlobalEvent !== undefined && !(await target.authorizeGlobalEvent(envelope))) {
+          continue;
+        }
         try {
           target.send(envelope, 'immediate');
         } catch {

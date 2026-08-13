@@ -1,14 +1,20 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  attemptCreateInputSchema,
+  attemptSchema,
+  attemptTransitionInputSchema,
   agentSessionSchema,
   artifactSchema,
   executionTargetSchema,
   executionTargetCreateInputSchema,
+  executionTargetTestInputSchema,
+  executionTargetTestResultSchema,
   platformCommandAcceptedSchema,
   platformEntityTypeSchema,
   platformLifecycleEventTypeSchema,
   platformLifecycleEventSchema,
+  invocationTraceContextSchema,
   platformWorkspaceSchema,
   policyDecisionAuditInputSchema,
   policyEvaluateInputSchema,
@@ -85,6 +91,58 @@ describe('platform contracts', () => {
       execution_target_id: 'target_local',
     });
     expect(run.status).toBe('running');
+  });
+
+  it('models Attempts as durable execution tries with explicit provenance', () => {
+    const attempt = attemptSchema.parse({
+      id: 'attempt_01',
+      run_id: 'run_01',
+      workspace_id: workspaceId,
+      agent_session_id: 'session_01',
+      attempt_number: 2,
+      kind: 'retry',
+      status: 'partial',
+      retry_of_attempt_id: 'attempt_00',
+      created_at: timestamps.created_at,
+      updated_at: timestamps.updated_at,
+      execution_target_id: 'target_local',
+      provider: 'fixture-cli',
+      model: 'fixture-small',
+      user_id: 'user_01',
+      policy_decision_ids: ['policy_01'],
+      approval_ids: ['approval_01'],
+      partial_artifacts: [{ id: 'artifact_01', version: 1 }],
+      usage: { input_tokens: 3, output_tokens: 4, total_tokens: 7 },
+    });
+    expect(attempt.status).toBe('partial');
+    expect(attempt.usage?.total_tokens).toBe(7);
+    expect(attemptCreateInputSchema.parse({ request_id: 'attempt_request' })).toMatchObject({
+      kind: 'retry',
+    });
+    expect(attemptTransitionInputSchema.parse({ request_id: 'attempt_transition', status: 'running' })).toMatchObject({
+      status: 'running',
+    });
+  });
+
+  it('requires complete provenance for invocation traces', () => {
+    const trace = invocationTraceContextSchema.parse({
+      run_id: 'run_01',
+      attempt_id: 'attempt_01',
+      workspace_id: workspaceId,
+      project_id: 'project_01',
+      execution_target_id: 'target_local',
+      provider: 'fixture-cli',
+      model: 'fixture-small',
+      user_id: 'user_01',
+      policy_decision_ids: ['policy_01'],
+      approval_ids: ['approval_01'],
+      artifact_ids: ['artifact_01'],
+    });
+    expect(trace.attempt_id).toBe('attempt_01');
+    expect(() => invocationTraceContextSchema.parse({
+      run_id: 'run_01',
+      workspace_id: workspaceId,
+    })).toThrow();
   });
 
   it('validates resource, artifact, policy, usage, and execution contracts', () => {
@@ -202,6 +260,9 @@ describe('platform contracts', () => {
     });
     expect(event.sequence).toBe(4);
 
+    expect(platformLifecycleEventTypeSchema.parse('attempt.created')).toBe('attempt.created');
+    expect(platformLifecycleEventTypeSchema.parse('provider_invocation.completed')).toBe('provider_invocation.completed');
+
     expect(
       platformLifecycleEventSchema.safeParse({
         event_id: 'event_02',
@@ -316,5 +377,67 @@ describe('platform contracts', () => {
       locality: 'customer-region',
       credential_ref: 'credential_worker',
     })).toThrow();
+  });
+
+  it('accepts explicit provider CLI connection metadata with a validated auth environment name', () => {
+    expect(
+      providerConnectionCreateInputSchema.parse({
+        request_id: 'request_provider_cli',
+        name: 'Customer CLI',
+        provider: 'provider-cli',
+        scope: 'workspace',
+        secret_ref: 'secret_none',
+        metadata: {
+          model: 'customer-model',
+          provider_command: {
+            executable: '/opt/customer/provider-cli',
+            run_args: ['run', '--model', '{model}'],
+            auth_env: 'CUSTOMER_PROVIDER_TOKEN',
+          },
+        },
+      }),
+    ).toMatchObject({ provider: 'provider-cli' });
+    expect(() => providerCommandConfigSchema.parse({
+      executable: '/opt/customer/provider-cli',
+      run_args: ['run', '{model}'],
+      auth_env: 'not-a-valid env name',
+    })).toThrow();
+  });
+
+  it('validates the self-hosted execution target connection contract', () => {
+    const target = executionTargetSchema.parse({
+      id: 'target_customer_worker',
+      workspace_id: workspaceId,
+      name: 'customer worker',
+      type: 'customer-managed',
+      state: 'configured',
+      locality: 'customer-region',
+      endpoint: 'https://worker.example/v1/execute',
+      capabilities: ['analysis', 'training'],
+      available_models: ['customer-model'],
+      available_providers: ['customer-runtime'],
+      resources: { cpu_cores: 8, memory_bytes: 16_384, gpu_count: 1, gpu_models: ['example-gpu'] },
+      authentication_method: 'secret_ref',
+      policy: { approval_required: true, allowed_operations: ['training'] },
+      health_status: 'healthy',
+      last_health_check_at: timestamps.updated_at,
+      version_compatibility: {
+        required_protocol_version: 1,
+        observed_protocol_version: 1,
+        compatible: true,
+      },
+      ...timestamps,
+    });
+    expect(target.resources?.gpu_count).toBe(1);
+    expect(executionTargetTestInputSchema.parse({ request_id: 'target_test' })).toMatchObject({
+      timeout_ms: 5_000,
+    });
+    expect(executionTargetTestResultSchema.parse({
+      target_id: target.id,
+      workspace_id: workspaceId,
+      status: 'healthy',
+      checked_at: timestamps.updated_at,
+      capabilities: target.capabilities,
+    }).status).toBe('healthy');
   });
 });

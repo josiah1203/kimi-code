@@ -22,9 +22,10 @@ export class CommercialApiError extends Error {
 export function commercialApiStatusForCode(code: string): CommercialApiError['status'] {
   if (code.includes('authentication') || code.includes('invalid_session')) return 401;
   if (code.includes('not_configured') || code.includes('temporarily_unavailable') || code.includes('not_implemented') || code.includes('unavailable')) return 503;
-  if (code.includes('authorization') || code.includes('entitlement_not_included')) return 403;
+  if (code.includes('authorization') || code.includes('entitlement_not_included') || code.includes('capability_not_included')) return 403;
   if (code.includes('not_found')) return 404;
-  if (code.includes('idempotency') || code.includes('duplicate') || code.includes('last_owner')) return 409;
+  if (code.includes('idempotency') || code.includes('duplicate') || code.includes('last_owner') || code.includes('seat_limit') || code.includes('already_assigned')) return 409;
+  if (code.includes('deployment_mismatch')) return 403;
   return 400;
 }
 
@@ -38,7 +39,7 @@ export function mapCommercialApiError(error: unknown): CommercialApiError {
     const status = commercialApiStatusForCode(application.code);
     return new CommercialApiError(status, application.code, application.message, application.detail);
   }
-  if (error instanceof Error && ['CommercialBillingError', 'CommercialComputeError', 'CommercialArtifactError', 'CommercialAdminError', 'CommercialEnterpriseError'].includes(error.name)) {
+  if (error instanceof Error && ['CommercialBillingError', 'CommercialComputeError', 'CommercialArtifactError', 'CommercialAdminError', 'CommercialEnterpriseError', 'CommercialLicensingError'].includes(error.name)) {
     const typed = error as Error & { readonly code: string; readonly detail?: Record<string, unknown> };
     const status = commercialApiStatusForCode(typed.code);
     return new CommercialApiError(status, typed.code, typed.message, typed.detail);

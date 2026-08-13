@@ -35,3 +35,6 @@ process.env['SPIDERBYTE_EXPERIMENTAL_SEARCH_WORKER'] = 'false';
 // read-model describe in sessions.test.ts re-enables the env var per test —
 // the env source outranks the `[experimental]` config section.
 process.env['SPIDERBYTE_EXPERIMENTAL_PERSISTENCE_MINIDB_READMODEL'] = 'false';
+
+// Provider write/import tests must exercise the encrypted credential path.
+process.env['SPIDERBYTE_SECRET_STORE_KEY'] = Buffer.alloc(32, 13).toString('base64url');

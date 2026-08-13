@@ -699,6 +699,7 @@ function locationFromVertexAIBaseUrl(baseUrl: string | undefined): string | unde
 }
 
 function hasConfiguredApiKey(provider: ProviderConfig): boolean {
+  if (provider.secretRef !== undefined) return true;
   if (nonEmpty(provider.apiKey) !== undefined) return true;
   if (provider.type === undefined) return false;
   return resolveProviderEndpoint(provider.type, provider.env ?? {}).apiKey !== undefined;

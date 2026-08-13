@@ -7,6 +7,7 @@ import type {
   CreateOrganizationInput,
   CreateWorkspaceInput,
   IdentityProviderType,
+  OfflineLicense,
 } from '@spiderbyte/commercial-domain';
 
 import { CommercialSdkError } from './errors';
@@ -108,6 +109,57 @@ export class CommercialSdkClient {
     return this.transport.request({ method: 'GET', path: `/api/v1/commercial/organizations/${encodeURIComponent(organizationId)}/entitlements/${encodeURIComponent(key)}`, request_id });
   }
 
+  activateLicense(request_id: string, organizationId: string, license: OfflineLicense, deployment?: { readonly deployment_id?: string; readonly host_fingerprint?: string; readonly domain?: string }): Promise<CommercialApiEnvelope<unknown>> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/api/v1/commercial/organizations/${encodeURIComponent(organizationId)}/license`,
+      request_id,
+      idempotency_key: request_id,
+      body: { license, deployment },
+    });
+  }
+
+  inspectLicense(request_id: string, organizationId: string): Promise<CommercialApiEnvelope<unknown>> {
+    return this.transport.request({ method: 'GET', path: `/api/v1/commercial/organizations/${encodeURIComponent(organizationId)}/license`, request_id });
+  }
+
+  inspectLicenseEntitlement(request_id: string, organizationId: string, capability: string): Promise<CommercialApiEnvelope<unknown>> {
+    return this.transport.request({ method: 'GET', path: `/api/v1/commercial/organizations/${encodeURIComponent(organizationId)}/license/entitlements/${encodeURIComponent(capability)}`, request_id });
+  }
+
+  renewLicense(request_id: string, organizationId: string, license?: OfflineLicense, deployment?: { readonly deployment_id?: string; readonly host_fingerprint?: string; readonly domain?: string }): Promise<CommercialApiEnvelope<unknown>> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/api/v1/commercial/organizations/${encodeURIComponent(organizationId)}/license/renew`,
+      request_id,
+      idempotency_key: request_id,
+      body: { license, deployment },
+    });
+  }
+
+  revokeLicense(request_id: string, organizationId: string, licenseId: string): Promise<CommercialApiEnvelope<unknown>> {
+    return this.transport.request({ method: 'DELETE', path: `/api/v1/commercial/organizations/${encodeURIComponent(organizationId)}/license/${encodeURIComponent(licenseId)}`, request_id, idempotency_key: request_id });
+  }
+
+  assignLicenseSeat(request_id: string, organizationId: string, userId: string): Promise<CommercialApiEnvelope<unknown>> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/api/v1/commercial/organizations/${encodeURIComponent(organizationId)}/license/seats`,
+      request_id,
+      idempotency_key: request_id,
+      body: { user_id: userId },
+    });
+  }
+
+  revokeLicenseSeat(request_id: string, organizationId: string, seatId: string): Promise<CommercialApiEnvelope<unknown>> {
+    return this.transport.request({
+      method: 'DELETE',
+      path: `/api/v1/commercial/organizations/${encodeURIComponent(organizationId)}/license/seats/${encodeURIComponent(seatId)}`,
+      request_id,
+      idempotency_key: request_id,
+    });
+  }
+
   submitCompute(request_id: string, input: {
     readonly organization_id: string;
     readonly workspace_id: string;
@@ -185,6 +237,18 @@ export class CommercialSdkClient {
 
   createTeam(request_id: string, organizationId: string, input: { readonly name: string; readonly workspace_ids?: readonly string[] }): Promise<CommercialApiEnvelope<unknown>> {
     return this.transport.request({ method: 'POST', path: `/api/v1/commercial/organizations/${encodeURIComponent(organizationId)}/teams`, request_id, idempotency_key: request_id, body: input });
+  }
+
+  inviteMember(request_id: string, organizationId: string, input: { readonly email: string; readonly role_ids: readonly string[]; readonly workspace_id?: string; readonly team_id?: string; readonly expires_at: string }): Promise<CommercialApiEnvelope<unknown>> {
+    return this.transport.request({ method: 'POST', path: `/api/v1/commercial/organizations/${encodeURIComponent(organizationId)}/invitations`, request_id, idempotency_key: request_id, body: input });
+  }
+
+  removeMember(request_id: string, organizationId: string, membershipId: string): Promise<CommercialApiEnvelope<unknown>> {
+    return this.transport.request({ method: 'DELETE', path: `/api/v1/commercial/organizations/${encodeURIComponent(organizationId)}/memberships/${encodeURIComponent(membershipId)}`, request_id, idempotency_key: request_id });
+  }
+
+  changeMemberRoles(request_id: string, organizationId: string, membershipId: string, role_ids: readonly string[]): Promise<CommercialApiEnvelope<unknown>> {
+    return this.transport.request({ method: 'POST', path: `/api/v1/commercial/organizations/${encodeURIComponent(organizationId)}/memberships/${encodeURIComponent(membershipId)}/roles`, request_id, idempotency_key: request_id, body: { role_ids } });
   }
 
   createCustomRole(request_id: string, organizationId: string, input: { readonly name: string; readonly permission_keys: readonly string[] }): Promise<CommercialApiEnvelope<unknown>> {

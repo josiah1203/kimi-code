@@ -1,6 +1,8 @@
 # SpiderByte Open Core boundary
 
-The Otis MCP/plugin-specific architecture and capability status authority is
+The current product and edition authority is
+[`SPIDERBYTE_PRODUCT_AUTHORITY.md`](./SPIDERBYTE_PRODUCT_AUTHORITY.md). The
+Otis MCP/plugin-specific architecture and capability status authority is
 [`SPIDERBYTE_OTIS_PLUGIN_ARCHITECTURE.md`](./SPIDERBYTE_OTIS_PLUGIN_ARCHITECTURE.md).
 
 Status: normative target contract. This document describes the boundary that
@@ -74,22 +76,25 @@ types, register a hosted route, or silently provide a fake implementation.
 When the capability is unavailable, the supported surface must either omit it
 or return a stable documented capability error.
 
-## Required removals from the current graph
+## Required removals from the current graph — baseline findings and current dispositions
 
-The baseline boundary audit identifies these active paths. They are migration
-targets, not allowed exceptions:
+The baseline audit recorded the following paths. The entries below distinguish
+resolved commercial removals from capabilities that are still absent; a
+retained path is acceptable only when the current implementation is the local,
+provider-neutral replacement and the boundary checker confirms that no
+commercial authority remains reachable.
 
 | Current path | Finding | Required disposition |
 | --- | --- | --- |
-| `packages/agent-core/src/workspace/commercial` | Commercial implementation in an Open Core package | Move to the excluded commercial distribution or remove; no canonical runtime import. |
-| `packages/agent-core/src/errors.ts` | Commercial module path in public error surface | Replace with local capability/error contracts; retain only precise compatibility documentation if legally necessary. |
-| `packages/agent-core/src/index.ts` | Commercial service import/re-export | Remove from the canonical Agent Core entry point. |
-| `packages/kap-server/src/routes/v2/platform.ts` | `IWorkspaceCommercialService` route dependency | Remove commercial route registration and keep only local platform routes. |
-| `packages/client/src/contract/global/platform.ts` | `commercialContract` public contract | Remove from the public client contract; add only neutral local capability contracts. |
-| `packages/client/src/core/facade/global.ts` | `GlobalCommercialFacade` | Remove the facade from the canonical client surface. |
-| `packages/client/src/contract/index.ts` | Commercial barrel exports | Remove commercial types and exports. |
-| `packages/client/src/index.ts` | Commercial facade export | Remove commercial exports from the package entry point. |
-| `packages/client/src/transports/memory/serviceRegistry.ts` | Commercial service registration | Register only local services and neutral extension points. |
+| `packages/agent-core/src/workspace/commercial` | Commercial implementation in an Open Core package | Resolved: the path is absent and no canonical runtime import remains. |
+| `packages/agent-core/src/errors.ts` | Commercial module path in public error surface | Resolved: the current error surface contains local capability/error contracts only. |
+| `packages/agent-core/src/index.ts` | Commercial service import/re-export | Resolved: the canonical Agent Core barrel does not import or re-export commercial services. |
+| `packages/kap-server/src/routes/v2/platform.ts` | Former `IWorkspaceCommercialService` route dependency | Resolved: the file is retained as the local provider-neutral platform route; commercial registration is absent. |
+| `packages/client/src/contract/global/platform.ts` | Former `commercialContract` public contract | Resolved: the file contains neutral local platform contracts only. |
+| `packages/client/src/core/facade/global.ts` | Former `GlobalCommercialFacade` | Resolved: the facade exposes local platform services and no commercial authority. |
+| `packages/client/src/contract/index.ts` | Former commercial barrel exports | Resolved: no commercial public barrel is exported. |
+| `packages/client/src/index.ts` | Former commercial facade export | Resolved: the package entry point exports the local client surface only. |
+| `packages/client/src/transports/memory/serviceRegistry.ts` | Former commercial service registration | Resolved: the registry contains local services and neutral extension points only. |
 | `apps/cli/dist-web` | Removed generated web bundle | No Open Core browser bundle is shipped; the exact stale bundle was moved out of the checkout for recovery during migration review. |
 | `apps/web` | Referenced authoritative source is absent | The browser client is explicitly external to this checkout; only the local REST/WebSocket API is supported here. |
 
