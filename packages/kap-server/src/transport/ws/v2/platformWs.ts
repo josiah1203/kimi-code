@@ -10,6 +10,7 @@ import {
 import {
   platformEntityTypeSchema,
   platformLifecycleEventTypeSchema,
+  type DelegatedPrincipal,
   type PlatformLifecycleEvent,
   type PlatformReplayPage,
 } from '@spiderbyte/protocol';
@@ -19,6 +20,11 @@ import { z } from 'zod';
 import { ErrorCode } from '../../../protocol/error-codes';
 import { mapPlatformError } from '../../../routes/v2/platformErrors';
 import { assertWorkspaceAuthorization } from '../../../services/platformAuthorization';
+import { selectWsBearerProtocol } from '../bearerProtocol';
+import {
+  runWithRequestDelegatedPrincipal,
+  webSocketRequestDelegatedPrincipal,
+} from '../../../services/auth/requestPrincipal';
 
 export const WS_PATH_V2_PLATFORM = '/api/v2/platform/ws';
 
@@ -51,10 +57,13 @@ function rawDataToText(raw: WebSocket.RawData): string {
 }
 
 export function registerPlatformWs(core: Scope): WebSocketServer {
-  const wss = new WebSocketServer({ noServer: true });
-  wss.on('connection', (socket) => {
-    const connection = new PlatformWsConnection(core, socket);
-    socket.on('message', (raw) => void connection.handle(rawDataToText(raw)));
+  const wss = new WebSocketServer({ noServer: true, handleProtocols: selectWsBearerProtocol });
+  wss.on('connection', (socket, req) => {
+    const connection = new PlatformWsConnection(core, socket, webSocketRequestDelegatedPrincipal(req));
+    socket.on('message', (raw) => void runWithRequestDelegatedPrincipal(
+      connection.delegatedPrincipal,
+      () => connection.handle(rawDataToText(raw)),
+    ));
     socket.on('close', () => connection.dispose());
     socket.on('error', () => connection.dispose());
   });
@@ -66,7 +75,11 @@ class PlatformWsConnection {
   private unsubscribe: { dispose(): void } | undefined;
   private filter: PlatformEventFilter = {};
 
-  constructor(private readonly core: Scope, private readonly socket: WebSocket) {}
+  constructor(
+    private readonly core: Scope,
+    private readonly socket: WebSocket,
+    readonly delegatedPrincipal: DelegatedPrincipal | undefined,
+  ) {}
 
   async handle(raw: string): Promise<void> {
     let control: z.infer<typeof controlSchema>;

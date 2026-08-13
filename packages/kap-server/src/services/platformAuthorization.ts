@@ -11,12 +11,17 @@ import {
 } from '@spiderbyte/agent-core';
 import type { Organization, PlatformCapability, Project } from '@spiderbyte/protocol';
 
+import { currentRequestDelegatedPrincipal } from './auth/requestPrincipal';
+
 export const SPIDERBYTE_LOCAL_ACTOR_ID_ENV = 'SPIDERBYTE_LOCAL_ACTOR_ID';
 export const DEFAULT_LOCAL_ACTOR_ID = 'local-user';
 
-/** Resolve only host-controlled identity; request bodies are never consulted. */
+/** Resolve only server-controlled identity; request bodies are never consulted. */
 export function resolveLocalActorId(explicit?: string): string {
-  return explicit ?? process.env[SPIDERBYTE_LOCAL_ACTOR_ID_ENV] ?? DEFAULT_LOCAL_ACTOR_ID;
+  return explicit
+    ?? currentRequestDelegatedPrincipal()?.actor_id
+    ?? process.env[SPIDERBYTE_LOCAL_ACTOR_ID_ENV]
+    ?? DEFAULT_LOCAL_ACTOR_ID;
 }
 
 /**
@@ -36,7 +41,11 @@ export async function assertWorkspaceAuthorization(
 ): Promise<void> {
   const governance = core.accessor.get(IPlatformGovernanceService);
   const project = await governance.projectForWorkspace(input.workspaceId);
-  if (project === undefined) return;
+  if (project === undefined) {
+    assertDelegatedOrganization(undefined, input.requestId);
+    return;
+  }
+  assertDelegatedOrganization(project.organization_id, input.requestId);
 
   const actorId = resolveLocalActorId(input.actorId);
   await core.accessor.get(IPlatformAuthorizationService).assert({
@@ -118,8 +127,10 @@ export async function assertSessionAuthorization(
 export async function listAuthorizedOrganizations(core: Scope, actorId?: string): Promise<readonly Organization[]> {
   const governance = core.accessor.get(IPlatformGovernanceService);
   const principal = resolveLocalActorId(actorId);
+  const delegatedOrganizationId = currentRequestDelegatedPrincipal()?.organization_id;
   const organizations: Organization[] = [];
   for (const organization of await governance.listOrganizations()) {
+    if (delegatedOrganizationId !== undefined && organization.id !== delegatedOrganizationId) continue;
     const members = await governance.listOrganizationMembers(organization.id);
     if (members.some((member) => member.member_id === principal)) organizations.push(organization);
   }
@@ -135,8 +146,11 @@ export async function listAuthorizedProjects(
   const governance = core.accessor.get(IPlatformGovernanceService);
   const authorization = core.accessor.get(IPlatformAuthorizationService);
   const principal = resolveLocalActorId(actorId);
+  if (organizationId !== undefined) assertDelegatedOrganization(organizationId, `list_projects:${organizationId}`);
+  const delegatedOrganizationId = currentRequestDelegatedPrincipal()?.organization_id;
   const projects: Project[] = [];
   for (const project of await governance.listProjects(organizationId)) {
+    if (delegatedOrganizationId !== undefined && project.organization_id !== delegatedOrganizationId) continue;
     const decision = await authorization.evaluate({
       request_id: authorizationRequestId(`list_projects:${project.id}`),
       actor_id: principal,
@@ -153,6 +167,7 @@ export async function assertOrganizationAuthorization(
   core: Scope,
   input: { readonly organizationId: string; readonly requestId: string; readonly actorId?: string },
 ): Promise<Organization | undefined> {
+  assertDelegatedOrganization(input.organizationId, input.requestId);
   const governance = core.accessor.get(IPlatformGovernanceService);
   const organization = await governance.getOrganization(input.organizationId);
   if (organization === undefined) return undefined;
@@ -180,6 +195,7 @@ export async function assertProjectAuthorization(
   const governance = core.accessor.get(IPlatformGovernanceService);
   const project = await governance.getProject(input.projectId);
   if (project === undefined) return undefined;
+  assertDelegatedOrganization(project.organization_id, input.requestId);
   await core.accessor.get(IPlatformAuthorizationService).assert({
     request_id: authorizationRequestId(input.requestId),
     actor_id: resolveLocalActorId(input.actorId),
@@ -192,4 +208,15 @@ export async function assertProjectAuthorization(
 
 function authorizationRequestId(requestId: string): string {
   return `auth_${requestId.replaceAll(/[^A-Za-z0-9._:-]/g, '_').slice(0, 240)}`;
+}
+
+function assertDelegatedOrganization(organizationId: string | undefined, requestId: string): void {
+  const delegatedOrganizationId = currentRequestDelegatedPrincipal()?.organization_id;
+  if (delegatedOrganizationId === undefined) return;
+  if (organizationId === delegatedOrganizationId) return;
+  throw new AuthorizationServiceError(
+    AuthorizationErrors.codes.AUTHORIZATION_DENIED,
+    'delegated principal is not bound to the requested organization',
+    { organizationId, delegatedOrganizationId, requestId },
+  );
 }

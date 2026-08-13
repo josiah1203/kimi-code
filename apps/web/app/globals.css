@@ -524,6 +524,62 @@ button {
   font-size: 0.8rem;
 }
 
+.commercial-status-dot.not_configured,
+.commercial-status-dot.not_implemented,
+.commercial-status-dot.temporarily_unavailable,
+.commercial-status-dot.not_included {
+  background: var(--amber);
+  box-shadow: 0 0 0 0.22rem rgba(242, 179, 94, 0.16);
+}
+
+.commercial-capability-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+  padding: 1rem 1.1rem 0;
+}
+
+.commercial-capability-card {
+  border: 1px solid #e4ece5;
+  border-radius: 0.75rem;
+  padding: 0.85rem;
+  background: #fbfdfb;
+}
+
+.commercial-capability-card strong {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--forest);
+  font-size: 0.82rem;
+}
+
+.commercial-capability-card p {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.commercial-session-status {
+  margin: 0 1.1rem;
+  border-top: 1px solid #e4ece5;
+  padding-top: 0.9rem;
+}
+
+.commercial-session-status strong {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--forest);
+  font-size: 0.82rem;
+}
+
+.commercial-session-status p {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
 .pricing-wrap {
   padding: 1.1rem;
 }
@@ -646,5 +702,936 @@ button {
 
   .metric-row {
     grid-template-columns: 1fr;
+  }
+
+  .commercial-capability-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Discord-like collaboration projection. The surface is intentionally
+ * separate from the marketing/control-plane styles above so it can be moved
+ * into a shared design system without changing platform contracts. */
+.collaboration-frame .app-main {
+  display: block;
+}
+
+.collaboration-frame .app-content {
+  width: 100%;
+  max-width: none;
+  padding: 0;
+}
+
+.collab-app {
+  --collab-ink: #e9f1f0;
+  --collab-soft: #a8b8b5;
+  --collab-muted: #71827f;
+  --collab-deep: #172522;
+  --collab-sidebar: #20322e;
+  --collab-panel: #f8faf8;
+  --collab-line: #dce6e1;
+  --collab-mint: #b9e6c9;
+  --collab-lime: #d9f577;
+  display: grid;
+  min-height: calc(100vh - 4.6rem);
+  grid-template-columns: 4.25rem 17rem minmax(28rem, 1fr) 19rem;
+  overflow: hidden;
+  background: var(--collab-panel);
+  color: #1c2b28;
+}
+
+.collab-rail {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 0.65rem;
+  background: var(--collab-deep);
+}
+
+.collab-rail-mark,
+.collab-workspace-button,
+.collab-workspace-add {
+  display: grid;
+  width: 2.65rem;
+  height: 2.65rem;
+  place-items: center;
+  border: 0;
+  border-radius: 0.9rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.collab-rail-mark {
+  margin-bottom: 0.5rem;
+  border-radius: 0.85rem;
+  background: var(--collab-lime);
+  color: var(--collab-deep);
+}
+
+.collab-workspace-button,
+.collab-workspace-add {
+  cursor: pointer;
+  background: #2c4540;
+  color: var(--collab-soft);
+  transition: border-radius 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.collab-workspace-button:hover,
+.collab-workspace-button.active {
+  border-radius: 0.65rem;
+  background: #4e796c;
+  color: #fff;
+}
+
+.collab-workspace-add {
+  border: 1px dashed #57706a;
+  background: transparent;
+  color: var(--collab-mint);
+  font-size: 1.2rem;
+}
+
+.collab-workspace-add:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.collab-sidebar {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  border-right: 1px solid #2c4540;
+  background: var(--collab-sidebar);
+  color: var(--collab-ink);
+}
+
+.collab-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 4.7rem;
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid rgba(220, 230, 225, 0.11);
+}
+
+.collab-sidebar-header strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 0.3rem;
+  color: #f2f8f5;
+  font-size: 0.85rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collab-kicker {
+  color: #89a69c;
+  font-size: 0.61rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.collab-health-dot,
+.collab-status-pill > span,
+.collab-channel-indicator,
+.collab-run-dot {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: #77c88c;
+  box-shadow: 0 0 0 0.2rem rgba(119, 200, 140, 0.13);
+}
+
+.collab-health-dot.loading,
+.collab-health-dot.degraded,
+.collab-health-dot.unavailable {
+  background: var(--amber);
+  box-shadow: 0 0 0 0.2rem rgba(242, 179, 94, 0.12);
+}
+
+.collab-sidebar-search {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 1rem 0.85rem 0.75rem;
+  border: 1px solid rgba(220, 230, 225, 0.12);
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.6rem;
+  color: #b6c9c3;
+  font-size: 0.74rem;
+}
+
+.collab-sidebar-search span {
+  flex: 1;
+  color: #829b93;
+}
+
+.collab-sidebar-search kbd {
+  color: #688078;
+  font-size: 0.6rem;
+}
+
+.collab-channel-section {
+  padding: 0.6rem 0.65rem;
+}
+
+.collab-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.45rem 0.4rem;
+  color: #7e9990;
+  font-size: 0.63rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.collab-count {
+  color: #5d786f;
+  font-size: 0.68rem;
+}
+
+.collab-channel-button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.55rem;
+  border: 0;
+  border-radius: 0.45rem;
+  padding: 0.55rem 0.55rem;
+  cursor: pointer;
+  background: transparent;
+  color: #9cb2ab;
+  font-size: 0.79rem;
+  text-align: left;
+}
+
+.collab-channel-button:hover,
+.collab-channel-button.active {
+  background: rgba(185, 230, 201, 0.12);
+  color: #f4faf7;
+}
+
+.collab-thread-section {
+  padding-top: 0;
+}
+
+.collab-thread-button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.45rem;
+  border: 0;
+  border-radius: 0.45rem;
+  padding: 0.48rem 0.55rem;
+  cursor: pointer;
+  background: transparent;
+  color: #8da59d;
+  font-size: 0.73rem;
+  text-align: left;
+}
+
+.collab-thread-button span:first-child {
+  color: #658178;
+}
+
+.collab-thread-button span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collab-thread-button:hover,
+.collab-thread-button.active {
+  background: rgba(185, 230, 201, 0.1);
+  color: #f4faf7;
+}
+
+.collab-thread-form {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+}
+
+.collab-thread-form input {
+  min-width: 0;
+  flex: 1;
+  border: 1px solid rgba(220, 230, 225, 0.14);
+  border-radius: 0.4rem;
+  padding: 0.43rem 0.5rem;
+  outline: none;
+  background: rgba(255, 255, 255, 0.05);
+  color: #dce9e4;
+  font-size: 0.68rem;
+}
+
+.collab-thread-form input::placeholder {
+  color: #718980;
+}
+
+.collab-thread-form input:focus {
+  border-color: #78a995;
+}
+
+.collab-thread-form button {
+  width: 1.75rem;
+  border: 1px solid rgba(220, 230, 225, 0.14);
+  border-radius: 0.4rem;
+  cursor: pointer;
+  background: rgba(185, 230, 201, 0.12);
+  color: var(--collab-mint);
+}
+
+.collab-thread-form button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.collab-channel-hash {
+  color: #7e9990;
+  font-size: 1.15rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.collab-channel-indicator {
+  width: 0.38rem;
+  height: 0.38rem;
+  margin-left: auto;
+  background: var(--collab-lime);
+  box-shadow: none;
+}
+
+.collab-empty-sidebar {
+  padding: 0.45rem;
+  color: #718a82;
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.collab-sidebar-footer {
+  margin-top: auto;
+  padding: 0.8rem;
+  border-top: 1px solid rgba(220, 230, 225, 0.11);
+}
+
+.collab-user-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.collab-user-row > span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 0.15rem;
+}
+
+.collab-user-row strong {
+  overflow: hidden;
+  color: #ecf5f0;
+  font-size: 0.74rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collab-user-row small {
+  color: #759087;
+  font-size: 0.62rem;
+}
+
+.collab-avatar {
+  display: grid;
+  width: 2.05rem;
+  height: 2.05rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 0.65rem;
+  background: #cfead5;
+  color: #20463b;
+  font-size: 0.63rem;
+  font-weight: 800;
+}
+
+.collab-avatar.agent {
+  background: var(--collab-deep);
+  color: var(--collab-lime);
+}
+
+.collab-avatar.system {
+  background: #e1eadf;
+  color: #507063;
+}
+
+.collab-boundary-note {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.85rem;
+  color: #7f9b91;
+  font-size: 0.63rem;
+}
+
+.collab-main {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  background: #fff;
+}
+
+.collab-main-header {
+  display: flex;
+  min-height: 4.7rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1.45rem;
+  border-bottom: 1px solid var(--collab-line);
+}
+
+.collab-main-title,
+.collab-main-actions,
+.collab-card-heading,
+.collab-message-meta,
+.collab-composer-actions,
+.collab-run-meta,
+.collab-resource-row {
+  display: flex;
+  align-items: center;
+}
+
+.collab-main-title {
+  min-width: 0;
+  gap: 0.65rem;
+}
+
+.collab-main-title h1 {
+  overflow: hidden;
+  margin: 0;
+  color: #20312d;
+  font-size: 0.92rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collab-main-title p {
+  overflow: hidden;
+  margin: 0.2rem 0 0;
+  color: #7a8c87;
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collab-main-actions {
+  gap: 0.45rem;
+}
+
+.collab-icon-button {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 0;
+  border-radius: 0.45rem;
+  cursor: pointer;
+  background: transparent;
+  color: #82938e;
+  font-size: 1.1rem;
+}
+
+.collab-icon-button:hover {
+  background: #edf4ef;
+  color: var(--forest);
+}
+
+.collab-icon-button:disabled {
+  cursor: not-allowed;
+  color: #b4c1bc;
+  opacity: 0.65;
+}
+
+.collab-header-divider {
+  width: 1px;
+  height: 1.4rem;
+  margin: 0 0.35rem;
+  background: var(--collab-line);
+}
+
+.collab-member-chip {
+  max-width: 8rem;
+  overflow: hidden;
+  border-radius: 999px;
+  padding: 0.45rem 0.65rem;
+  background: #eff6f0;
+  color: #527067;
+  font-size: 0.64rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collab-statusbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.6rem 1.45rem;
+  border-bottom: 1px solid #edf2ee;
+  background: #fbfdfb;
+}
+
+.collab-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid #e3ece5;
+  border-radius: 999px;
+  padding: 0.28rem 0.55rem;
+  color: #71827d;
+  font-size: 0.62rem;
+}
+
+.collab-status-pill > span {
+  width: 0.35rem;
+  height: 0.35rem;
+  box-shadow: none;
+}
+
+.collab-status-pill.loading > span,
+.collab-status-pill.degraded > span,
+.collab-status-pill.unavailable > span {
+  background: var(--amber);
+}
+
+.collab-message-list {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding: 1.65rem clamp(1.15rem, 3vw, 3rem) 1.2rem;
+}
+
+.collab-channel-welcome {
+  max-width: 42rem;
+  margin: 0 auto 1.8rem;
+  border-bottom: 1px solid var(--collab-line);
+  padding-bottom: 1.25rem;
+}
+
+.collab-welcome-icon {
+  display: grid;
+  width: 2.7rem;
+  height: 2.7rem;
+  place-items: center;
+  border-radius: 0.8rem;
+  background: #eef7ef;
+  color: #557d6a;
+  font-size: 1.35rem;
+}
+
+.collab-channel-welcome h2 {
+  margin: 0.85rem 0 0.35rem;
+  color: #273b35;
+  font-size: 1.35rem;
+  letter-spacing: -0.04em;
+}
+
+.collab-channel-welcome p {
+  max-width: 38rem;
+  margin: 0;
+  color: #74847f;
+  font-size: 0.78rem;
+  line-height: 1.65;
+}
+
+.collab-message {
+  display: flex;
+  max-width: 48rem;
+  gap: 0.75rem;
+  margin: 0 auto;
+  padding: 0.75rem 0.25rem;
+}
+
+.collab-message:hover {
+  border-radius: 0.65rem;
+  background: #fbfdfb;
+}
+
+.collab-message-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.collab-message-meta {
+  gap: 0.5rem;
+}
+
+.collab-message-meta strong {
+  color: #30463f;
+  font-size: 0.76rem;
+}
+
+.collab-message-meta time {
+  color: #9aa8a3;
+  font-size: 0.62rem;
+}
+
+.collab-message-state {
+  border-radius: 999px;
+  padding: 0.18rem 0.4rem;
+  background: #eef4ef;
+  color: #628171;
+  font-size: 0.58rem;
+  text-transform: capitalize;
+}
+
+.collab-message-state.failed {
+  background: #fff0e6;
+  color: #a96134;
+}
+
+.collab-message-body p {
+  margin: 0.3rem 0 0;
+  color: #3e504b;
+  font-size: 0.8rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.collab-message.system .collab-message-body p {
+  color: #6d8178;
+  font-style: italic;
+}
+
+.collab-message-link,
+.collab-run-id {
+  display: inline-block;
+  margin-top: 0.45rem;
+  color: #6e887b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.61rem;
+}
+
+.collab-composer {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 0.5rem 1.25rem 1.15rem;
+}
+
+.collab-composer textarea {
+  display: block;
+  width: 100%;
+  resize: vertical;
+  border: 1px solid #cfded4;
+  border-radius: 0.7rem;
+  padding: 0.8rem 0.9rem;
+  outline: none;
+  background: #fff;
+  color: #253a33;
+  font: inherit;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  box-shadow: 0 8px 22px rgba(28, 64, 50, 0.04);
+}
+
+.collab-composer textarea:focus {
+  border-color: #78ad8c;
+  box-shadow: 0 0 0 3px rgba(120, 173, 140, 0.14);
+}
+
+.collab-composer textarea:disabled {
+  cursor: not-allowed;
+  background: #f5f8f5;
+}
+
+.collab-composer-actions {
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding-top: 0.5rem;
+}
+
+.collab-composer-actions > span {
+  color: #9aa8a3;
+  font-size: 0.61rem;
+}
+
+.collab-send-button,
+.collab-cancel-button,
+.collab-outline-button {
+  border: 0;
+  border-radius: 0.5rem;
+  padding: 0.52rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.collab-send-button {
+  background: var(--forest);
+  color: #f8fff8;
+}
+
+.collab-send-button:disabled,
+.collab-cancel-button:disabled,
+.collab-outline-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.collab-approval-card {
+  margin-top: 0.8rem;
+  border: 1px solid #e6c88b;
+  border-radius: 0.55rem;
+  padding: 0.7rem;
+  background: #fff8e8;
+}
+
+.collab-approval-card strong {
+  display: block;
+  color: #855d1f;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.collab-approval-card p {
+  margin: 0.45rem 0;
+  color: #35453e;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.collab-approval-card code {
+  display: block;
+  color: #7a887f;
+  font-size: 0.62rem;
+  overflow-wrap: anywhere;
+}
+
+.collab-approval-actions {
+  display: flex;
+  gap: 0.45rem;
+  margin-top: 0.7rem;
+}
+
+.collab-approval-actions button {
+  border: 1px solid #c9d5cc;
+  border-radius: 0.42rem;
+  padding: 0.4rem 0.6rem;
+  color: #35453e;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.65rem;
+  font-weight: 750;
+}
+
+.collab-approval-actions button:first-child {
+  border-color: #9bc4a6;
+  color: #1d6540;
+  background: #effaf1;
+}
+
+.collab-approval-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.collab-alert {
+  margin: 0 1.25rem 0.8rem;
+  border-radius: 0.55rem;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.collab-alert.error {
+  background: #fff0e9;
+  color: #9b5831;
+}
+
+.collab-alert.notice {
+  background: #f1f5ef;
+  color: #63786e;
+}
+
+.collab-inspector {
+  overflow: auto;
+  border-left: 1px solid var(--collab-line);
+  padding: 1.2rem 1rem;
+  background: #f7faf7;
+}
+
+.collab-inspector-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.25rem 0.2rem 0.85rem;
+}
+
+.collab-live-label {
+  color: #6d9b79;
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.collab-inspector-card {
+  margin-bottom: 0.8rem;
+  border: 1px solid var(--collab-line);
+  border-radius: 0.75rem;
+  padding: 0.85rem;
+  background: #fff;
+}
+
+.collab-card-heading {
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: #789087;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.collab-run-dot.idle {
+  background: #a4b3ad;
+  box-shadow: none;
+}
+
+.collab-run-dot.failed,
+.collab-run-dot.cancelled {
+  background: #d38155;
+  box-shadow: none;
+}
+
+.collab-run-title {
+  display: block;
+  margin-top: 1rem;
+  color: #2b4238;
+  font-size: 0.9rem;
+  text-transform: capitalize;
+}
+
+.collab-run-meta,
+.collab-resource-row {
+  justify-content: space-between;
+  gap: 0.7rem;
+  padding-top: 0.7rem;
+  color: #81918b;
+  font-size: 0.67rem;
+}
+
+.collab-run-meta strong,
+.collab-resource-row strong {
+  color: #4d665c;
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.collab-cancel-button {
+  width: 100%;
+  margin-top: 0.85rem;
+  background: #fff0e7;
+  color: #a85d37;
+}
+
+.collab-inspector-empty,
+.optional-card p {
+  margin: 0.85rem 0 0;
+  color: #7c8d86;
+  font-size: 0.68rem;
+  line-height: 1.55;
+}
+
+.collab-resource-mark {
+  color: #77a18b;
+  font-size: 1rem;
+}
+
+.collab-outline-button {
+  width: 100%;
+  margin-top: 0.8rem;
+  border: 1px solid #ccdbd1;
+  background: #f8fbf8;
+  color: #6f847b;
+}
+
+.collab-inspector-footer {
+  padding: 0.55rem 0.2rem;
+  color: #94a39d;
+  font-size: 0.61rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 1240px) {
+  .collab-app {
+    grid-template-columns: 4.25rem 15rem minmax(26rem, 1fr);
+  }
+
+  .collab-inspector {
+    display: none;
+  }
+}
+
+@media (max-width: 850px) {
+  .collab-app {
+    grid-template-columns: 3.7rem minmax(0, 1fr);
+  }
+
+  .collab-sidebar {
+    display: none;
+  }
+
+  .collab-main-header {
+    padding-inline: 1rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .collab-app {
+    min-height: calc(100vh - 3.8rem);
+    grid-template-columns: 3.25rem minmax(0, 1fr);
+  }
+
+  .collab-rail {
+    padding-inline: 0.35rem;
+  }
+
+  .collab-rail-mark,
+  .collab-workspace-button,
+  .collab-workspace-add {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .collab-main-actions .collab-icon-button,
+  .collab-header-divider,
+  .collab-member-chip {
+    display: none;
+  }
+
+  .collab-statusbar {
+    padding-inline: 0.8rem;
+  }
+
+  .collab-message-list {
+    padding-inline: 0.8rem;
+  }
+
+  .collab-composer {
+    padding-inline: 0.8rem;
+  }
+
+  .collab-composer-actions > span {
+    display: none;
   }
 }

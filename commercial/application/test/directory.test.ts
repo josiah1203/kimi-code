@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { capabilityStatusSchema, type Principal } from '@spiderbyte/commercial-domain';
+import type { ExternalIdentityDirectoryPort, IdentityPort } from '@spiderbyte/commercial-ports';
 import {
   DeterministicTokenGenerator,
   DevelopmentIdentityAdapter,
@@ -8,6 +10,13 @@ import {
   MonotonicIdGenerator,
 } from '../../adapters/src/index';
 import { CommercialApplicationCodes, CommercialApplicationError, CommercialDirectoryService } from '@spiderbyte/commercial-application';
+
+/**
+ * Commercial directory contract scenarios use the real application service,
+ * in-memory store, audit writer, and explicit development identity adapter;
+ * no provider or network boundary is stubbed. Run with
+ * `pnpm --filter @spiderbyte/commercial-application test`.
+ */
 
 const now = '2026-08-11T12:00:00.000Z';
 
@@ -181,5 +190,200 @@ describe('commercial directory application', () => {
       actor: { kind: 'user', id: account.user.id },
       name: 'Different',
     })).rejects.toBeInstanceOf(CommercialApplicationError);
+  });
+
+  it('synchronizes a trusted external organization into tenant records and replays idempotently', async () => {
+    const { directory, store, audit } = createDirectory();
+    const input = {
+      request_id: 'external-sync-request-1',
+      actor: { kind: 'system' as const, id: 'identity-sync' },
+      snapshot: {
+        provider: 'clerk',
+        external_organization_id: 'org_external_1',
+        account_id: 'acct_sync_01',
+        organization_id: 'org_sync_01',
+        name: 'Synced Organization',
+        owner_user_id: 'usr_sync_owner',
+        members: [
+          { user_id: 'usr_sync_owner', email: 'owner@example.test', display_name: 'Owner', role: 'owner' as const, state: 'active' as const },
+          { user_id: 'usr_sync_member', email: 'member@example.test', display_name: 'Member', role: 'member' as const, state: 'active' as const },
+        ],
+      },
+    };
+
+    const first = await directory.synchronizeExternalOrganization(input);
+    const replay = await directory.synchronizeExternalOrganization(input);
+
+    expect(first.organization).toMatchObject({ id: 'org_sync_01', owner_user_id: 'usr_sync_owner' });
+    expect(first.users).toHaveLength(2);
+    expect(first.memberships).toHaveLength(2);
+    expect(replay).toEqual(first);
+    expect(await store.list('organizations')).toHaveLength(1);
+    expect(await store.list('memberships')).toHaveLength(2);
+    expect(await audit.verifyIntegrity()).toBe(true);
+  });
+
+  it('removes an organization membership omitted by a complete external snapshot', async () => {
+    const { directory, store } = createDirectory();
+    const base = {
+      provider: 'clerk',
+      external_organization_id: 'org_external_2',
+      account_id: 'acct_sync_02',
+      organization_id: 'org_sync_02',
+      name: 'Membership Changes',
+      owner_user_id: 'usr_sync_owner_2',
+    } as const;
+    await directory.synchronizeExternalOrganization({
+      request_id: 'external-sync-request-2a',
+      actor: { kind: 'system', id: 'identity-sync' },
+      snapshot: {
+        ...base,
+        members: [
+          { user_id: 'usr_sync_owner_2', email: 'owner2@example.test', display_name: 'Owner Two', role: 'owner', state: 'active' },
+          { user_id: 'usr_sync_member_2', email: 'member2@example.test', display_name: 'Member Two', role: 'member', state: 'active' },
+        ],
+      },
+    });
+
+    await directory.synchronizeExternalOrganization({
+      request_id: 'external-sync-request-2b',
+      actor: { kind: 'system', id: 'identity-sync' },
+      snapshot: {
+        ...base,
+        members: [
+          { user_id: 'usr_sync_owner_2', email: 'owner2@example.test', display_name: 'Owner Two', role: 'owner', state: 'active' },
+        ],
+      },
+    });
+
+    const removed = (await store.list('memberships')).find((membership) => membership.user_id === 'usr_sync_member_2');
+    expect(removed).toMatchObject({ state: 'removed' });
+  });
+
+  it('provisions a verified external session before commercial authorization', async () => {
+    const snapshot = {
+      provider: 'clerk',
+      external_organization_id: 'org_external_session',
+      account_id: 'acct_sync_session',
+      organization_id: 'org_sync_session',
+      name: 'Session Organization',
+      owner_user_id: 'usr_sync_session_owner',
+      members: [
+        {
+          user_id: 'usr_sync_session_owner',
+          email: 'session-owner@example.test',
+          display_name: 'Session Owner',
+          role: 'owner' as const,
+          state: 'active' as const,
+        },
+      ],
+    };
+    const principal: Principal = {
+      subject_id: 'sub_sync_session',
+      account_id: snapshot.account_id,
+      user_id: snapshot.owner_user_id,
+      session_id: 'ses_sync_session',
+      organization_ids: [snapshot.organization_id],
+      scopes: ['identity:read', 'organization.read'],
+      auth_method: 'session',
+      issued_at: now,
+      expires_at: '2026-08-12T12:00:00.000Z',
+    };
+    const identity: IdentityPort & ExternalIdentityDirectoryPort = {
+      adapter_name: 'test-external-identity',
+      capability: () => capabilityStatusSchema.parse({
+        capability: 'identity',
+        availability: 'available',
+        adapter: 'test-external-identity',
+        reason: 'test identity provider',
+        checked_at: now,
+      }),
+      register: async (input) => ({ provider_subject: input.user_id, auth_method: 'oidc' }),
+      authenticate: async () => undefined,
+      validateSession: async () => principal,
+      revokeSession: async () => undefined,
+      getOrganizationSnapshot: async () => snapshot,
+      listOrganizationSnapshots: async () => [snapshot],
+    };
+    const base = createDirectory();
+    const directory = new CommercialDirectoryService({
+      store: base.store,
+      audit: base.audit,
+      identity,
+      clock: { now: () => now },
+      ids: new MonotonicIdGenerator(),
+      tokens: new DeterministicTokenGenerator(),
+    });
+
+    const first = await directory.validateSession('external-session-token');
+    const second = await directory.validateSession('external-session-token');
+
+    expect(first).toEqual(principal);
+    expect(second).toEqual(principal);
+    expect(await base.store.list('organizations')).toHaveLength(1);
+    expect(await base.store.list('memberships')).toHaveLength(1);
+    expect(await base.store.list('sessions')).toMatchObject([
+      { id: principal.session_id, account_id: principal.account_id, user_id: principal.user_id, state: 'active' },
+    ]);
+    expect(JSON.stringify(await base.store.list('sessions'))).not.toContain('external-session-token');
+  });
+
+  it('fails closed when an external directory returns a snapshot for another account', async () => {
+    const snapshot = {
+      provider: 'clerk',
+      external_organization_id: 'org_external_mismatch',
+      account_id: 'acct_other_account',
+      organization_id: 'org_other_account',
+      name: 'Other Account',
+      owner_user_id: 'usr_other_owner',
+      members: [
+        {
+          user_id: 'usr_other_owner',
+          email: 'other-owner@example.test',
+          display_name: 'Other Owner',
+          role: 'owner' as const,
+          state: 'active' as const,
+        },
+      ],
+    };
+    const principal: Principal = {
+      subject_id: 'sub_sync_mismatch',
+      account_id: 'acct_expected_account',
+      user_id: 'usr_expected_owner',
+      organization_ids: ['org_expected_account'],
+      scopes: ['identity:read'],
+      auth_method: 'session',
+      issued_at: now,
+      expires_at: '2026-08-12T12:00:00.000Z',
+    };
+    const identity: IdentityPort & ExternalIdentityDirectoryPort = {
+      adapter_name: 'test-external-identity',
+      capability: () => capabilityStatusSchema.parse({
+        capability: 'identity',
+        availability: 'available',
+        adapter: 'test-external-identity',
+        reason: 'test identity provider',
+        checked_at: now,
+      }),
+      register: async (input) => ({ provider_subject: input.user_id, auth_method: 'oidc' }),
+      authenticate: async () => undefined,
+      validateSession: async () => principal,
+      revokeSession: async () => undefined,
+      getOrganizationSnapshot: async () => snapshot,
+      listOrganizationSnapshots: async () => [snapshot],
+    };
+    const base = createDirectory();
+    const directory = new CommercialDirectoryService({
+      store: base.store,
+      audit: base.audit,
+      identity,
+      clock: { now: () => now },
+      ids: new MonotonicIdGenerator(),
+      tokens: new DeterministicTokenGenerator(),
+    });
+
+    expect(await directory.validateSession('mismatched-session-token')).toBeUndefined();
+    expect(await base.store.list('organizations')).toHaveLength(0);
+    expect(await base.store.list('sessions')).toHaveLength(0);
   });
 });

@@ -5,7 +5,19 @@ import {
   CloudflareHyperdriveDatabaseAdapter,
   HyperdriveSqlClient,
 } from './cloudflare';
-import { artifactIdSchema, organizationIdSchema, workspaceIdSchema } from '@spiderbyte/commercial-domain';
+import { ClerkIdentityAdapter, MonotonicIdGenerator, SecureTokenGenerator } from '@spiderbyte/commercial-adapters';
+import { CommercialDirectoryService } from '@spiderbyte/commercial-application';
+import {
+  accountIdSchema,
+  artifactIdSchema,
+  nowIsoDateTime,
+  organizationIdSchema,
+  workspaceIdSchema,
+  type AccountId,
+  type Principal,
+} from '@spiderbyte/commercial-domain';
+import { SqlAuditWriter } from '@spiderbyte/commercial-persistence';
+import { CapabilityUnavailableError } from '@spiderbyte/commercial-ports';
 import { HmacArtifactDownloadSigner } from './signing';
 
 export { CloudflareEventHistoryStore, CloudflareHyperdriveDatabaseAdapter, CloudflareObservabilityProvider, CloudflareQueueEventBus, CloudflareR2ArtifactStore, CloudflareWorkflowAdapter, HyperdriveSqlClient, UnavailableSecretsProvider } from './cloudflare';
@@ -28,6 +40,9 @@ const worker = {
         environment: stringEnv(env, 'SPIDERBYTE_ENVIRONMENT') ?? 'unknown',
         capabilities: capabilities(env),
       });
+    }
+    if (request.method === 'GET' && url.pathname === '/api/v1/commercial/session') {
+      return commercialSession(request, env);
     }
     if (request.method === 'GET' && url.pathname === '/api/v1/commercial/artifacts/download') {
       return downloadArtifact(url, env);
@@ -62,7 +77,7 @@ const worker = {
 export default worker;
 
 async function deliverEvent(env: Env, event: ReturnType<typeof parseEventEnvelope>): Promise<void> {
-  if (env.HYPERDRIVE?.connectionString === undefined) throw new Error('HYPERDRIVE binding is required for durable event history');
+  if (!hasHyperdrive(env)) throw new Error('HYPERDRIVE binding is required for durable event history');
   const database = new CloudflareHyperdriveDatabaseAdapter(env.HYPERDRIVE);
   await database.open();
   const history = new CloudflareEventHistoryStore(new HyperdriveSqlClient(env.HYPERDRIVE));
@@ -107,7 +122,7 @@ async function downloadArtifact(url: URL, env: Env): Promise<Response> {
     signature,
   });
   if (!valid) return json({ error: { code: 'commercial.hosted_artifacts.invalid_download', message: 'artifact download signature is invalid or expired' } }, 403);
-  if (env.HYPERDRIVE?.connectionString === undefined || env.ARTIFACTS === undefined) {
+  if (!hasHyperdrive(env) || env.ARTIFACTS === undefined) {
     return json({ error: { code: 'commercial.hosted_artifacts.not_configured', message: 'artifact persistence is not configured' } }, 503);
   }
   const database = new CloudflareHyperdriveDatabaseAdapter(env.HYPERDRIVE);
@@ -134,7 +149,7 @@ async function downloadArtifact(url: URL, env: Env): Promise<Response> {
 
 function capabilities(env: Env): readonly PublicCapability[] {
   return [
-    bindingCapability('hosted_database', env.HYPERDRIVE?.connectionString !== undefined, 'HYPERDRIVE'),
+    bindingCapability('hosted_database', hasHyperdrive(env), 'HYPERDRIVE'),
     bindingCapability('hosted_artifacts', env.ARTIFACTS !== undefined, 'ARTIFACTS'),
     managedLlmCapability(env),
     bindingCapability('event_bus', env.EVENTS_QUEUE !== undefined, 'EVENTS_QUEUE'),
@@ -145,13 +160,20 @@ function capabilities(env: Env): readonly PublicCapability[] {
       adapter: 'cloudflare-observability',
       reason: 'Worker observability is enabled in wrangler.jsonc',
     },
+    identityCapability(env),
     {
-      capability: 'identity',
+      capability: 'billing',
       availability: hasSecret(env, 'CLERK_SECRET_KEY') ? 'not_implemented' : 'not_configured',
-      adapter: 'clerk-identity-pending-runtime-wiring',
+      adapter: 'clerk-billing-presentation-only',
       reason: hasSecret(env, 'CLERK_SECRET_KEY')
-        ? 'Clerk secret is present, but token verification and synchronized resource authorization are not yet wired into this Worker'
-        : 'CLERK_SECRET_KEY is not configured',
+        ? 'Clerk billing presentation may be configured, but webhook reconciliation and SpiderByte entitlement enforcement are not wired into this Worker'
+        : 'CLERK_SECRET_KEY is not configured for hosted billing reconciliation',
+    },
+    {
+      capability: 'entitlements',
+      availability: 'not_implemented',
+      adapter: 'commercial-billing-pending-runtime-wiring',
+      reason: 'Entitlement checks must be connected to the same authorized application services used by web, API, SDK, MCP, ACP, and CLI clients',
     },
     {
       capability: 'secrets',
@@ -170,9 +192,118 @@ function capabilities(env: Env): readonly PublicCapability[] {
 
 interface PublicCapability {
   readonly capability: string;
-  readonly availability: 'available' | 'not_configured' | 'not_implemented';
+  readonly availability: 'available' | 'not_included' | 'not_configured' | 'temporarily_unavailable' | 'not_implemented';
   readonly adapter: string;
   readonly reason: string;
+}
+
+interface HostedCommercialRuntime {
+  readonly directory: CommercialDirectoryService;
+  readonly identity: ClerkIdentityAdapter;
+  readonly store: Awaited<ReturnType<CloudflareHyperdriveDatabaseAdapter['open']>>;
+}
+
+async function commercialSession(request: Request, env: Env): Promise<Response> {
+  const token = bearerToken(request.headers.get('authorization'));
+  if (token === undefined) return json({ error: { code: 'commercial.authentication_required', message: 'a hosted bearer session is required' } }, 401);
+
+  let runtime: HostedCommercialRuntime;
+  try {
+    runtime = await openCommercialRuntime(env);
+  } catch (error) {
+    return json({ error: { code: errorCode(error, 'commercial.hosted_database.not_configured'), message: errorMessage(error, 'hosted commercial identity is not configured') } }, 503);
+  }
+  let principal: Principal | undefined;
+  try {
+    principal = await runtime.directory.validateSession(token);
+  } catch (error) {
+    return json({ error: { code: errorCode(error, 'commercial.invalid_session'), message: errorMessage(error, 'hosted session validation failed') } }, 503);
+  }
+  if (principal === undefined) return json({ error: { code: 'commercial.invalid_session', message: 'hosted session is invalid, expired, or not a synchronized organization member' } }, 401);
+
+  const organizations = (await runtime.store.list('organizations'))
+    .filter((organization) => organization.account_id === principal.account_id && principal.organization_ids.includes(organization.id))
+    .map((organization) => ({
+      id: organization.id,
+      account_id: organization.account_id,
+      name: organization.name,
+      state: organization.state,
+    }));
+  return json({ principal, organizations });
+}
+
+async function openCommercialRuntime(env: Env): Promise<HostedCommercialRuntime> {
+  const identity = new ClerkIdentityAdapter({
+    secretKey: stringEnv(env, 'CLERK_SECRET_KEY'),
+    jwtKey: stringEnv(env, 'CLERK_JWT_KEY'),
+    authorizedParties: csvEnv(env, 'CLERK_AUTHORIZED_PARTIES'),
+    accountId: commercialAccountId(env),
+  });
+  const identityStatus = identity.capability();
+  if (identityStatus.availability !== 'available') throw new CapabilityUnavailableError(identityStatus);
+
+  const database = new CloudflareHyperdriveDatabaseAdapter(env.HYPERDRIVE);
+  const store = await database.open();
+  const directory = new CommercialDirectoryService({
+    store,
+    identity,
+    audit: new SqlAuditWriter(new HyperdriveSqlClient(env.HYPERDRIVE)),
+    clock: { now: nowIsoDateTime },
+    ids: new MonotonicIdGenerator(),
+    tokens: new SecureTokenGenerator(),
+  });
+  return { directory, identity, store };
+}
+
+function identityCapability(env: Env): PublicCapability {
+  const identity = new ClerkIdentityAdapter({
+    secretKey: stringEnv(env, 'CLERK_SECRET_KEY'),
+    jwtKey: stringEnv(env, 'CLERK_JWT_KEY'),
+    authorizedParties: csvEnv(env, 'CLERK_AUTHORIZED_PARTIES'),
+    accountId: commercialAccountId(env),
+  });
+  const status = identity.capability();
+  if (status.availability === 'available' && !hasHyperdrive(env)) {
+    return {
+      capability: 'identity',
+      availability: 'not_configured',
+      adapter: status.adapter ?? 'clerk-identity',
+      reason: 'HYPERDRIVE is required to synchronize Clerk membership into SpiderByte commercial tenant records',
+    };
+  }
+  return {
+    capability: status.capability,
+    availability: status.availability,
+    adapter: status.adapter ?? 'clerk-identity',
+    reason: status.reason,
+  };
+}
+
+function commercialAccountId(env: Env): AccountId | undefined {
+  const parsed = accountIdSchema.safeParse(stringEnv(env, 'SPIDERBYTE_COMMERCIAL_ACCOUNT_ID'));
+  return parsed.success ? parsed.data : undefined;
+}
+
+function csvEnv(env: Env, name: string): readonly string[] | undefined {
+  const value = stringEnv(env, name);
+  if (value === undefined) return undefined;
+  const entries = value.split(',').map((entry) => entry.trim()).filter(Boolean);
+  return entries.length === 0 ? undefined : entries;
+}
+
+function bearerToken(value: string | null): string | undefined {
+  if (value === null) return undefined;
+  const match = /^Bearer\s+(\S+)$/u.exec(value);
+  return match?.[1];
+}
+
+function errorCode(error: unknown, fallback: string): string {
+  if (typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string') return error.code;
+  return fallback;
+}
+
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message.length > 0 ? error.message : fallback;
 }
 
 function bindingCapability(capability: string, configured: boolean, binding: string): PublicCapability {
@@ -198,7 +329,13 @@ function managedLlmCapability(env: Env): PublicCapability {
 }
 
 function hasSecret(env: Env, name: string): boolean {
-  return typeof (env as unknown as Record<string, unknown>)[name] === 'string';
+  const value = (env as unknown as Record<string, unknown>)[name];
+  return typeof value === 'string' && value.length > 0;
+}
+
+function hasHyperdrive(env: Env): boolean {
+  const connectionString = env.HYPERDRIVE?.connectionString;
+  return typeof connectionString === 'string' && connectionString.length > 0;
 }
 
 function stringEnv(env: Env, name: string): string | undefined {

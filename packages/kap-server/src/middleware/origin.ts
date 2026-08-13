@@ -25,7 +25,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { stripPort } from './hostnames';
 
 const CORS_ALLOW_METHODS = 'GET, POST, PUT, PATCH, DELETE, OPTIONS';
-const CORS_ALLOW_HEADERS = 'Content-Type, Authorization, X-SpiderByte-Client-Id, X-SpiderByte-Client-Name, X-SpiderByte-Client-Version, X-SpiderByte-Client-Ui-Mode';
+const CORS_ALLOW_HEADERS = 'Content-Type, Authorization, X-SpiderByte-Client-Id, X-SpiderByte-Client-Name, X-SpiderByte-Client-Version, X-SpiderByte-Client-Ui-Mode, X-SpiderByte-Delegated-Principal';
 
 export interface OriginHookOptions {
   /** Explicit cross-origin allowlist (full origin strings, scheme + host). */

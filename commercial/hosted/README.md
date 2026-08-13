@@ -6,9 +6,9 @@ Queues, Workflows, structured observability, and a SQLite-backed Durable Object
 event coordinator.
 
 The Worker deliberately reports capability state instead of claiming hosted
-execution or authenticated WebSocket access before Clerk authorization, the
-Modal adapter, and SecretRef resolution are wired into the runtime. The local
-Open Core does not import this package.
+execution or authenticated WebSocket access before the Modal adapter, SecretRef
+resolution, and broader resource authorization paths are wired into the
+runtime. The local Open Core does not import this package.
 
 ## Local setup
 
@@ -24,7 +24,10 @@ Open Core does not import this package.
 
 `GET /healthz` and `GET /api/v1/commercial/capabilities` are diagnostic routes.
 They are not authorization gates and must not be used as proof that a tenant
-request is allowed.
+request is allowed. `GET /api/v1/commercial/session` is the first authenticated
+commercial route: it verifies the Clerk bearer token, synchronizes the complete
+organization membership snapshot into SpiderByte records, and returns only the
+authorized principal and organizations. It never returns the bearer token.
 
 ## Provider adapters
 
@@ -50,6 +53,8 @@ the Worker does not expose either provider directly to browsers or clients.
 Non-secret variables:
 
 - `SPIDERBYTE_ENVIRONMENT`: deployment label.
+- `SPIDERBYTE_COMMERCIAL_ACCOUNT_ID`: stable `acct_...` SpiderByte account ID
+  representing this hosted Clerk instance. It must remain stable across deploys.
 - `OPENROUTER_AI_GATEWAY_ENDPOINT`: HTTPS endpoint ending in `/openrouter` or
   the complete `/chat/completions` path.
 - `SPIDERBYTE_PUBLIC_ORIGIN`: HTTPS public origin used when issuing artifact
@@ -58,7 +63,12 @@ Non-secret variables:
 Secrets, configured with `wrangler secret put`:
 
 - `CLERK_SECRET_KEY`: Clerk server credential. Token verification and resource
-  authorization must be wired by the hosted gateway before accepting requests.
+  authorization are server-only. The authenticated commercial session route
+  also reads organization membership through this credential.
+- `CLERK_JWT_KEY`: optional Clerk JWT verification key when the deployment uses
+  a custom JWT key.
+- `CLERK_AUTHORIZED_PARTIES`: optional comma-separated authorized parties for
+  Clerk token verification.
 - `OPENROUTER_API_KEY`: server-only OpenRouter credential when AI Gateway is
   configured to forward it.
 - `ARTIFACT_DOWNLOAD_SIGNING_SECRET`: at least 32 random characters. Rotate it
@@ -66,10 +76,10 @@ Secrets, configured with `wrangler secret put`:
 - `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET`: only for the Modal Web Function
   transport; never expose these to a browser, CLI, SDK, or MCP client.
 
-The current Worker reports Clerk, SecretRef, and Modal dispatch as unavailable
-until their application-level authorization, synchronized identity state, and
-durable reference-store wiring are installed. A present secret alone does not
-change that release status.
+The Worker reports billing, entitlement, SecretRef, and Modal dispatch as
+unavailable until their application-level reconciliation, authorization, and
+durable reference-store wiring are installed. A present Clerk secret alone does
+not grant billing or entitlement access.
 
 ## Deployment checklist
 
@@ -85,7 +95,9 @@ change that release status.
 5. Exercise a content-addressed artifact upload/download, duplicate event
    delivery, queue retry, workflow retry, and Durable Object reconnect before
    enabling tenant traffic.
-6. Enable the authenticated API gateway only after Clerk token verification,
-   local membership/resource authorization, rate limits, budgets, and audit
-   writes are connected to the same application services used by local/API
-   clients.
+6. Exercise `/api/v1/commercial/session` with a real Clerk bearer token and
+   verify tenant counts, membership removal, idempotent replay, and audit
+   writes before enabling broader tenant traffic.
+7. Enable the remaining authenticated API gateway only after rate limits,
+   budgets, entitlements, and all resource authorization paths are connected
+   to the same application services used by local/API clients.

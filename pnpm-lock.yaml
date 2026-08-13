@@ -370,6 +370,12 @@ importers:
       '@clerk/nextjs':
         specifier: ^7.7.4
         version: 7.7.4(next@16.3.0(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@spiderbyte/client':
+        specifier: workspace:*
+        version: link:../../packages/client
+      '@spiderbyte/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
       next:
         specifier: 16.3.0
         version: 16.3.0(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -525,6 +531,12 @@ importers:
 
   commercial/hosted:
     dependencies:
+      '@spiderbyte/commercial-adapters':
+        specifier: workspace:^
+        version: link:../adapters
+      '@spiderbyte/commercial-application':
+        specifier: workspace:^
+        version: link:../application
       '@spiderbyte/commercial-domain':
         specifier: workspace:^
         version: link:../domain

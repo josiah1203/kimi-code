@@ -13,7 +13,19 @@ import {
   useUser,
 } from "@clerk/nextjs";
 import Link from "next/link";
-import { useState, type MouseEvent } from "react";
+import { useEffect, useState } from "react";
+
+import {
+  fetchCommercialCapabilities,
+} from "@/lib/commercial-capabilities";
+import { fetchCommercialSession } from "@/lib/commercial-session";
+import type {
+  CommercialCapabilitiesResponse,
+  CommercialCapability,
+  CommercialSessionResponse,
+} from "@spiderbyte/protocol";
+
+import { WorkspaceShell } from "./workspace-shell";
 
 type AppView = "overview" | "workspaces" | "usage" | "billing";
 
@@ -113,7 +125,7 @@ function LandingScreen() {
           </div>
           <div className="hero-note">
             <span className="status-dot" aria-hidden="true" />
-            Local-first foundation · hosted control plane ready
+            Local-first foundation · hosted path configuration-gated
           </div>
         </div>
 
@@ -183,7 +195,7 @@ function WorkspaceApp() {
   const firstName = user?.firstName ?? user?.username ?? "there";
 
   return (
-    <div className="app-frame">
+    <div className="app-frame collaboration-frame">
       <header className="app-header">
         <Brand />
         <div className="header-actions" style={{ marginLeft: "auto" }}>
@@ -214,7 +226,7 @@ function WorkspaceApp() {
                 className={activeView === item.id ? "active" : ""}
                 key={item.id}
                 type="button"
-                onClick={() => setActiveView(item.id)}
+                onClick={() => { setActiveView(item.id); }}
               >
                 <span className="nav-icon" aria-hidden="true">{item.icon}</span>
                 {item.label}
@@ -227,7 +239,7 @@ function WorkspaceApp() {
           {activeView === "billing" ? (
             <BillingView organizationName={organization?.name} />
           ) : (
-            <OverviewView firstName={firstName} view={activeView} />
+            <WorkspaceShell firstName={firstName} />
           )}
         </section>
       </div>
@@ -235,96 +247,25 @@ function WorkspaceApp() {
   );
 }
 
-function OverviewView({ firstName, view }: { firstName: string; view: AppView }) {
-  const copy: Record<Exclude<AppView, "billing">, { title: string; body: string }> = {
-    overview: { title: `Good morning, ${firstName}.`, body: "Your governed workspace is ready for its next run." },
-    workspaces: { title: "Your workspaces.", body: "Keep projects, sessions, and runtime boundaries organized." },
-    usage: { title: "Usage & limits.", body: "Make resource decisions visible before they become surprises." },
-  };
-  const selected = copy[view === "billing" ? "overview" : view];
-
-  return (
-    <>
-      <div className="content-heading">
-        <div>
-          <span className="eyebrow">Control plane / {view}</span>
-          <h1>{selected.title}</h1>
-          <p>{selected.body}</p>
-        </div>
-        <Link className="button button-primary" href="/account">
-          Manage account <span aria-hidden="true">↗</span>
-        </Link>
-      </div>
-
-      <div className="dashboard-grid">
-        <article className="panel panel-wide">
-          <span className="eyebrow">Runtime snapshot</span>
-          <h2>Northstar workspace</h2>
-          <div className="metric-row">
-            <Metric label="Sessions today" value="24" />
-            <Metric label="Policy checks" value="100%" />
-            <Metric label="Artifacts" value="1,284" />
-          </div>
-          <div className="health-card">
-            <span><span className="status-dot" /> &nbsp;Agent Core is responding normally</span>
-            <span>Updated just now</span>
-          </div>
-        </article>
-
-        <article className="panel panel-side">
-          <span className="eyebrow">Plan status</span>
-          <h2>Foundation</h2>
-          <p style={{ color: "var(--muted)", fontSize: "0.82rem", lineHeight: 1.55 }}>
-            Your workspace includes local execution, policy controls, and a path to hosted billing.
-          </p>
-          <Link className="quiet-link" href="#billing" onClick={(event: MouseEvent<HTMLAnchorElement>) => event.preventDefault()}>
-            View plan options →
-          </Link>
-        </article>
-
-        <article className="panel panel-wide">
-          <span className="eyebrow">Recent activity</span>
-          <ul className="activity-list">
-            <Activity title="Policy bundle refreshed" detail="main · 2 minutes ago" />
-            <Activity title="Artifact retention check passed" detail="northstar-data · 18 minutes ago" />
-            <Activity title="New session completed" detail="agent/main · 43 minutes ago" />
-          </ul>
-        </article>
-
-        <article className="panel panel-side">
-          <span className="eyebrow">Next step</span>
-          <h2>Invite your team.</h2>
-          <p style={{ color: "var(--muted)", fontSize: "0.82rem", lineHeight: 1.55 }}>
-            Organizations make membership, roles, and billing explicit.
-          </p>
-          <Link className="button button-secondary" href="/organization" style={{ marginTop: "0.6rem" }}>
-            Open organization settings
-          </Link>
-        </article>
-      </div>
-    </>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="metric">
-      <span className="mini-label">{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-function Activity({ title, detail }: { title: string; detail: string }) {
-  return (
-    <li>
-      <span className="status-dot" aria-hidden="true" />
-      <span><b>{title}</b>{detail}</span>
-    </li>
-  );
-}
-
 function BillingView({ organizationName }: { organizationName?: string }) {
+  const [commercial, setCommercial] = useState<CommercialCapabilitiesResponse>();
+  const [commercialSession, setCommercialSession] = useState<CommercialSessionResponse>();
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([fetchCommercialCapabilities(), fetchCommercialSession()]).then(([capabilities, session]) => {
+      if (cancelled) return;
+      setCommercial(capabilities);
+      setCommercialSession(session);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const billing = findCapability(commercial, "billing");
+  const entitlements = findCapability(commercial, "entitlements");
+
   return (
     <div className="billing-frame">
       <div className="content-heading">
@@ -341,9 +282,22 @@ function BillingView({ organizationName }: { organizationName?: string }) {
         <div className="billing-card-header">
           <div>
             <span className="eyebrow">Subscription plans</span>
-            <p>Powered by Clerk Billing; enforced by SpiderByte’s commercial control plane.</p>
+            <p>Clerk renders the plan surface; SpiderByte must enforce the resulting entitlements server-side.</p>
           </div>
-          <span className="status-dot" aria-label="Billing connected" />
+          <span className={`status-dot commercial-status-dot ${billing?.availability ?? "not_configured"}`} aria-label={`Billing ${billing?.availability ?? "status unavailable"}`} />
+        </div>
+        <div className="commercial-capability-grid" aria-live="polite">
+          <CommercialCapabilityCard label="Billing enforcement" capability={billing} />
+          <CommercialCapabilityCard label="Entitlements" capability={entitlements} />
+        </div>
+        <div className="commercial-session-status" aria-live="polite">
+          <span className="eyebrow">Hosted identity synchronization</span>
+          <strong>{commercialSession === undefined ? "Unavailable" : "Synchronized"}</strong>
+          <p>
+            {commercialSession === undefined
+              ? "The hosted commercial boundary has not returned an authorized tenant projection."
+              : `${commercialSession.organizations.length} authorized organization${commercialSession.organizations.length === 1 ? "" : "s"} are synchronized for this session.`}
+          </p>
         </div>
         <div className="pricing-wrap">
           <PricingTableForCurrentPayer />
@@ -351,6 +305,41 @@ function BillingView({ organizationName }: { organizationName?: string }) {
       </div>
     </div>
   );
+}
+
+function CommercialCapabilityCard({
+  label,
+  capability,
+}: {
+  label: string;
+  capability?: CommercialCapability;
+}) {
+  return (
+    <div className="commercial-capability-card">
+      <span className="eyebrow">{label}</span>
+      <strong>{capabilityLabel(capability?.availability)}</strong>
+      <p>{capability?.reason ?? "Waiting for the commercial capability boundary."}</p>
+    </div>
+  );
+}
+
+function findCapability(
+  snapshot: CommercialCapabilitiesResponse | undefined,
+  name: string,
+): CommercialCapability | undefined {
+  return snapshot?.capabilities.find((capability) => capability.capability === name);
+}
+
+function capabilityLabel(availability: CommercialCapability["availability"] | undefined): string {
+  if (availability === undefined) return "Status unavailable";
+  switch (availability) {
+    case "available": return "Available";
+    case "not_included": return "Not included";
+    case "not_implemented": return "Not implemented";
+    case "temporarily_unavailable": return "Temporarily unavailable";
+    case "not_configured": return "Not configured";
+  }
+  return "Status unavailable";
 }
 
 function PricingTableForCurrentPayer() {

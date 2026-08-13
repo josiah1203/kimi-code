@@ -22,6 +22,7 @@ import {
   policyRuleSchema,
   providerConnectionCreateInputSchema,
   providerConnectionSchema,
+  providerCommandConfigSchema,
   resourceSchema,
   runCreateInputSchema,
   runSchema,

@@ -4,6 +4,7 @@ import { createClerkClient, verifyToken } from '@clerk/backend';
 import {
   capabilityStatusSchema,
   nowIsoDateTime,
+  type AccountId,
   organizationIdSchema,
   principalSchema,
   type CapabilityStatus,
@@ -17,6 +18,8 @@ import {
   type HostedBillingPort,
   type HostedBillingSubscription,
   type HostedBillingSubscriptionState,
+  type ExternalIdentityDirectoryPort,
+  type ExternalIdentityOrganizationSnapshot,
   type IdentityAuthentication,
   type IdentityAuthenticationInput,
   type IdentityPort,
@@ -26,8 +29,17 @@ import {
 
 const defaultClock: Clock = { now: nowIsoDateTime };
 const DEFAULT_TOKEN_TTL_MS = 5 * 60 * 1000;
+const CLERK_MEMBERSHIP_PAGE_SIZE = 500;
+const CLERK_MAX_MEMBERSHIP_PAGES = 100;
 
 type ClerkServerClient = {
+  readonly users: {
+    getUser(userId: string): Promise<unknown>;
+  };
+  readonly organizations: {
+    getOrganization(input: { readonly organizationId: string }): Promise<unknown>;
+    getOrganizationMembershipList(input: { readonly organizationId: string; readonly limit?: number; readonly offset?: number }): Promise<unknown>;
+  };
   readonly sessions: {
     revokeSession(sessionId: string): Promise<unknown>;
   };
@@ -43,6 +55,8 @@ export interface ClerkIdentityAdapterOptions {
   readonly secretKey?: string;
   readonly jwtKey?: string;
   readonly authorizedParties?: readonly string[];
+  /** Stable commercial account representing the Clerk instance/tenant. */
+  readonly accountId?: AccountId;
   readonly clock?: Clock;
 }
 
@@ -51,7 +65,7 @@ export interface ClerkIdentityAdapterOptions {
  * Signup and sign-in are intentionally owned by Clerk's UI; this adapter
  * verifies the resulting bearer token and translates its claims to local IDs.
  */
-export class ClerkIdentityAdapter implements IdentityPort {
+export class ClerkIdentityAdapter implements IdentityPort, ExternalIdentityDirectoryPort {
   readonly adapter_name = 'clerk-identity';
   private readonly clock: Clock;
 
@@ -60,13 +74,16 @@ export class ClerkIdentityAdapter implements IdentityPort {
   }
 
   capability(): CapabilityStatus {
+    const configured = this.hasSecretKey() && this.options.accountId !== undefined;
     return capabilityStatusSchema.parse({
       capability: 'identity',
-      availability: this.options.secretKey === undefined ? 'not_configured' : 'available',
+      availability: configured ? 'available' : 'not_configured',
       adapter: this.adapter_name,
-      reason: this.options.secretKey === undefined
+      reason: !this.hasSecretKey()
         ? 'CLERK_SECRET_KEY is required for hosted token verification'
-        : 'Clerk verifies hosted sessions; SpiderByte maps claims to commercial principals',
+        : this.options.accountId === undefined
+          ? 'a stable commercial account_id is required before hosted Clerk membership synchronization'
+          : 'Clerk verifies hosted sessions; SpiderByte maps claims and synchronized memberships to commercial principals',
       checked_at: this.clock.now(),
     });
   }
@@ -100,22 +117,120 @@ export class ClerkIdentityAdapter implements IdentityPort {
           ? undefined
           : [...this.options.authorizedParties],
       });
-      return principalFromClaims(tokenClaims(verified), this.clock.now());
+      return principalFromClaims(tokenClaims(verified), this.clock.now(), this.options.accountId);
     } catch {
       return undefined;
     }
   }
 
+  async getOrganizationSnapshot(externalOrganizationId: string): Promise<ExternalIdentityOrganizationSnapshot | undefined> {
+    this.assertConfigured();
+    if (this.options.accountId === undefined) throw new CapabilityUnavailableError(this.capability());
+    try {
+      const rawOrganization = await this.client().organizations.getOrganization({ organizationId: externalOrganizationId });
+      const organizationRecord = asRecord(rawOrganization);
+      const organization = asRecord(organizationRecord['data'] ?? rawOrganization);
+      const ownerExternalId = firstIdentifier(
+        organization['created_by'],
+        organization['createdBy'],
+        organization['created_by_user_id'],
+        organization['owner_id'],
+        organization['ownerId'],
+      );
+      const organizationName = firstString(organization['name'], organization['slug']) ?? externalOrganizationId;
+      if (ownerExternalId === undefined) throw new Error('Clerk organization does not expose an owner identifier');
+
+      const membershipValues: unknown[] = [];
+      for (let page = 0; page < CLERK_MAX_MEMBERSHIP_PAGES; page += 1) {
+        const rawMemberships = await this.client().organizations.getOrganizationMembershipList({
+          organizationId: externalOrganizationId,
+          limit: CLERK_MEMBERSHIP_PAGE_SIZE,
+          offset: page * CLERK_MEMBERSHIP_PAGE_SIZE,
+        });
+        const membershipRecord = asRecord(rawMemberships);
+        const values = asArray(membershipRecord['data'] ?? rawMemberships);
+        membershipValues.push(...values);
+        if (values.length < CLERK_MEMBERSHIP_PAGE_SIZE) break;
+        if (page === CLERK_MAX_MEMBERSHIP_PAGES - 1) throw new Error('Clerk organization membership snapshot exceeds the synchronization limit');
+      }
+      const members: ExternalIdentityOrganizationSnapshot['members'][number][] = [];
+      for (const value of membershipValues) {
+        const membership = asRecord(value);
+        const publicUser = asRecord(membership['public_user_data'] ?? membership['publicUserData']);
+        const externalUserId = firstIdentifier(
+          publicUser['user_id'],
+          publicUser['id'],
+          membership['user_id'],
+          membership['userId'],
+        );
+        if (externalUserId === undefined) throw new Error('Clerk organization membership does not expose a user identifier');
+        const rawUser = asRecord(await this.client().users.getUser(externalUserId));
+        const user = asRecord(rawUser['data'] ?? rawUser);
+        const email = firstString(
+          publicUser['identifier'],
+          userEmail(user),
+        );
+        if (email === undefined) throw new Error('Clerk organization membership user does not expose an email address');
+        const role = externalUserId === ownerExternalId
+          ? 'owner'
+          : normalizeClerkRole(firstString(membership['role'], membership['role_name'], membership['roleName']));
+        members.push({
+          user_id: hashedId('usr_clerk_', externalUserId),
+          email,
+          display_name: displayName(user, publicUser, email),
+          role,
+          state: normalizeClerkMembershipState(firstString(membership['status'], membership['state'])),
+        });
+      }
+      return {
+        provider: 'clerk',
+        external_organization_id: externalOrganizationId,
+        account_id: this.options.accountId,
+        organization_id: mappedOrganizationId(externalOrganizationId),
+        name: organizationName,
+        owner_user_id: hashedId('usr_clerk_', ownerExternalId),
+        members,
+      } satisfies ExternalIdentityOrganizationSnapshot;
+    } catch (error) {
+      if (isNotFoundError(error)) return undefined;
+      throw error;
+    }
+  }
+
+  async listOrganizationSnapshots(principal: Principal): Promise<readonly ExternalIdentityOrganizationSnapshot[]> {
+    this.assertConfigured();
+    if (this.options.accountId === undefined) throw new CapabilityUnavailableError(this.capability());
+
+    const snapshots: ExternalIdentityOrganizationSnapshot[] = [];
+    for (const organizationId of principal.organization_ids) {
+      // Normalized IDs with this prefix were generated for non-standard
+      // provider identifiers and cannot be reversed into a Clerk ID. Clerk's
+      // native organization IDs are already in the org_* form.
+      if (organizationId.startsWith('org_clerk_')) continue;
+      const snapshot = await this.getOrganizationSnapshot(organizationId);
+      if (snapshot !== undefined) snapshots.push(snapshot);
+    }
+    return snapshots;
+  }
+
   async revokeSession(sessionId: string): Promise<void> {
     this.assertConfigured();
     const externalSessionId = sessionId.startsWith('ses_') ? sessionId.slice('ses_'.length) : sessionId;
-    await clerkServerClient(this.options.secretKey).sessions.revokeSession(externalSessionId);
+    await this.client().sessions.revokeSession(externalSessionId);
+  }
+
+  private client(): ClerkServerClient {
+    return clerkServerClient(this.options.secretKey);
   }
 
   private assertConfigured(): void {
-    if (this.options.secretKey === undefined) {
+    if (!this.hasSecretKey()) {
       throw new CapabilityUnavailableError(this.capability());
     }
+  }
+
+  private hasSecretKey(): boolean {
+    return this.options.secretKey !== undefined && this.options.secretKey.length > 0;
   }
 }
 
@@ -140,9 +255,9 @@ export class ClerkBillingAdapter implements HostedBillingPort {
   capability(): CapabilityStatus {
     return capabilityStatusSchema.parse({
       capability: 'payment',
-      availability: this.options.secretKey === undefined ? 'not_configured' : 'available',
+      availability: this.options.secretKey === undefined || this.options.secretKey.length === 0 ? 'not_configured' : 'available',
       adapter: this.adapter_name,
-      reason: this.options.secretKey === undefined
+      reason: this.options.secretKey === undefined || this.options.secretKey.length === 0
         ? 'CLERK_SECRET_KEY is required for hosted billing reads'
         : 'Clerk Billing provides hosted plans and subscription state; SpiderByte owns local entitlements',
       checked_at: this.clock.now(),
@@ -185,7 +300,7 @@ export class ClerkBillingAdapter implements HostedBillingPort {
   }
 
   private assertConfigured(): void {
-    if (this.options.secretKey === undefined) {
+    if (this.options.secretKey === undefined || this.options.secretKey.length === 0) {
       throw new CapabilityUnavailableError(this.capability());
     }
   }
@@ -195,7 +310,7 @@ function clerkServerClient(secretKey: string | undefined): ClerkServerClient {
   return createClerkClient({ secretKey }) as unknown as ClerkServerClient;
 }
 
-function principalFromClaims(claims: Record<string, unknown>, now: string): Principal | undefined {
+function principalFromClaims(claims: Record<string, unknown>, now: string, accountId?: AccountId): Principal | undefined {
   const subject = stringClaim(claims, 'sub');
   if (subject === undefined) return undefined;
 
@@ -207,9 +322,7 @@ function principalFromClaims(claims: Record<string, unknown>, now: string): Prin
   const organizationClaim = stringClaim(claims, 'org_id') ?? stringClaim(claims, 'orgId');
   const organizationId = organizationClaim === undefined
     ? undefined
-    : organizationIdSchema.safeParse(organizationClaim).success
-      ? organizationClaim
-      : hashedId('org_clerk_', organizationClaim);
+    : mappedOrganizationId(organizationClaim);
   const scopeClaim = stringClaim(claims, 'scope') ?? stringClaim(claims, 'scp');
   const externalSessionId = stringClaim(claims, 'sid');
   const scopes = [
@@ -220,7 +333,7 @@ function principalFromClaims(claims: Record<string, unknown>, now: string): Prin
 
   return principalSchema.parse({
     subject_id: hashedId('clerk_', subject),
-    account_id: hashedId('acct_clerk_', subject),
+    account_id: accountId ?? hashedId('acct_clerk_', subject),
     user_id: hashedId('usr_clerk_', subject),
     session_id: externalSessionId === undefined ? undefined : `ses_${externalSessionId}`,
     organization_ids: organizationId === undefined ? [] : [organizationId],
@@ -329,6 +442,17 @@ function firstString(...values: unknown[]): string | undefined {
   return values.find((value): value is string => typeof value === 'string' && value.length > 0);
 }
 
+function firstIdentifier(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    const direct = firstString(value);
+    if (direct !== undefined) return direct;
+    const record = asRecord(value);
+    const nested = firstString(record['id'], record['user_id'], record['userId'], record['external_id']);
+    if (nested !== undefined) return nested;
+  }
+  return undefined;
+}
+
 function epochToIso(value: number | undefined, fallback: string): string {
   return value === undefined ? fallback : new Date(value * 1000).toISOString();
 }
@@ -341,8 +465,59 @@ function timestampToIso(value: unknown): string | undefined {
   return undefined;
 }
 
+function userEmail(user: Record<string, unknown>): string | undefined {
+  const addresses = asArray(user['email_addresses']);
+  for (const value of addresses) {
+    const address = asRecord(value);
+    const email = firstString(address['email_address'], address['emailAddress']);
+    if (email !== undefined) return email;
+  }
+  return firstString(user['email'], user['primary_email_address']);
+}
+
+function displayName(
+  user: Record<string, unknown>,
+  publicUser: Record<string, unknown>,
+  fallback: string,
+): string {
+  const first = firstString(user['first_name'], publicUser['first_name'], publicUser['firstName']);
+  const last = firstString(user['last_name'], publicUser['last_name'], publicUser['lastName']);
+  const combined = [first, last].filter((value): value is string => value !== undefined).join(' ').trim();
+  return combined.length > 0
+    ? combined
+    : firstString(user['username'], publicUser['identifier']) ?? fallback;
+}
+
+function normalizeClerkRole(value: string | undefined): ExternalIdentityOrganizationSnapshot['members'][number]['role'] {
+  if (value === 'org:admin' || value === 'admin' || value?.endsWith(':admin') === true) return 'admin';
+  if (value === 'viewer' || value?.endsWith(':viewer') === true) return 'viewer';
+  return 'member';
+}
+
+function normalizeClerkMembershipState(value: string | undefined): ExternalIdentityOrganizationSnapshot['members'][number]['state'] {
+  switch (value) {
+    case 'pending':
+    case 'invited':
+      return 'invited';
+    case 'suspended':
+      return 'suspended';
+    case 'removed':
+    case 'revoked':
+    case 'inactive':
+      return 'removed';
+    default:
+      return 'active';
+  }
+}
+
 function hashedId(prefix: string, value: string): string {
   return `${prefix}${createHash('sha256').update(value).digest('hex').slice(0, 24)}`;
+}
+
+function mappedOrganizationId(externalOrganizationId: string): string {
+  return organizationIdSchema.safeParse(externalOrganizationId).success
+    ? externalOrganizationId
+    : hashedId('org_clerk_', externalOrganizationId);
 }
 
 function isNotFoundError(value: unknown): boolean {

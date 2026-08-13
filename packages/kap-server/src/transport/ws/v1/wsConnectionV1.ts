@@ -37,6 +37,8 @@ import { ulid } from 'ulid';
 import type { RawData, WebSocket } from 'ws';
 
 import type { CredentialValidator } from '../../../services/auth/credentials';
+import type { DelegatedPrincipal } from '@spiderbyte/protocol';
+import { runWithRequestDelegatedPrincipal } from '../../../services/auth/requestPrincipal';
 import type { IConnectionRegistry } from '../connectionRegistry';
 import {
   type EventEnvelope,
@@ -96,6 +98,7 @@ export interface WsConnectionV1Options {
    * the bearer at the upgrade and no token in `client_hello`).
    */
   readonly validateCredential?: CredentialValidator;
+  readonly delegatedPrincipal?: DelegatedPrincipal;
   readonly remoteAddress: string | null;
   readonly userAgent: string | null;
   readonly logger?: JournalLogger;
@@ -123,6 +126,7 @@ export class WsConnectionV1 implements BroadcastTarget {
   private readonly flushIntervalMs: number;
   private readonly maxBatchSize: number;
   private readonly highWaterMarkBytes: number;
+  private readonly delegatedPrincipal: DelegatedPrincipal | undefined;
   private readonly logger?: JournalLogger;
 
   private closed = false;
@@ -155,13 +159,16 @@ export class WsConnectionV1 implements BroadcastTarget {
     this.broadcaster = opts.broadcaster;
     this.fsWatchBridge = opts.fsWatchBridge;
     this.validateCredential = opts.validateCredential;
+    this.delegatedPrincipal = opts.delegatedPrincipal;
     this.logger = opts.logger;
     this.maxBufferSize = opts.maxBufferSize ?? DEFAULT_MAX_BUFFER_SIZE;
     this.flushIntervalMs = opts.flushIntervalMs ?? DEFAULT_FLUSH_INTERVAL_MS;
     this.maxBatchSize = opts.maxBatchSize ?? DEFAULT_MAX_BATCH_SIZE;
     this.highWaterMarkBytes = opts.highWaterMarkBytes ?? DEFAULT_HIGH_WATER_MARK_BYTES;
 
-    this.socket.on('message', (data: RawData) => this.onMessage(data));
+    this.socket.on('message', (data: RawData) => {
+      runWithRequestDelegatedPrincipal(this.delegatedPrincipal, () => this.onMessage(data));
+    });
     this.socket.on('close', () => this.onClose());
     this.socket.on('error', () => this.onClose());
 
@@ -201,27 +208,29 @@ export class WsConnectionV1 implements BroadcastTarget {
    * REST and session subscriptions.
    */
   async authorizeGlobalEvent(envelope: EventEnvelope): Promise<boolean> {
-    if (envelope.type.startsWith('event.config.')) return true;
-    if (envelope.type.startsWith('event.di.')) return true;
+    return runWithRequestDelegatedPrincipal(this.delegatedPrincipal, async () => {
+      if (envelope.type.startsWith('event.config.')) return true;
+      if (envelope.type.startsWith('event.di.')) return true;
 
-    const sessionId = envelope.session_id;
-    if (sessionId !== undefined && sessionId !== '__global__') {
-      return this.authorizeSession(sessionId, `${this.id}:global:${envelope.seq}`, 'workspace.read');
-    }
+      const sessionId = envelope.session_id;
+      if (sessionId !== undefined && sessionId !== '__global__') {
+        return this.authorizeSession(sessionId, `${this.id}:global:${envelope.seq}`, 'workspace.read');
+      }
 
-    const workspaceId = workspaceIdFromGlobalEvent(envelope);
-    if (workspaceId === undefined) return false;
-    try {
-      await assertWorkspaceAuthorization(this.core, {
-        workspaceId,
-        requestId: `${this.id}:global:${envelope.seq}`,
-        capability: 'workspace.read',
-      });
-      return true;
-    } catch (error) {
-      if (isError2(error) && error.code === ErrorCodes.AUTHORIZATION_DENIED) return false;
-      throw error;
-    }
+      const workspaceId = workspaceIdFromGlobalEvent(envelope);
+      if (workspaceId === undefined) return false;
+      try {
+        await assertWorkspaceAuthorization(this.core, {
+          workspaceId,
+          requestId: `${this.id}:global:${envelope.seq}`,
+          capability: 'workspace.read',
+        });
+        return true;
+      } catch (error) {
+        if (isError2(error) && error.code === ErrorCodes.AUTHORIZATION_DENIED) return false;
+        throw error;
+      }
+    });
   }
 
   private onMessage(data: RawData): void {

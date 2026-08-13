@@ -8,6 +8,11 @@ import { errEnvelope } from '../envelope';
 import type { IAuthTokenService } from '../services/auth/authTokenService';
 import type { CredentialValidator } from '../services/auth/credentials';
 import {
+  DELEGATED_PRINCIPAL_HEADER,
+  verifyDelegatedPrincipalAssertion,
+} from '../services/auth/delegatedPrincipal';
+import { runWithRequestDelegatedPrincipal } from '../services/auth/requestPrincipal';
+import {
   AUTH_RATE_LIMIT_CODE,
   AUTH_RATE_LIMIT_MSG,
   type AuthFailureLimiter,
@@ -27,6 +32,34 @@ export interface AuthHookOptions {
    * the optional `rpcToken` so the same credential gates every surface.
    */
   readonly validateCredential?: CredentialValidator;
+}
+
+/**
+ * Establish the verified principal around Fastify's callback continuation.
+ * `AsyncLocalStorage.enterWith()` from an async hook is too late to reliably
+ * cover later Fastify lifecycle phases; wrapping `done()` keeps the context on
+ * the request's downstream async resource instead.
+ */
+export function createDelegatedPrincipalHook(
+  secret: string | undefined,
+): (req: FastifyRequest, reply: FastifyReply, done: () => void) => void {
+  return (req, reply, done) => {
+    const delegatedHeader = req.headers[DELEGATED_PRINCIPAL_HEADER];
+    if (delegatedHeader === undefined) {
+      runWithRequestDelegatedPrincipal(undefined, done);
+      return;
+    }
+    if (typeof delegatedHeader !== 'string' || secret === undefined) {
+      void reply.code(401).send(errEnvelope(AUTH_ERROR_CODE, AUTH_ERROR_MSG, req.id));
+      return;
+    }
+    try {
+      const principal = verifyDelegatedPrincipalAssertion(delegatedHeader, secret);
+      runWithRequestDelegatedPrincipal(principal, done);
+    } catch {
+      void reply.code(401).send(errEnvelope(AUTH_ERROR_CODE, AUTH_ERROR_MSG, req.id));
+    }
+  };
 }
 
 /**

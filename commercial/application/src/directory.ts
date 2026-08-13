@@ -15,6 +15,7 @@ import {
   organizationSchema,
   principalSchema,
   roleSchema,
+  sessionSchema,
   userSchema,
   workspaceSchema,
   acceptInvitationInputSchema,
@@ -23,6 +24,7 @@ import {
   membershipRolesInputSchema,
   type Account,
   type AcceptInvitationInput,
+  type ActorRef,
   type AuthorizationDecision,
   type CreateAccountInput,
   type CreateOrganizationInput,
@@ -42,6 +44,8 @@ import {
   type AuditWriter,
   type Clock,
   type CommercialStore,
+  type ExternalIdentityDirectoryPort,
+  type ExternalIdentityOrganizationSnapshot,
   type IdentityPort,
   type IdGenerator,
   type TokenGenerator,
@@ -59,6 +63,19 @@ export interface InvitationResult {
   readonly invitation: Invitation;
   /** Returned once; only the hash is stored in the invitation record. */
   readonly invitation_token: string;
+}
+
+export interface ExternalOrganizationSyncInput {
+  readonly request_id: string;
+  readonly actor: ActorRef;
+  readonly snapshot: ExternalIdentityOrganizationSnapshot;
+}
+
+export interface ExternalOrganizationSyncResult {
+  readonly account: Account;
+  readonly organization: Organization;
+  readonly users: readonly User[];
+  readonly memberships: readonly Membership[];
 }
 
 export interface CommercialDirectoryDependencies {
@@ -87,6 +104,250 @@ export class CommercialDirectoryService {
 
   capabilityStatus() {
     return capabilityStatusSchema.parse(this.deps.identity.capability());
+  }
+
+  /**
+   * Reconcile a complete, trusted identity-provider organization snapshot.
+   * This is the only application boundary allowed to turn provider membership
+   * state into commercial tenant records; callers must obtain the snapshot
+   * from an adapter, never from browser input.
+   */
+  async synchronizeExternalOrganization(
+    input: ExternalOrganizationSyncInput,
+  ): Promise<ExternalOrganizationSyncResult> {
+    const snapshot = input.snapshot;
+    const actor = actorRefSchema.parse(input.actor);
+    if (snapshot.provider.trim().length === 0 || snapshot.external_organization_id.trim().length === 0) {
+      throw new CommercialApplicationError(
+        CommercialApplicationCodes.INVALID_STATE,
+        'external organization identity is incomplete',
+      );
+    }
+    const owner = snapshot.members.find((member) => member.user_id === snapshot.owner_user_id);
+    if (owner === undefined || owner.state !== 'active' || owner.role !== 'owner') {
+      throw new CommercialApplicationError(
+        CommercialApplicationCodes.INVALID_STATE,
+        'external organization snapshot must contain an active owner membership',
+      );
+    }
+    const uniqueUsers = new Set(snapshot.members.map((member) => member.user_id));
+    if (uniqueUsers.size !== snapshot.members.length) {
+      throw new CommercialApplicationError(
+        CommercialApplicationCodes.INVALID_STATE,
+        'external organization snapshot contains duplicate members',
+      );
+    }
+    const fingerprint = hashJson(snapshot);
+    const replay = await this.replay<ExternalOrganizationSyncResult>(
+      'identity.organization.sync',
+      input.request_id,
+      fingerprint,
+    );
+    if (replay !== undefined) return replay;
+
+    return this.deps.store.transaction(async (store) => {
+      const now = this.deps.clock.now();
+      const existingAccount = await store.get('accounts', snapshot.account_id);
+      if (existingAccount !== undefined && existingAccount.state === 'closed') {
+        throw new CommercialApplicationError(
+          CommercialApplicationCodes.INVALID_STATE,
+          'external organization synchronization cannot reactivate a closed commercial account',
+        );
+      }
+      const account = existingAccount === undefined
+        ? accountSchema.parse({
+          id: snapshot.account_id,
+          state: 'active',
+          display_name: snapshot.name,
+          primary_user_id: snapshot.owner_user_id,
+          version: 1,
+          created_at: now,
+          updated_at: now,
+          created_by: actor,
+          updated_by: actor,
+        })
+        : accountSchema.parse({
+          ...existingAccount,
+          display_name: snapshot.name,
+          primary_user_id: snapshot.owner_user_id,
+          updated_at: now,
+          updated_by: actor,
+          version: existingAccount.version + 1,
+        });
+
+      const existingOrganization = await store.get('organizations', snapshot.organization_id);
+      if (existingOrganization !== undefined && existingOrganization.account_id !== snapshot.account_id) {
+        throw new CommercialApplicationError(
+          CommercialApplicationCodes.INVALID_STATE,
+          'external organization is already attached to a different commercial account',
+        );
+      }
+      let roles = (await store.list('roles')).filter((role) => role.organization_id === snapshot.organization_id && role.state === 'active');
+      if (existingOrganization === undefined) {
+        const systemRoles = await this.createSystemRoles(store, snapshot.account_id, snapshot.organization_id, actor, now);
+        roles = Object.values(systemRoles);
+      }
+      const rolesByName = new Map(roles.map((role) => [role.name, role]));
+      const requiredRoleNames = ['owner', 'admin', 'member', 'viewer'];
+      if (requiredRoleNames.some((name) => rolesByName.get(name) === undefined)) {
+        throw new CommercialApplicationError(
+          CommercialApplicationCodes.INVALID_STATE,
+          'external organization synchronization found incomplete system roles',
+        );
+      }
+      const organization = existingOrganization === undefined
+        ? organizationSchema.parse({
+          id: snapshot.organization_id,
+          account_id: snapshot.account_id,
+          owner_user_id: snapshot.owner_user_id,
+          name: snapshot.name,
+          state: 'active',
+          enforced_sso: false,
+          version: 1,
+          created_at: now,
+          updated_at: now,
+          created_by: actor,
+          updated_by: actor,
+        })
+        : organizationSchema.parse({
+          ...existingOrganization,
+          account_id: snapshot.account_id,
+          owner_user_id: snapshot.owner_user_id,
+          name: snapshot.name,
+          state: 'active',
+          updated_at: now,
+          updated_by: actor,
+          version: existingOrganization.version + 1,
+        });
+
+      await store.put('accounts', account.id, account);
+      await store.put('organizations', organization.id, organization);
+
+      const existingUsers = await store.list('users');
+      const existingMemberships = await store.list('memberships');
+      const users: User[] = [];
+      const memberships: Membership[] = [];
+      for (const member of snapshot.members) {
+        const previousUser = existingUsers.find((candidate) => candidate.id === member.user_id);
+        if (previousUser !== undefined && previousUser.account_id !== snapshot.account_id) {
+          throw new CommercialApplicationError(
+            CommercialApplicationCodes.INVALID_STATE,
+            'external user is already attached to a different commercial account',
+          );
+        }
+        const userState = member.state === 'invited'
+          ? 'invited'
+          : member.state === 'suspended'
+            ? 'suspended'
+            : member.state === 'removed'
+              ? 'deactivated'
+              : 'active';
+        const user = userSchema.parse(previousUser === undefined
+          ? {
+            id: member.user_id,
+            account_id: snapshot.account_id,
+            email: member.email,
+            display_name: member.display_name,
+            state: userState,
+            version: 1,
+            created_at: now,
+            updated_at: now,
+            created_by: actor,
+            updated_by: actor,
+          }
+          : {
+            ...previousUser,
+            email: member.email,
+            display_name: member.display_name,
+            state: userState,
+            updated_at: now,
+            updated_by: actor,
+            version: previousUser.version + 1,
+          });
+        await store.put('users', user.id, user);
+        users.push(user);
+
+        const role = rolesByName.get(member.role === 'owner' ? 'owner' : member.role) ?? rolesByName.get('member');
+        if (role === undefined) throw new CommercialApplicationError(CommercialApplicationCodes.INVALID_STATE, 'system member role is missing');
+        const previousMembership = existingMemberships.find((candidate) =>
+          candidate.organization_id === snapshot.organization_id &&
+          candidate.user_id === member.user_id &&
+          candidate.target === 'organization' &&
+          candidate.workspace_id === undefined &&
+          candidate.team_id === undefined,
+        );
+        const membership = membershipSchema.parse(previousMembership === undefined
+          ? {
+            id: this.deps.ids.next('mem_'),
+            account_id: snapshot.account_id,
+            organization_id: snapshot.organization_id,
+            user_id: member.user_id,
+            target: 'organization',
+            role_ids: [role.id],
+            state: member.state,
+            joined_at: member.state === 'active' ? now : undefined,
+            version: 1,
+            created_at: now,
+            updated_at: now,
+            created_by: actor,
+            updated_by: actor,
+          }
+          : {
+            ...previousMembership,
+            role_ids: [role.id],
+            state: member.state,
+            removed_at: member.state === 'removed' ? now : previousMembership.removed_at,
+            joined_at: member.state === 'active' ? previousMembership.joined_at ?? now : previousMembership.joined_at,
+            updated_at: now,
+            updated_by: actor,
+            version: previousMembership.version + 1,
+          });
+        await store.put('memberships', membership.id, membership);
+        memberships.push(membership);
+      }
+
+      const memberIds = new Set(snapshot.members.map((member) => member.user_id));
+      for (const previous of existingMemberships) {
+        if (
+          previous.organization_id !== snapshot.organization_id ||
+          previous.target !== 'organization' ||
+          previous.workspace_id !== undefined ||
+          previous.team_id !== undefined ||
+          memberIds.has(previous.user_id) ||
+          previous.state === 'removed'
+        ) continue;
+        const removed = membershipSchema.parse({
+          ...previous,
+          state: 'removed',
+          removed_at: now,
+          updated_at: now,
+          updated_by: actor,
+          version: previous.version + 1,
+        });
+        await store.put('memberships', removed.id, removed);
+        memberships.push(removed);
+      }
+
+      const result = { account, organization, users, memberships } satisfies ExternalOrganizationSyncResult;
+      await this.remember(store, 'identity.organization.sync', input.request_id, fingerprint, result);
+      await this.writeAudit({
+        account_id: snapshot.account_id,
+        organization_id: snapshot.organization_id,
+        actor,
+        action: 'identity.organization.sync',
+        target_type: 'organization',
+        target_id: snapshot.organization_id,
+        outcome: 'succeeded',
+        request_id: input.request_id,
+        occurred_at: now,
+        detail: {
+          provider: snapshot.provider,
+          external_organization_id: snapshot.external_organization_id,
+          member_count: snapshot.members.length,
+        },
+      });
+      return result;
+    });
   }
 
   async createAccount(input: CreateAccountInput): Promise<AccountRegistrationResult> {
@@ -230,21 +491,91 @@ export class CommercialDirectoryService {
     const principal = await this.deps.identity.validateSession(token);
     if (principal === undefined) return undefined;
     if (Date.parse(principal.expires_at) <= Date.parse(this.deps.clock.now())) return undefined;
+
+    const externalDirectory = this.deps.identity as IdentityPort & Partial<ExternalIdentityDirectoryPort>;
+    const listOrganizationSnapshots = externalDirectory.listOrganizationSnapshots;
+    const hasExternalDirectory = typeof listOrganizationSnapshots === 'function';
+    if (hasExternalDirectory) {
+      try {
+        const snapshots = await listOrganizationSnapshots.call(externalDirectory, principal);
+        if (principal.organization_ids.length > 0 && snapshots.length !== principal.organization_ids.length) return undefined;
+        for (const snapshot of snapshots) {
+          if (
+            snapshot.account_id !== principal.account_id ||
+            !principal.organization_ids.includes(snapshot.organization_id)
+          ) return undefined;
+          if (
+            principal.user_id !== undefined &&
+            !snapshot.members.some((member) => member.user_id === principal.user_id && member.state === 'active')
+          ) return undefined;
+          await this.synchronizeExternalOrganization({
+            request_id: externalSyncRequestId(snapshot),
+            actor: { kind: 'system', id: 'identity-sync' },
+            snapshot,
+          });
+        }
+      } catch {
+        // Hosted identity synchronization is fail-closed: a verified token is
+        // not enough to authorize a commercial principal while membership
+        // reconciliation is unavailable or invalid.
+        return undefined;
+      }
+    }
+
     if (principal.user_id !== undefined) {
       const user = await this.deps.store.get('users', principal.user_id);
       if (user === undefined || user.state !== 'active') return undefined;
     }
     if (principal.session_id !== undefined) {
       const session = await this.deps.store.get('sessions', principal.session_id);
-      if (session === undefined || session.state !== 'active' || session.token_hash !== hashToken(token)) return undefined;
       const now = this.deps.clock.now();
-      await this.deps.store.put('sessions', session.id, {
-        ...session,
-        last_seen_at: now,
-        updated_at: now,
-        updated_by: actorForPrincipal(principal),
-        version: session.version + 1,
-      });
+      const actor = actorForPrincipal(principal);
+      if (session === undefined) {
+        if (!hasExternalDirectory || principal.user_id === undefined) return undefined;
+        const created = sessionSchema.parse({
+          id: principal.session_id,
+          account_id: principal.account_id,
+          user_id: principal.user_id,
+          token_hash: hashToken(token),
+          organization_id: principal.organization_ids.length === 1 ? principal.organization_ids[0] : undefined,
+          state: 'active',
+          auth_method: principal.auth_method === 'development' ? 'development' : 'session',
+          scopes: principal.scopes,
+          issued_at: principal.issued_at,
+          expires_at: principal.expires_at,
+          last_seen_at: now,
+          version: 1,
+          created_at: now,
+          updated_at: now,
+          created_by: actor,
+          updated_by: actor,
+        });
+        await this.deps.store.put('sessions', created.id, created);
+        const user = await this.deps.store.get('users', principal.user_id);
+        if (user !== undefined) {
+          await this.deps.store.put('users', user.id, {
+            ...user,
+            last_authenticated_at: now,
+            updated_at: now,
+            updated_by: actor,
+            version: user.version + 1,
+          });
+        }
+      } else {
+        if (
+          session.account_id !== principal.account_id ||
+          session.user_id !== principal.user_id ||
+          session.state !== 'active' ||
+          session.token_hash !== hashToken(token)
+        ) return undefined;
+        await this.deps.store.put('sessions', session.id, {
+          ...session,
+          last_seen_at: now,
+          updated_at: now,
+          updated_by: actor,
+          version: session.version + 1,
+        });
+      }
     }
     return principal;
   }
@@ -906,4 +1237,8 @@ function hashToken(token: string): string {
 
 function hashJson(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+function externalSyncRequestId(snapshot: ExternalIdentityOrganizationSnapshot): string {
+  return `id_sync_${hashJson(snapshot).slice(0, 32)}`;
 }

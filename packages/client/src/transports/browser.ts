@@ -18,6 +18,8 @@ import {
   artifactDownloadSchema,
   artifactLineageSchema,
   artifactSchema,
+  collaborationWsMessageSchema,
+  collaborationMessagePageSchema,
   datasetCreateInputSchema,
   datasetProfileInputSchema,
   datasetProfileSchema,
@@ -41,6 +43,7 @@ import {
   providerConnectionCreateWithSecretInputSchema,
   providerConnectionSchema,
   providerModelDiscoverySchema,
+  runActionInputSchema,
   runSchema,
   trainingStartInputSchema,
   trainingRunSchema,
@@ -55,6 +58,8 @@ import {
   type ArtifactDownloadChunk,
   type ArtifactDownloadRangeInput,
   type ArtifactLineage,
+  type CollaborationMessage,
+  type CollaborationMessagePage,
   type Dataset,
   type DatasetCreateInput,
   type DatasetProfile,
@@ -78,6 +83,7 @@ import {
   type ProviderConnectionCreateWithSecretInput,
   type ProviderModelDiscovery,
   type Run,
+  type RunActionInput,
   type TrainingRun,
   type TrainingStartInput,
 } from '@spiderbyte/protocol';
@@ -117,6 +123,12 @@ export interface BrowserPlatformClientOptions {
   readonly token?: string | (() => string | undefined | Promise<string | undefined>);
   readonly fetch?: BrowserFetch;
   readonly webSocket?: BrowserWebSocketFactory;
+  /**
+   * Optional connection-specific subprotocols. Hosted web clients can use
+   * this to obtain a short-lived identity assertion without sending a Clerk
+   * JWT as the kap-server bearer credential.
+   */
+  readonly webSocketProtocols?: () => readonly string[] | Promise<readonly string[]>;
   readonly reconnectDelayMs?: number;
 }
 
@@ -163,8 +175,15 @@ export interface BrowserPlatformWorkspace {
   artifactLineage(id: string): Promise<ArtifactLineage | undefined>;
   replay(afterSequence?: number, limit?: number): Promise<PlatformReplayPage>;
   subscribeEvents(handlers: BrowserPlatformEventHandlers, options?: BrowserPlatformEventOptions): BrowserPlatformEventSubscription;
+  subscribeCollaboration(
+    channelId: string,
+    handlers: BrowserCollaborationEventHandlers,
+    options?: BrowserCollaborationEventOptions,
+  ): BrowserCollaborationEventSubscription;
   listRuns(sessionId: string): Promise<readonly Run[]>;
   getRun(sessionId: string, runId: string): Promise<Run | undefined>;
+  retryRun(sessionId: string, runId: string, input: RunActionInput): Promise<Run | undefined>;
+  rerun(sessionId: string, runId: string, input: RunActionInput): Promise<Run | undefined>;
   listAttempts(sessionId: string, runId: string): Promise<readonly Attempt[]>;
   getAttempt(sessionId: string, runId: string, attemptId: string): Promise<Attempt | undefined>;
   createAttempt(sessionId: string, runId: string, input: AttemptCreateInput): Promise<Attempt | undefined>;
@@ -221,6 +240,24 @@ export interface BrowserPlatformEventSubscription {
   dispose(): void;
 }
 
+export interface BrowserCollaborationEventHandlers {
+  readonly onMessage: (message: CollaborationMessage) => void;
+  readonly onError?: (error: Error) => void;
+  readonly onGap?: (fromSequence: number, toSequence: number) => void;
+}
+
+export interface BrowserCollaborationEventOptions {
+  readonly threadId?: string;
+  readonly afterSequence?: number;
+  readonly limit?: number;
+  readonly reconnect?: boolean;
+}
+
+export interface BrowserCollaborationEventSubscription {
+  readonly cursor: number;
+  dispose(): void;
+}
+
 type Schema = z.ZodTypeAny;
 
 const browserTranscriptPageSchema = z.object({
@@ -242,6 +279,7 @@ export class BrowserPlatformClient {
   private readonly token: BrowserPlatformClientOptions['token'];
   private readonly fetchImpl: BrowserFetch;
   private readonly webSocket: BrowserWebSocketFactory | undefined;
+  private readonly webSocketProtocolsOverride: BrowserPlatformClientOptions['webSocketProtocols'];
   private readonly reconnectDelayMs: number;
 
   constructor(options: BrowserPlatformClientOptions) {
@@ -249,6 +287,7 @@ export class BrowserPlatformClient {
     this.token = options.token;
     this.fetchImpl = options.fetch ?? defaultFetch();
     this.webSocket = options.webSocket;
+    this.webSocketProtocolsOverride = options.webSocketProtocols;
     this.reconnectDelayMs = Math.max(100, options.reconnectDelayMs ?? 1_000);
   }
 
@@ -293,8 +332,11 @@ export class BrowserPlatformClient {
       artifactLineage: (artifactId) => request<ArtifactLineage>(`/platform/artifacts/${encodeURIComponent(requireId(artifactId, 'artifactId'))}/lineage`, 'GET', undefined, artifactLineageSchema),
       replay: (afterSequence, limit) => request<PlatformReplayPage>(`/platform/events${query({ after_sequence: afterSequence, limit })}`, 'GET', undefined, platformReplayPageSchema) as Promise<PlatformReplayPage>,
       subscribeEvents: (handlers, options) => new PlatformEventStream(this, workspaceKey, handlers, options, this.webSocket, this.reconnectDelayMs),
+      subscribeCollaboration: (channelId, handlers, options) => new CollaborationEventStream(this, workspaceKey, requireId(channelId, 'channelId'), handlers, options, this.webSocket, this.reconnectDelayMs),
       listRuns: (sessionId) => runRequest<readonly Run[]>(sessionId, '/runs', 'GET', undefined, z.array(runSchema)) as Promise<readonly Run[]>,
       getRun: (sessionId, runId) => runRequest<Run>(sessionId, `/runs/${encodeURIComponent(requireId(runId, 'runId'))}`, 'GET', undefined, runSchema),
+      retryRun: (sessionId, runId, input) => runRequest<Run>(sessionId, `/runs/${encodeURIComponent(requireId(runId, 'runId'))}/retry`, 'POST', runActionInputSchema.parse(input), runSchema),
+      rerun: (sessionId, runId, input) => runRequest<Run>(sessionId, `/runs/${encodeURIComponent(requireId(runId, 'runId'))}/rerun`, 'POST', runActionInputSchema.parse(input), runSchema),
       listAttempts: (sessionId, runId) => runRequest<readonly Attempt[]>(sessionId, `/runs/${encodeURIComponent(requireId(runId, 'runId'))}/attempts`, 'GET', undefined, z.array(attemptSchema)) as Promise<readonly Attempt[]>,
       getAttempt: (sessionId, runId, attemptId) => runRequest<Attempt>(sessionId, `/runs/${encodeURIComponent(requireId(runId, 'runId'))}/attempts/${encodeURIComponent(requireId(attemptId, 'attemptId'))}`, 'GET', undefined, attemptSchema),
       createAttempt: (sessionId, runId, input) => runRequest<Attempt>(sessionId, `/runs/${encodeURIComponent(requireId(runId, 'runId'))}/attempts`, 'POST', attemptCreateInputSchema.parse(input), attemptSchema),
@@ -356,12 +398,20 @@ export class BrowserPlatformClient {
     return schema.parse(envelope.data.data) as T;
   }
 
-  /** The WS endpoint is derived from the same origin as the REST client. */
+  /** The platform-event WS endpoint is derived from the same origin as REST. */
   webSocketUrl(): string {
     return this.baseUrl.replace(/^http/, 'ws') + '/api/v2/platform/ws';
   }
 
+  /** The durable collaboration-message WS endpoint is derived from REST. */
+  collaborationWebSocketUrl(): string {
+    return this.baseUrl.replace(/^http/, 'ws') + '/api/v2/collaboration/ws';
+  }
+
   async webSocketProtocols(): Promise<readonly string[] | undefined> {
+    if (this.webSocketProtocolsOverride !== undefined) {
+      return [...await this.webSocketProtocolsOverride()];
+    }
     const token = typeof this.token === 'function' ? await this.token() : this.token;
     if (token === undefined || token.length === 0) return undefined;
     if (/[,\s]/.test(token)) throw new BrowserPlatformError(-1, 'websocket bearer token contains invalid protocol characters');
@@ -516,6 +566,169 @@ class PlatformEventStream implements BrowserPlatformEventSubscription {
   }
 }
 
+class CollaborationEventStream implements BrowserCollaborationEventSubscription {
+  private readonly reconnect: boolean;
+  private readonly limit: number;
+  private readonly threadId: string | undefined;
+  private readonly factory: BrowserWebSocketFactory;
+  private socket: BrowserWebSocketLike | undefined;
+  private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+  private disposed = false;
+  private recovering = Promise.resolve();
+  private cursorValue: number;
+  private requestSequence = 0;
+
+  constructor(
+    private readonly client: BrowserPlatformClient,
+    private readonly workspaceId: string,
+    private readonly channelId: string,
+    private readonly handlers: BrowserCollaborationEventHandlers,
+    options: BrowserCollaborationEventOptions | undefined,
+    factory: BrowserWebSocketFactory | undefined,
+    private readonly reconnectDelayMs: number,
+  ) {
+    if (factory === undefined) {
+      throw new BrowserPlatformError(-1, 'collaboration websocket support is unavailable in this browser client');
+    }
+    this.factory = factory;
+    this.reconnect = options?.reconnect ?? true;
+    this.limit = options?.limit ?? 100;
+    this.threadId = options?.threadId;
+    this.cursorValue = options?.afterSequence ?? 0;
+    this.connect();
+  }
+
+  get cursor(): number {
+    return this.cursorValue;
+  }
+
+  dispose(): void {
+    this.disposed = true;
+    if (this.reconnectTimer !== undefined) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = undefined;
+    this.socket?.close();
+    this.socket = undefined;
+  }
+
+  private connect(): void {
+    if (this.disposed) return;
+    void this.connectAsync();
+  }
+
+  private async connectAsync(): Promise<void> {
+    if (this.disposed) return;
+    try {
+      const socket = this.factory(this.client.collaborationWebSocketUrl(), await this.client.webSocketProtocols());
+      this.socket = socket;
+      socket.onopen = () => {
+        this.send({
+          type: 'subscribe',
+          request_id: this.nextRequestId(),
+          workspace_id: this.workspaceId,
+          channel_id: this.channelId,
+          after_sequence: this.cursorValue,
+          limit: this.limit,
+          ...(this.threadId === undefined ? {} : { thread_id: this.threadId }),
+        });
+      };
+      socket.onmessage = (message) => { this.handleMessage(message.data); };
+      socket.onerror = () => this.handlers.onError?.(new Error('collaboration websocket error'));
+      socket.onclose = () => {
+        this.socket = undefined;
+        if (!this.disposed && this.reconnect) {
+          this.reconnectTimer = setTimeout(() => {
+            this.reconnectTimer = undefined;
+            this.connect();
+          }, this.reconnectDelayMs);
+        }
+      };
+    } catch (error) {
+      this.handlers.onError?.(error instanceof Error ? error : new Error(String(error)));
+      if (!this.disposed && this.reconnect) {
+        this.reconnectTimer = setTimeout(() => {
+          this.reconnectTimer = undefined;
+          this.connect();
+        }, this.reconnectDelayMs);
+      }
+    }
+  }
+
+  private handleMessage(raw: string): void {
+    let message: unknown;
+    try {
+      message = JSON.parse(raw);
+    } catch {
+      this.handlers.onError?.(new Error('collaboration websocket returned invalid JSON'));
+      return;
+    }
+    if (!isRecord(message)) return;
+    if (message['type'] === 'ack' && typeof message['code'] === 'number' && message['code'] !== 0) {
+      this.handlers.onError?.(new BrowserPlatformError(
+        message['code'],
+        typeof message['msg'] === 'string' ? message['msg'] : 'collaboration websocket request failed',
+      ));
+      return;
+    }
+    if (message['type'] !== 'collaboration_message') return;
+    const parsed = collaborationWsMessageSchema.safeParse(message);
+    if (!parsed.success) {
+      this.handlers.onError?.(new Error(`invalid collaboration message: ${parsed.error.message}`));
+      return;
+    }
+    const item = parsed.data.message;
+    const itemSequence = collaborationEventSequence(item);
+    this.recovering = this.recovering.then(async () => {
+      if (itemSequence <= this.cursorValue) return;
+      if (this.threadId === undefined && itemSequence > this.cursorValue + 1) {
+        const from = this.cursorValue + 1;
+        await this.recoverGap(itemSequence - 1);
+        if (itemSequence > this.cursorValue + 1) this.handlers.onGap?.(from, itemSequence - 1);
+      }
+      if (itemSequence <= this.cursorValue) return;
+      this.cursorValue = itemSequence;
+      this.handlers.onMessage(item);
+    }).catch((error: unknown) => {
+      this.handlers.onError?.(error instanceof Error ? error : new Error(String(error)));
+    });
+  }
+
+  private async recoverGap(targetSequence: number): Promise<void> {
+    while (this.cursorValue < targetSequence) {
+      const suffix = query({
+        after_sequence: this.cursorValue,
+        limit: this.limit,
+        ...(this.threadId === undefined ? {} : { thread_id: this.threadId }),
+      });
+      const page = await this.client.request<CollaborationMessagePage>(
+        `/api/v2/workspaces/${encodeURIComponent(this.workspaceId)}/collaboration/channels/${encodeURIComponent(this.channelId)}/messages${suffix}`,
+        'GET',
+        undefined,
+        collaborationMessagePageSchema,
+      );
+      if (page === undefined) return;
+      let advanced = false;
+      for (const item of page.items) {
+        const itemSequence = collaborationEventSequence(item);
+        if (itemSequence <= this.cursorValue || itemSequence > targetSequence) continue;
+        this.cursorValue = itemSequence;
+        advanced = true;
+        this.handlers.onMessage(item);
+      }
+      if (!advanced || !page.next_cursor) return;
+    }
+  }
+
+  private send(message: unknown): void {
+    const socket = this.socket;
+    if (socket !== undefined && socket.readyState === socket.OPEN) socket.send(JSON.stringify(message));
+  }
+
+  private nextRequestId(): string {
+    this.requestSequence += 1;
+    return `browser-collaboration-${Date.now().toString(36)}-${this.requestSequence.toString(36)}`;
+  }
+}
+
 function query(values: Readonly<Record<string, number | string | undefined>>): string {
   const entries = Object.entries(values).filter((entry): entry is [string, string | number] =>
     entry[1] !== undefined && String(entry[1]).length > 0,
@@ -533,6 +746,10 @@ function requireId(value: string, name: string): string {
 function requireSequence(value: number): number {
   if (!Number.isInteger(value) || value < 0) throw new TypeError('sinceSequence must be a non-negative integer');
   return value;
+}
+
+function collaborationEventSequence(message: CollaborationMessage): number {
+  return message.event_sequence ?? message.sequence;
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {

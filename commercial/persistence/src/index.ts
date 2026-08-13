@@ -1,3 +1,4 @@
 export * from './migrations';
 export * from './adapter';
 export * from './sqlStore';
+export * from './audit';

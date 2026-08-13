@@ -33,6 +33,10 @@ exports[`API surface snapshot > matches the documented v2 route table and meta e
       "/api/v1/workspaces/{workspace_id}",
     ],
     [
+      "DELETE",
+      "/mcp",
+    ],
+    [
       "GET",
       "/api/v1/auth",
     ],
@@ -286,6 +290,26 @@ exports[`API surface snapshot > matches the documented v2 route table and meta e
     ],
     [
       "GET",
+      "/api/v2/sessions/{session_id}/runs/{run_id}/attempts",
+    ],
+    [
+      "GET",
+      "/api/v2/sessions/{session_id}/runs/{run_id}/attempts/{attempt_id}",
+    ],
+    [
+      "GET",
+      "/api/v2/workspaces/{workspace_id}/collaboration/channels",
+    ],
+    [
+      "GET",
+      "/api/v2/workspaces/{workspace_id}/collaboration/channels/{channel_id}/messages",
+    ],
+    [
+      "GET",
+      "/api/v2/workspaces/{workspace_id}/collaboration/channels/{channel_id}/threads",
+    ],
+    [
+      "GET",
       "/api/v2/workspaces/{workspace_id}/platform/artifacts",
     ],
     [
@@ -466,11 +490,23 @@ exports[`API surface snapshot > matches the documented v2 route table and meta e
     ],
     [
       "GET",
+      "/mcp",
+    ],
+    [
+      "GET",
       "/openapi.json",
+    ],
+    [
+      "OPTIONS",
+      "/mcp",
     ],
     [
       "PATCH",
       "/api/v1/workspaces/{workspace_id}",
+    ],
+    [
+      "PATCH",
+      "/api/v2/workspaces/{workspace_id}/collaboration/channels/{channel_id}/messages/{message_id}",
     ],
     [
       "PATCH",
@@ -694,6 +730,26 @@ exports[`API surface snapshot > matches the documented v2 route table and meta e
     ],
     [
       "POST",
+      "/api/v2/sessions/{session_id}/runs/{run_id}/attempts",
+    ],
+    [
+      "POST",
+      "/api/v2/sessions/{session_id}/runs/{run_id}/attempts/{attempt_id}/cancel",
+    ],
+    [
+      "POST",
+      "/api/v2/sessions/{session_id}/runs/{run_id}/attempts/{attempt_id}/resume",
+    ],
+    [
+      "POST",
+      "/api/v2/sessions/{session_id}/runs/{run_id}/attempts/{attempt_id}/transition",
+    ],
+    [
+      "POST",
+      "/api/v2/sessions/{session_id}/runs/{run_id}/attempts/retry",
+    ],
+    [
+      "POST",
       "/api/v2/sessions/{session_id}/runs/{run_id}/cancel",
     ],
     [
@@ -715,6 +771,26 @@ exports[`API surface snapshot > matches the documented v2 route table and meta e
     [
       "POST",
       "/api/v2/sessions/{session_id}/runs/{run_id}/transition",
+    ],
+    [
+      "POST",
+      "/api/v2/workspaces/{workspace_id}/collaboration/channels",
+    ],
+    [
+      "POST",
+      "/api/v2/workspaces/{workspace_id}/collaboration/channels/{channel_id}/messages",
+    ],
+    [
+      "POST",
+      "/api/v2/workspaces/{workspace_id}/collaboration/channels/{channel_id}/messages/{message_id}/cancel",
+    ],
+    [
+      "POST",
+      "/api/v2/workspaces/{workspace_id}/collaboration/channels/{channel_id}/messages/command",
+    ],
+    [
+      "POST",
+      "/api/v2/workspaces/{workspace_id}/collaboration/channels/{channel_id}/threads",
     ],
     [
       "POST",
@@ -803,6 +879,14 @@ exports[`API surface snapshot > matches the documented v2 route table and meta e
     [
       "POST",
       "/api/v2/workspaces/{workspace_id}/platform/execution-targets/{target_id}/ready",
+    ],
+    [
+      "POST",
+      "/api/v2/workspaces/{workspace_id}/platform/execution-targets/{target_id}/revoke",
+    ],
+    [
+      "POST",
+      "/api/v2/workspaces/{workspace_id}/platform/execution-targets/{target_id}/test",
     ],
     [
       "POST",
@@ -895,6 +979,10 @@ exports[`API surface snapshot > matches the documented v2 route table and meta e
     [
       "POST",
       "/api/v2/workspaces/{workspace_id}/platform/usage",
+    ],
+    [
+      "POST",
+      "/mcp",
     ],
     [
       "PUT",

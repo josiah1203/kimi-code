@@ -14,6 +14,8 @@
     "clean": "rm -rf .wrangler worker-configuration.d.ts"
   },
   "dependencies": {
+    "@spiderbyte/commercial-adapters": "workspace:^",
+    "@spiderbyte/commercial-application": "workspace:^",
     "@spiderbyte/commercial-domain": "workspace:^",
     "@spiderbyte/commercial-persistence": "workspace:^",
     "@spiderbyte/commercial-ports": "workspace:^",

@@ -49,6 +49,25 @@ function event(sequence: number) {
   };
 }
 
+function collaborationMessage(sequence: number, eventSequence = sequence, state: 'queued' | 'completed' = 'completed') {
+  return {
+    id: `message_${sequence}`,
+    workspace_id: workspaceId,
+    channel_id: 'channel_general',
+    thread_id: 'thread_general',
+    sequence,
+    event_sequence: eventSequence,
+    author_id: 'actor_test',
+    author_kind: 'user',
+    author_display_name: 'Test user',
+    content: `message ${sequence}`,
+    state,
+    artifact_ids: [],
+    created_at: '2026-08-09T00:00:00.000Z',
+    updated_at: '2026-08-09T00:00:00.000Z',
+  };
+}
+
 class FakeWebSocket implements BrowserWebSocketLike {
   readonly OPEN = 1;
   readyState = this.OPEN;
@@ -136,6 +155,99 @@ describe('BrowserPlatformClient', () => {
     expect(subscription.cursor).toBe(2);
     expect(JSON.parse(socket.sent[0]!).type).toBe('subscribe');
     expect(protocols).toEqual(['spiderbyte.bearer.opaque-ws-token']);
+    subscription.dispose();
+  });
+
+  it('uses an explicit identity subprotocol instead of a browser bearer token when configured', async () => {
+    const socket = new FakeWebSocket();
+    let protocols: string | readonly string[] | undefined;
+    const client = new BrowserPlatformClient({
+      baseUrl: 'https://client.example.test',
+      token: 'clerk-jwt-not-for-kap-server',
+      fetch: async () => ({ ok: true, status: 200, text: async () => envelope({ events: [], next_sequence: 0, has_more: false }) }),
+      webSocketProtocols: async () => ['spiderbyte.identity.short-lived-assertion'],
+      webSocket: (_url, requestedProtocols) => {
+        protocols = requestedProtocols;
+        return socket;
+      },
+    });
+
+    const subscription = client.workspace(workspaceId).subscribeEvents({ onEvent: () => {} }, { reconnect: false });
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(protocols).toEqual(['spiderbyte.identity.short-lived-assertion']);
+    subscription.dispose();
+  });
+
+  it('replays durable collaboration messages after a cursor gap and suppresses duplicates', async () => {
+    const socket = new FakeWebSocket();
+    const received: number[] = [];
+    const fetch: BrowserFetch = async (url) => {
+      if (url.includes('/collaboration/channels/') && url.includes('/messages')) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => envelope({
+            items: [collaborationMessage(1), collaborationMessage(2)],
+          }),
+        };
+      }
+      return { ok: true, status: 200, text: async () => envelope([]) };
+    };
+    const client = new BrowserPlatformClient({
+      baseUrl: 'https://client.example.test',
+      fetch,
+      webSocket: () => socket,
+      webSocketProtocols: async () => ['spiderbyte.identity.short-lived-assertion'],
+    });
+    const subscription = client.workspace(workspaceId).subscribeCollaboration(
+      'channel_general',
+      { onMessage: (message) => received.push(message.sequence) },
+      { reconnect: false },
+    );
+
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    socket.open();
+    socket.emit({ type: 'ack', request_id: 'subscribe', code: 0, msg: 'ok', data: { items: [], next_cursor: undefined } });
+    socket.emit({ type: 'collaboration_message', message: collaborationMessage(3) });
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    socket.emit({ type: 'collaboration_message', message: collaborationMessage(3) });
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    expect(received).toEqual([1, 2, 3]);
+    expect(subscription.cursor).toBe(3);
+    expect(JSON.parse(socket.sent[0]!).type).toBe('subscribe');
+    subscription.dispose();
+  });
+
+  it('advances the collaboration cursor for a projection revision with stable message identity', async () => {
+    const socket = new FakeWebSocket();
+    const received: Array<{ readonly id: string; readonly state: string; readonly eventSequence: number | undefined }> = [];
+    const client = new BrowserPlatformClient({
+      baseUrl: 'https://client.example.test',
+      fetch: async () => ({ ok: true, status: 200, text: async () => envelope({ items: [] }) }),
+      webSocket: () => socket,
+      webSocketProtocols: async () => ['spiderbyte.identity.short-lived-assertion'],
+    });
+    const subscription = client.workspace(workspaceId).subscribeCollaboration(
+      'channel_general',
+      { onMessage: (message) => received.push({ id: message.id, state: message.state, eventSequence: message.event_sequence }) },
+      { reconnect: false },
+    );
+
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    socket.open();
+    socket.emit({ type: 'collaboration_message', message: collaborationMessage(1, 1, 'queued') });
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    socket.emit({ type: 'collaboration_message', message: collaborationMessage(1, 2, 'completed') });
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    socket.emit({ type: 'collaboration_message', message: collaborationMessage(1, 2, 'completed') });
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    expect(received).toEqual([
+      { id: 'message_1', state: 'queued', eventSequence: 1 },
+      { id: 'message_1', state: 'completed', eventSequence: 2 },
+    ]);
+    expect(subscription.cursor).toBe(2);
     subscription.dispose();
   });
 

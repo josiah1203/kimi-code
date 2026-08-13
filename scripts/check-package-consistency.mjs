@@ -14,7 +14,7 @@ import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(fileURLToPath(import.meta.url), '..', '..');
-const IGNORED = new Set(['.git', '.tmp', 'node_modules', 'coverage', 'dist', 'dist-native', 'dist-web']);
+const IGNORED = new Set(['.git', '.tmp', 'node_modules', 'coverage', '.next', 'dist', 'dist-native', 'dist-web']);
 const DEPENDENCY_SECTIONS = ['dependencies', 'optionalDependencies', 'peerDependencies', 'devDependencies'];
 
 function readJson(path) {

@@ -14,6 +14,8 @@ import { registerV2AuthRoutes } from './v2/auth';
 import { registerV2SessionsRoutes } from './v2/sessions';
 import { registerPlatformRoutes } from './v2/platform';
 import { registerRunRoutes } from './v2/runs';
+import { registerCollaborationRoutes } from './v2/collaboration';
+import type { CollaborationService } from '../services/collaborationService';
 
 interface ApiV2AppHost {
   register(
@@ -22,13 +24,22 @@ interface ApiV2AppHost {
   ): unknown;
 }
 
-export async function registerApiV2Routes(app: ApiV2AppHost, core: Scope): Promise<void> {
+export async function registerApiV2Routes(
+  app: ApiV2AppHost,
+  core: Scope,
+  collaboration: CollaborationService,
+): Promise<void> {
   await app.register(
     async (apiV2) => {
       registerV2AuthRoutes(apiV2 as Parameters<typeof registerV2AuthRoutes>[0]);
       registerV2SessionsRoutes(apiV2 as Parameters<typeof registerV2SessionsRoutes>[0], core);
       registerRunRoutes(apiV2 as Parameters<typeof registerRunRoutes>[0], core);
       registerPlatformRoutes(apiV2 as Parameters<typeof registerPlatformRoutes>[0], core);
+      registerCollaborationRoutes(
+        apiV2 as Parameters<typeof registerCollaborationRoutes>[0],
+        core,
+        collaboration,
+      );
     },
     { prefix: '/api/v2' },
   );

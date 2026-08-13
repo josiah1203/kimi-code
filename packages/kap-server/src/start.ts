@@ -33,6 +33,7 @@ import {
   createSpiderByteDefaultHeaders,
   type SpiderByteHostIdentity,
 } from '@spiderbyte/oauth';
+import type { DelegatedPrincipal } from '@spiderbyte/protocol';
 import { createAsyncApiDocument } from './protocol/asyncapi';
 import Fastify, { type FastifyInstance } from 'fastify';
 
@@ -60,12 +61,19 @@ import {
   ConnectionRegistry,
   type IConnectionRegistry,
 } from './transport/ws/connectionRegistry';
-import { extractWsBearerToken } from './transport/ws/bearerProtocol';
+import {
+  extractWsBearerToken,
+  extractWsDelegatedPrincipalAssertion,
+} from './transport/ws/bearerProtocol';
 import { SessionEventBroadcaster } from './transport/ws/v1/sessionEventBroadcaster';
 import type { ConfigWarningItem } from './transport/ws/v1/events';
 import { FsWatchBridge } from './transport/ws/v1/fsWatchBridge';
 import { registerWsV1, WS_PATH as WS_PATH_V1 } from './transport/ws/v1/registerWsV1';
 import { registerPlatformWs, WS_PATH_V2_PLATFORM } from './transport/ws/v2/platformWs';
+import {
+  registerCollaborationWs,
+  WS_PATH_V2_COLLABORATION,
+} from './transport/ws/v2/collaborationWs';
 import { getServerVersion } from './version';
 import { classify } from './security/bindClassify';
 import {
@@ -75,7 +83,7 @@ import {
 } from './middleware/hostnames';
 import { createOriginHook, isOriginAllowed, parseCorsOrigins } from './middleware/origin';
 import { createSecurityHeadersHook } from './middleware/securityHeaders';
-import { createAuthHook } from './middleware/auth';
+import { createAuthHook, createDelegatedPrincipalHook } from './middleware/auth';
 import { GuiStoreService } from './services/guiStore/guiStoreService';
 import {
   initializeServerTelemetry,
@@ -93,6 +101,12 @@ import {
 import { createCredentialValidator } from './services/auth/credentials';
 import { resolvePasswordHash } from './services/auth/password';
 import { createTokenStore } from './services/auth/tokenStore';
+import { DELEGATED_PRINCIPAL_HEADER, verifyDelegatedPrincipalAssertion } from './services/auth/delegatedPrincipal';
+import {
+  attachWebSocketRequestDelegatedPrincipal,
+  runWithRequestDelegatedPrincipal,
+} from './services/auth/requestPrincipal';
+import { CollaborationService } from './services/collaborationService';
 
 // Temporary feature: global message search. Importing this module registers
 // `IGlobalSearchService` (App scope) into the DI registry as a side effect, so
@@ -139,6 +153,13 @@ export interface ServerStartOptions {
    * unset unless a second, distinct RPC credential is genuinely needed.
    */
   readonly rpcToken?: string;
+  /**
+   * Shared secret for short-lived server-to-server hosted identity assertions.
+   * When omitted, `SPIDERBYTE_IDENTITY_BRIDGE_SECRET` is used. The assertion
+   * is optional so local accountless deployments keep their existing model;
+   * hosted BFFs should configure it and require it at their own boundary.
+   */
+  readonly delegatedPrincipalSecret?: string;
   /** Extra scope seeds applied at bootstrap (e.g. a host-provided `ISessionModelResolver`). */
   readonly seeds?: ScopeSeed;
   /**
@@ -255,6 +276,7 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
   // the WS upgrade handler, and the post-connect handshakes so one credential
   // gates all surfaces and upgrade / handshake can never disagree.
   const validateCredential = createCredentialValidator(authTokenService, opts.rpcToken);
+  const delegatedPrincipalSecret = opts.delegatedPrincipalSecret ?? process.env['SPIDERBYTE_IDENTITY_BRIDGE_SECRET'];
   // `ILogOptions` (logSeed) is required by the Session-scoped log writer; any
   // route that creates a session (e.g. POST /sessions) would otherwise fail to
   // instantiate the Session scope. Resolve it from env + homeDir like the CLI.
@@ -375,10 +397,14 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
   const allowedOrigins = opts.corsOrigins ?? parseCorsOrigins();
   app.addHook('onRequest', hostCheck.onRequest);
   app.addHook('onRequest', createOriginHook({ allowedOrigins }));
+  app.addHook('onRequest', createDelegatedPrincipalHook(delegatedPrincipalSecret));
   if (opts.disableAuth !== true) {
     app.addHook(
       'onRequest',
-      createAuthHook(authTokenService, { limiter: authFailureLimiter, validateCredential }),
+      createAuthHook(authTokenService, {
+        limiter: authFailureLimiter,
+        validateCredential,
+      }),
     );
   } else {
     // `--dangerous-bypass-auth`: the operator explicitly disabled the
@@ -396,6 +422,8 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
     app.addHook('onSend', createSecurityHeadersHook({ tls: false }));
   }
 
+  let collaborationService: CollaborationService | undefined;
+
   const close = async (): Promise<void> => {
     platformAutomationScheduler.stop();
     await app.close();
@@ -409,6 +437,14 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
       logger.warn(
         { err: error instanceof Error ? error.message : String(error) },
         'telemetry shutdown failed; continuing server cleanup',
+      );
+    }
+    try {
+      await collaborationService?.close();
+    } catch (error) {
+      logger.warn(
+        { err: error instanceof Error ? error.message : String(error) },
+        'collaboration persistence shutdown failed; continuing server cleanup',
       );
     }
     try {
@@ -444,6 +480,8 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
 
   const connectionRegistry = new ConnectionRegistry();
   const transcriptService = new TranscriptService({ homeDir, core, logger });
+  const collaboration = await CollaborationService.open({ homeDir, core });
+  collaborationService = collaboration;
   // The global search service is DI-managed (App scope) while the transcript
   // service is constructed here by hand — wire the former to the latter so
   // container-scoped searches on live sessions scan the in-memory transcript.
@@ -505,6 +543,7 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
           { name: 'sessions', description: 'Session lifecycle' },
           { name: 'v2-sessions', description: 'Domain-grouped session list query (API v2)' },
           { name: 'workspaces', description: 'Workspace registry + folder picker' },
+          { name: 'collaboration', description: 'Durable collaboration channels, threads, and message projections' },
           { name: 'messages', description: 'Message history' },
           { name: 'search', description: 'Global message search' },
           { name: 'transcript', description: 'Turn-granular session transcript' },
@@ -550,7 +589,7 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
 
   // `/api/v2` — same envelope conventions as v1, domain-grouped payloads.
   // Mounted after v1; the root auth/host/origin hooks cover it identically.
-  await registerApiV2Routes(app, core);
+  await registerApiV2Routes(app, core, collaboration);
   await registerMcpRoutes(app, core, {
     profile: resolveSpyderbyteMcpProfile(process.env['SPIDERBYTE_MCP_PROFILE']),
     defaultWorkspaceId: process.env['SPIDERBYTE_MCP_WORKSPACE_ID'],
@@ -566,6 +605,7 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
     logger,
   });
   const wssV2Platform = registerPlatformWs(core);
+  const wssV2Collaboration = registerCollaborationWs(core, collaboration);
 
   const handleUpgrade = async (
     req: IncomingMessage,
@@ -576,7 +616,9 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
     const isV1 = url === WS_PATH_V1 || url.startsWith(`${WS_PATH_V1}?`);
     const isV2Platform =
       url === WS_PATH_V2_PLATFORM || url.startsWith(`${WS_PATH_V2_PLATFORM}?`);
-    if (!isV1 && !isV2Platform) {
+    const isV2Collaboration =
+      url === WS_PATH_V2_COLLABORATION || url.startsWith(`${WS_PATH_V2_COLLABORATION}?`);
+    if (!isV1 && !isV2Platform && !isV2Collaboration) {
       socket.destroy();
       return;
     }
@@ -605,13 +647,53 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
       return;
     }
 
+    let delegatedPrincipal: DelegatedPrincipal | undefined;
+    const delegatedHeader = req.headers[DELEGATED_PRINCIPAL_HEADER];
+    if (delegatedHeader !== undefined) {
+      if (typeof delegatedHeader !== 'string' || delegatedPrincipalSecret === undefined) {
+        (socket as Socket).write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
+        (socket as Socket).destroy();
+        return;
+      }
+      try {
+        delegatedPrincipal = verifyDelegatedPrincipalAssertion(
+          delegatedHeader,
+          delegatedPrincipalSecret,
+        );
+      } catch {
+        (socket as Socket).write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
+        (socket as Socket).destroy();
+        return;
+      }
+    }
+    const delegatedProtocol = extractWsDelegatedPrincipalAssertion(req.headers['sec-websocket-protocol']);
+    if (delegatedProtocol !== null) {
+      if (delegatedPrincipal !== undefined || delegatedPrincipalSecret === undefined) {
+        (socket as Socket).write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
+        (socket as Socket).destroy();
+        return;
+      }
+      try {
+        delegatedPrincipal = verifyDelegatedPrincipalAssertion(
+          delegatedProtocol,
+          delegatedPrincipalSecret,
+        );
+      } catch {
+        (socket as Socket).write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
+        (socket as Socket).destroy();
+        return;
+      }
+    }
+    attachWebSocketRequestDelegatedPrincipal(req, delegatedPrincipal);
+
     if (opts.disableAuth !== true) {
       const authHeader = req.headers.authorization;
       const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : null;
       const protocolToken = extractWsBearerToken(req.headers['sec-websocket-protocol']);
       const candidate = bearerToken !== null && bearerToken.length > 0 ? bearerToken : protocolToken;
-      // Require a valid credential at the upgrade: a token-less (or invalid)
-      // upgrade is rejected with 401 for `/api/v1/ws`.
+      // Require a valid bearer credential or a verified delegated identity at
+      // the upgrade. A token-less/identity-less upgrade is rejected before the
+      // socket completes its handshake.
       let ok = false;
       if (candidate !== null) {
         try {
@@ -628,13 +710,17 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
           );
           ok = false;
         }
+      } else {
+        ok = delegatedPrincipal !== undefined;
       }
       if (!ok) {
         logger.warn(
           {
             remoteAddress: req.socket.remoteAddress,
             path: url,
-            reason: candidate === null ? 'missing_credential' : 'invalid_credential',
+            reason: candidate === null
+              ? delegatedPrincipal === undefined ? 'missing_credential' : 'invalid_identity'
+              : 'invalid_credential',
           },
           'ws upgrade rejected',
         );
@@ -645,13 +731,19 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
     }
 
     (socket as Socket).setNoDelay(true);
-    if (isV1) {
-      wssV1.handleUpgrade(req, socket, head, (ws) => wssV1.emit('connection', ws, req));
-    } else {
-      wssV2Platform.handleUpgrade(req, socket, head, (ws) =>
-        wssV2Platform.emit('connection', ws, req),
-      );
-    }
+    runWithRequestDelegatedPrincipal(delegatedPrincipal, () => {
+      if (isV1) {
+        wssV1.handleUpgrade(req, socket, head, (ws) => wssV1.emit('connection', ws, req));
+      } else if (isV2Platform) {
+        wssV2Platform.handleUpgrade(req, socket, head, (ws) =>
+          wssV2Platform.emit('connection', ws, req),
+        );
+      } else {
+        wssV2Collaboration.handleUpgrade(req, socket, head, (ws) =>
+          wssV2Collaboration.emit('connection', ws, req),
+        );
+      }
+    });
   };
   app.server.on('upgrade', (req, socket, head) => {
     void handleUpgrade(req, socket, head).catch((error: unknown) =>
@@ -663,6 +755,7 @@ export async function startServer(opts: ServerStartOptions): Promise<RunningServ
     connectionRegistry.closeAll('server shutting down');
     wssV1.close();
     wssV2Platform.close();
+    wssV2Collaboration.close();
     await broadcaster.close();
   });
 

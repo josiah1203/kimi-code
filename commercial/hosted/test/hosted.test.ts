@@ -39,9 +39,11 @@ class FakeR2Bucket {
   ) {
     const bytes = value instanceof ReadableStream
       ? new Uint8Array(await new Response(value).arrayBuffer())
-      : new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+      : value instanceof ArrayBuffer
+        ? new Uint8Array(value)
+        : new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
     this.objects.set(key, {
-      body: new Response(bytes).body!,
+      body: new Response(bytes as unknown as BodyInit).body!,
       size: bytes.byteLength,
       httpMetadata: options?.httpMetadata,
       customMetadata: options?.customMetadata,

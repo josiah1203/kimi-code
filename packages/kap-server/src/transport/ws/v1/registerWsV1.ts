@@ -12,6 +12,7 @@ import type { Scope } from '@spiderbyte/agent-core';
 import { WebSocketServer } from 'ws';
 
 import type { CredentialValidator } from '../../../services/auth/credentials';
+import { webSocketRequestDelegatedPrincipal } from '../../../services/auth/requestPrincipal';
 import { type IConnectionRegistry } from '../connectionRegistry';
 import type { SessionEventBroadcaster } from './sessionEventBroadcaster';
 import type { FsWatchBridge } from './fsWatchBridge';
@@ -46,6 +47,7 @@ export function registerWsV1(core: Scope, opts: RegisterWsV1Options): WebSocketS
       fsWatchBridge: opts.fsWatchBridge,
       connectionRegistry: registry,
       validateCredential: opts.validateCredential,
+      delegatedPrincipal: webSocketRequestDelegatedPrincipal(req),
       remoteAddress: req.socket.remoteAddress ?? null,
       userAgent: req.headers['user-agent'] ?? null,
       logger: opts.logger,

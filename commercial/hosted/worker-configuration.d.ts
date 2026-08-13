@@ -13,6 +13,10 @@ declare global {
     readonly RUN_EVENTS: DurableObjectNamespace<RunEventsDurableObject>;
     readonly RUN_ORCHESTRATION: Workflow<RunOrchestrationParams>;
     readonly SPIDERBYTE_ENVIRONMENT: string;
+    readonly SPIDERBYTE_COMMERCIAL_ACCOUNT_ID?: string;
+    readonly CLERK_SECRET_KEY?: string;
+    readonly CLERK_JWT_KEY?: string;
+    readonly CLERK_AUTHORIZED_PARTIES?: string;
     readonly OPENROUTER_AI_GATEWAY_ENDPOINT?: string;
     readonly OPENROUTER_API_KEY?: string;
     readonly ARTIFACT_DOWNLOAD_SIGNING_SECRET?: string;

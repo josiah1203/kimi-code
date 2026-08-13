@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   COMMERCIAL_MIGRATIONS,
   InMemoryMigrationPort,
+  SqlAuditWriter,
   SqlCommercialDatabaseAdapter,
   SqlMigrationPort,
   UnavailableCommercialDatabaseAdapter,
@@ -17,6 +18,7 @@ const asRow = <Row extends Record<string, unknown>>(row: Record<string, unknown>
 
 class TestSqlClient implements CommercialSqlClient {
   private readonly records = new Map<string, Record<string, unknown>>();
+  private readonly auditEvents: Array<{ readonly sequence: number; readonly integrity_hash: string; readonly payload: unknown }> = [];
   private readonly applied = new Map<number, { readonly id: string; readonly checksum: string; readonly applied_at: string }>();
 
   async query<Row extends Record<string, unknown> = Record<string, unknown>>(
@@ -24,6 +26,21 @@ class TestSqlClient implements CommercialSqlClient {
     parameters: readonly unknown[] = [],
   ): Promise<CommercialSqlQueryResult<Row>> {
     if (sql.includes('SELECT pg_advisory_xact_lock')) return { rows: [] as Row[] };
+    if (sql.includes('SELECT sequence, integrity_hash FROM commercial_audit_events')) {
+      const previous = this.auditEvents.at(-1);
+      return { rows: previous === undefined ? [] : [asRow<Row>({ sequence: previous.sequence, integrity_hash: previous.integrity_hash })] };
+    }
+    if (sql.includes('INSERT INTO commercial_audit_events')) {
+      this.auditEvents.push({
+        sequence: Number(parameters[3]),
+        integrity_hash: String(parameters[5]),
+        payload: JSON.parse(String(parameters[6])) as unknown,
+      });
+      return { rows: [] as Row[] };
+    }
+    if (sql.includes('SELECT payload FROM commercial_audit_events ORDER BY sequence')) {
+      return { rows: this.auditEvents.map((event) => asRow<Row>({ payload: event.payload })) };
+    }
     if (sql.includes('CREATE TABLE IF NOT EXISTS commercial_schema_migrations')) return { rows: [] as Row[] };
     if (sql.includes('CREATE TABLE commercial_records') || sql.includes('CREATE TABLE commercial_ledger_entries') || sql.includes('CREATE TABLE commercial_idempotency') || sql.includes('CREATE TABLE commercial_event_log')) return { rows: [] as Row[] };
     if (sql.includes('DROP TABLE IF EXISTS') || sql.includes('CREATE TABLE commercial_audit_events') || sql.includes('CREATE INDEX commercial_license_')) return { rows: [] as Row[] };
@@ -74,12 +91,14 @@ class TestSqlClient implements CommercialSqlClient {
 
   async transaction<T>(operation: (client: CommercialSqlClient) => Promise<T>): Promise<T> {
     const records = new Map([...this.records.entries()].map(([key, value]) => [key, structuredClone(value)]));
+    const auditEvents = structuredClone(this.auditEvents);
     const applied = new Map(this.applied);
     try {
       return await operation(this);
     } catch (error) {
       this.records.clear();
       for (const [key, value] of records) this.records.set(key, value);
+      this.auditEvents.splice(0, this.auditEvents.length, ...auditEvents);
       this.applied.clear();
       for (const [version, value] of applied) this.applied.set(version, value);
       throw error;
@@ -121,5 +140,37 @@ describe('commercial persistence boundary', () => {
     expect(await store.get('accounts', 'acct_rollback')).toBeUndefined();
     expect(await new SqlMigrationPort(client, { now: () => now }).listApplied()).toEqual([1, 2, 3, 4, 5]);
     await expect(store.put('accounts', 'acct_mismatch', { ...account, id: 'acct_other' })).rejects.toThrow('does not match store key');
+  });
+
+  it('appends durable audit events with a monotonic hash-chain cursor', async () => {
+    const client = new TestSqlClient();
+    const writer = new SqlAuditWriter(client);
+    await writer.append({
+      account_id: 'acct_audit',
+      organization_id: 'org_audit',
+      actor,
+      action: 'organization.read',
+      target_type: 'organization',
+      target_id: 'org_audit',
+      outcome: 'allowed',
+      request_id: 'audit-request-1',
+      occurred_at: now,
+    });
+    await writer.append({
+      account_id: 'acct_audit',
+      organization_id: 'org_audit',
+      actor,
+      action: 'organization.update',
+      target_type: 'organization',
+      target_id: 'org_audit',
+      outcome: 'succeeded',
+      request_id: 'audit-request-2',
+      occurred_at: now,
+    });
+
+    const result = await client.query<{ payload: Record<string, unknown> }>('SELECT payload FROM commercial_audit_events ORDER BY sequence');
+    expect(result.rows).toHaveLength(2);
+    expect(result.rows[0]?.payload).toMatchObject({ sequence: 1 });
+    expect(result.rows[1]?.payload).toMatchObject({ sequence: 2, previous_hash: expect.any(String) });
   });
 });
