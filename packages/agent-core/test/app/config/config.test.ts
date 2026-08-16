@@ -78,6 +78,7 @@ import {
   SECONDARY_MODEL_SECTION,
   THINKING_SECTION,
 } from '#/app/kosongConfig/configSection';
+import type { ProvidersSection } from '#/kosong/provider/provider';
 import { type ThinkingConfig } from '#/kosong/model/thinking';
 import {
   KEEP_ALIVE_ON_EXIT_ENV,
@@ -2326,7 +2327,7 @@ describe('ConfigService replaceSections', () => {
       acme: { type: 'openai', secretRef: expect.stringMatching(/^secret_/) },
     });
     expect(
-      config.get<Record<string, Record<string, unknown>>>(PROVIDERS_SECTION).acme?.apiKey,
+      config.get<Record<string, Record<string, unknown>>>(PROVIDERS_SECTION)['acme']?.['apiKey'],
     ).toBeUndefined();
     expect(config.get<Record<string, unknown>>(MODELS_SECTION)).toEqual({
       'acme/m2': { provider: 'acme', model: 'm2', maxContextSize: 2000 },

@@ -123,7 +123,7 @@ describe('server-v2 /api/v1/config', () => {
         openai: { type: 'openai', api_key: 'sk-config-post-secret' },
       },
     });
-    expect(cfg.providers.openai).toMatchObject({ type: 'openai', has_api_key: true });
+    expect(cfg.providers['openai']).toMatchObject({ type: 'openai', has_api_key: true });
 
     const toml = await readFile(join(home as string, 'config.toml'), 'utf-8');
     expect(toml).toContain('secret_ref');

@@ -72,6 +72,127 @@ describe('PlatformGovernanceService', () => {
     });
   });
 
+  it('synchronizes a hosted organization snapshot idempotently and removes stale project members', async () => {
+    const service = ix.get(IPlatformGovernanceService);
+    const organization = await service.synchronizeHostedOrganization({
+      request_id: 'hosted_sync_1',
+      organization_id: 'org_hosted_example',
+      name: 'Hosted Example',
+      mode: 'hosted',
+      members: [
+        { member_id: 'usr_owner', role: 'organization_owner' },
+        { member_id: 'usr_member', role: 'member' },
+      ],
+    });
+
+    const project = await service.createProject({
+      request_id: 'hosted_project_create',
+      actor_id: 'usr_owner',
+      organization_id: organization.id,
+      name: 'Hosted project',
+    });
+    await service.upsertProjectMember({
+      request_id: 'hosted_project_member',
+      actor_id: 'usr_owner',
+      project_id: project.id,
+      member_id: 'usr_member',
+      role: 'member',
+    });
+
+    const replay = await service.synchronizeHostedOrganization({
+      request_id: 'hosted_sync_2',
+      organization_id: 'org_hosted_example',
+      name: 'Hosted Example',
+      mode: 'hosted',
+      members: [{ member_id: 'usr_owner', role: 'organization_owner' }],
+    });
+
+    const secondReplay = await service.synchronizeHostedOrganization({
+      request_id: 'hosted_sync_2',
+      organization_id: 'org_hosted_example',
+      name: 'Hosted Example',
+      mode: 'hosted',
+      members: [{ member_id: 'usr_owner', role: 'organization_owner' }],
+    });
+
+    expect(secondReplay).toEqual(replay);
+    expect(replay).toMatchObject({ id: organization.id, mode: 'hosted' });
+    await expect(service.listOrganizationMembers(organization.id)).resolves.toEqual([
+      expect.objectContaining({ member_id: 'usr_owner', role: 'organization_owner' }),
+    ]);
+    await expect(service.listProjectMembers(project.id)).resolves.toEqual([
+      expect.objectContaining({ member_id: 'usr_owner', role: 'project_administrator' }),
+    ]);
+  });
+
+  it('rejects hosted synchronization without an owner or with duplicate members', async () => {
+    const service = ix.get(IPlatformGovernanceService);
+
+    await expect(service.synchronizeHostedOrganization({
+      request_id: 'hosted_sync_no_owner',
+      organization_id: 'org_hosted_no_owner',
+      name: 'No owner',
+      mode: 'hosted',
+      members: [{ member_id: 'usr_member', role: 'member' }],
+    })).rejects.toMatchObject({ code: 'governance.invalid' });
+
+    await expect(service.synchronizeHostedOrganization({
+      request_id: 'hosted_sync_duplicate',
+      organization_id: 'org_hosted_duplicate',
+      name: 'Duplicate members',
+      mode: 'hosted',
+      members: [
+        { member_id: 'usr_owner', role: 'organization_owner' },
+        { member_id: 'usr_owner', role: 'member' },
+      ],
+    })).rejects.toMatchObject({ code: 'governance.invalid' });
+  });
+
+  it('binds an explicitly approved workspace only to a project in the hosted organization', async () => {
+    const service = ix.get(IPlatformGovernanceService);
+    const organization = await service.synchronizeHostedOrganization({
+      request_id: 'hosted_binding_sync',
+      organization_id: 'org_hosted_binding',
+      name: 'Hosted binding',
+      mode: 'hosted',
+      members: [
+        { member_id: 'usr_hosted_owner', role: 'organization_owner' },
+        { member_id: 'usr_hosted_member', role: 'member' },
+      ],
+    });
+    const project = await service.createProject({
+      request_id: 'hosted_binding_project',
+      actor_id: 'usr_hosted_owner',
+      organization_id: organization.id,
+      name: 'Approved project',
+    });
+
+    const bound = await service.bindHostedWorkspace({
+      request_id: 'hosted_binding_request',
+      organization_id: organization.id,
+      project_id: project.id,
+      workspace_id: 'wd_hosted_binding_0123456789ab',
+      owner_member_id: 'usr_hosted_owner',
+    });
+    const replay = await service.bindHostedWorkspace({
+      request_id: 'hosted_binding_request',
+      organization_id: organization.id,
+      project_id: project.id,
+      workspace_id: 'wd_hosted_binding_0123456789ab',
+      owner_member_id: 'usr_hosted_owner',
+    });
+
+    expect(bound.workspace_ids).toEqual(['wd_hosted_binding_0123456789ab']);
+    expect(replay).toEqual(bound);
+    await expect(service.bindHostedWorkspace({
+      request_id: 'hosted_binding_denied',
+      organization_id: organization.id,
+      project_id: project.id,
+      workspace_id: 'wd_hosted_binding_2_0123456789ab',
+      owner_member_id: 'usr_hosted_member',
+    })).rejects.toMatchObject({ code: 'governance.membership_denied' });
+  });
+
   it('rejects project mutation by a member without administration authority', async () => {
     const service = ix.get(IPlatformGovernanceService);
     const organization = await service.createOrganization({

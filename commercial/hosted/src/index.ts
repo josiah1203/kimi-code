@@ -18,7 +18,13 @@ import {
 } from '@spiderbyte/commercial-domain';
 import { SqlAuditWriter } from '@spiderbyte/commercial-persistence';
 import { CapabilityUnavailableError } from '@spiderbyte/commercial-ports';
+import type { ExternalIdentityOrganizationSnapshot } from '@spiderbyte/commercial-ports';
 import { HmacArtifactDownloadSigner } from './signing';
+import {
+  parsePlatformProjectWorkspaceBindings,
+  platformProjectWorkspaceBindingCapability,
+  type PlatformProjectWorkspaceBinding,
+} from './platform-binding';
 
 export { CloudflareEventHistoryStore, CloudflareHyperdriveDatabaseAdapter, CloudflareObservabilityProvider, CloudflareQueueEventBus, CloudflareR2ArtifactStore, CloudflareWorkflowAdapter, HyperdriveSqlClient, UnavailableSecretsProvider } from './cloudflare';
 export { HmacArtifactDownloadSigner } from './signing';
@@ -161,6 +167,8 @@ function capabilities(env: Env): readonly PublicCapability[] {
       reason: 'Worker observability is enabled in wrangler.jsonc',
     },
     identityCapability(env),
+    hostedPlatformBindingCapability(env),
+    hostedProjectWorkspaceBindingCapability(env),
     {
       capability: 'billing',
       availability: hasSecret(env, 'CLERK_SECRET_KEY') ? 'not_implemented' : 'not_configured',
@@ -221,6 +229,17 @@ async function commercialSession(request: Request, env: Env): Promise<Response> 
   }
   if (principal === undefined) return json({ error: { code: 'commercial.invalid_session', message: 'hosted session is invalid, expired, or not a synchronized organization member' } }, 401);
 
+  try {
+    await synchronizePlatformOrganizations(runtime, principal, env);
+  } catch (error) {
+    return json({
+      error: {
+        code: errorCode(error, 'commercial.platform_binding.unavailable'),
+        message: errorMessage(error, 'hosted platform organization binding is unavailable'),
+      },
+    }, 503);
+  }
+
   const organizations = (await runtime.store.list('organizations'))
     .filter((organization) => organization.account_id === principal.account_id && principal.organization_ids.includes(organization.id))
     .map((organization) => ({
@@ -230,6 +249,123 @@ async function commercialSession(request: Request, env: Env): Promise<Response> 
       state: organization.state,
     }));
   return json({ principal, organizations });
+}
+
+async function synchronizePlatformOrganizations(
+  runtime: HostedCommercialRuntime,
+  principal: Principal,
+  env: Env,
+): Promise<void> {
+  const platformUrl = stringEnv(env, 'SPIDERBYTE_PLATFORM_SYNC_URL')?.replace(/\/+$/, '');
+  const platformToken = stringEnv(env, 'SPIDERBYTE_PLATFORM_SYNC_TOKEN');
+  const syncSecret = stringEnv(env, 'SPIDERBYTE_PLATFORM_SYNC_SECRET');
+  let bindings: readonly PlatformProjectWorkspaceBinding[];
+  try {
+    bindings = parsePlatformProjectWorkspaceBindings(
+      stringEnv(env, 'SPIDERBYTE_PLATFORM_PROJECT_WORKSPACE_BINDINGS_JSON'),
+    );
+  } catch (error) {
+    throw new CapabilityUnavailableError({
+      capability: 'platform_project_workspace_binding',
+      availability: 'not_configured',
+      adapter: 'kap-server-hosted-project-workspace-binding',
+      reason: error instanceof Error ? error.message : 'platform project/workspace binding configuration is invalid',
+      checked_at: nowIsoDateTime(),
+    });
+  }
+  const required = isTruthyEnv(env, 'SPIDERBYTE_REQUIRE_PLATFORM_IDENTITY_BINDING') || bindings.length > 0;
+  if (platformUrl === undefined && platformToken === undefined && syncSecret === undefined && !required) return;
+  if (platformUrl === undefined || platformToken === undefined || syncSecret === undefined) {
+    throw new CapabilityUnavailableError({
+      capability: 'platform_identity_binding',
+      availability: 'not_configured',
+      adapter: 'kap-server-hosted-organization-sync',
+      reason: 'SPIDERBYTE_PLATFORM_SYNC_URL, SPIDERBYTE_PLATFORM_SYNC_TOKEN, and SPIDERBYTE_PLATFORM_SYNC_SECRET are required together when platform identity binding is required',
+      checked_at: nowIsoDateTime(),
+    });
+  }
+
+  const snapshots = await runtime.identity.listOrganizationSnapshots(principal);
+  for (const snapshot of snapshots) {
+    const requestId = await hostedSyncRequestId(snapshot);
+    const response = await fetch(`${platformUrl}/api/v2/internal/organizations/sync`, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        authorization: `Bearer ${platformToken}`,
+        'content-type': 'application/json',
+        'x-spiderbyte-hosted-sync-secret': syncSecret,
+      },
+      body: JSON.stringify({
+        request_id: requestId,
+        organization_id: snapshot.organization_id,
+        name: snapshot.name,
+        mode: 'hosted',
+        members: snapshot.members
+          .filter((member) => member.state === 'active')
+          .map((member) => ({
+            member_id: member.user_id,
+            role: platformRole(member.role),
+          })),
+      }),
+    });
+    const payload = await response.json().catch(() => undefined);
+    if (!response.ok || !isSuccessfulPlatformEnvelope(payload)) {
+      throw new Error('kap-server rejected hosted organization synchronization');
+    }
+    for (const binding of bindings.filter((candidate) => candidate.organization_id === snapshot.organization_id)) {
+      const bindingResponse = await fetch(
+        `${platformUrl}/api/v2/internal/projects/${encodeURIComponent(binding.project_id)}/workspaces/bind`,
+        {
+          method: 'POST',
+          headers: {
+            accept: 'application/json',
+            authorization: `Bearer ${platformToken}`,
+            'content-type': 'application/json',
+            'x-spiderbyte-hosted-sync-secret': syncSecret,
+          },
+          body: JSON.stringify({
+            request_id: await hostedBindingRequestId(snapshot, binding),
+            organization_id: binding.organization_id,
+            project_id: binding.project_id,
+            workspace_id: binding.workspace_id,
+            owner_member_id: snapshot.owner_user_id,
+          }),
+        },
+      );
+      const bindingPayload = await bindingResponse.json().catch(() => undefined);
+      if (!bindingResponse.ok || !isSuccessfulPlatformEnvelope(bindingPayload)) {
+        throw new Error('kap-server rejected hosted project/workspace binding');
+      }
+    }
+  }
+}
+
+function platformRole(role: ExternalIdentityOrganizationSnapshot['members'][number]['role']): 'organization_owner' | 'organization_administrator' | 'member' | 'viewer' {
+  if (role === 'owner') return 'organization_owner';
+  if (role === 'admin') return 'organization_administrator';
+  return role;
+}
+
+async function hostedSyncRequestId(snapshot: ExternalIdentityOrganizationSnapshot): Promise<string> {
+  const bytes = new TextEncoder().encode(JSON.stringify(snapshot));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  const hex = [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, '0')).join('');
+  return `hosted_sync_${hex}`;
+}
+
+async function hostedBindingRequestId(
+  snapshot: ExternalIdentityOrganizationSnapshot,
+  binding: PlatformProjectWorkspaceBinding,
+): Promise<string> {
+  const bytes = new TextEncoder().encode(JSON.stringify({ snapshot, binding }));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  const hex = [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, '0')).join('');
+  return `hosted_binding_${hex}`;
+}
+
+function isSuccessfulPlatformEnvelope(value: unknown): boolean {
+  return typeof value === 'object' && value !== null && 'code' in value && (value as { readonly code?: unknown }).code === 0;
 }
 
 async function openCommercialRuntime(env: Env): Promise<HostedCommercialRuntime> {
@@ -277,6 +413,36 @@ function identityCapability(env: Env): PublicCapability {
     adapter: status.adapter ?? 'clerk-identity',
     reason: status.reason,
   };
+}
+
+function hostedPlatformBindingCapability(env: Env): PublicCapability {
+  const configured = [
+    stringEnv(env, 'SPIDERBYTE_PLATFORM_SYNC_URL'),
+    stringEnv(env, 'SPIDERBYTE_PLATFORM_SYNC_TOKEN'),
+    stringEnv(env, 'SPIDERBYTE_PLATFORM_SYNC_SECRET'),
+  ].every((value) => value !== undefined && value.length > 0);
+  return {
+    capability: 'platform_identity_binding',
+    availability: configured ? 'available' : 'not_configured',
+    adapter: 'kap-server-hosted-organization-sync',
+    reason: configured
+      ? 'Hosted Clerk organizations can be synchronized into kap-server platform authorization'
+      : isTruthyEnv(env, 'SPIDERBYTE_REQUIRE_PLATFORM_IDENTITY_BINDING')
+        ? 'Platform identity binding is required but its URL, bearer token, or shared secret is missing'
+        : 'SPIDERBYTE_PLATFORM_SYNC_URL, SPIDERBYTE_PLATFORM_SYNC_TOKEN, and SPIDERBYTE_PLATFORM_SYNC_SECRET are required',
+  };
+}
+
+function hostedProjectWorkspaceBindingCapability(env: Env): PublicCapability {
+  const bridgeConfigured = [
+    stringEnv(env, 'SPIDERBYTE_PLATFORM_SYNC_URL'),
+    stringEnv(env, 'SPIDERBYTE_PLATFORM_SYNC_TOKEN'),
+    stringEnv(env, 'SPIDERBYTE_PLATFORM_SYNC_SECRET'),
+  ].every((value) => value !== undefined && value.length > 0);
+  return platformProjectWorkspaceBindingCapability(
+    bridgeConfigured,
+    stringEnv(env, 'SPIDERBYTE_PLATFORM_PROJECT_WORKSPACE_BINDINGS_JSON'),
+  );
 }
 
 function commercialAccountId(env: Env): AccountId | undefined {
@@ -341,6 +507,11 @@ function hasHyperdrive(env: Env): boolean {
 function stringEnv(env: Env, name: string): string | undefined {
   const value = (env as unknown as Record<string, unknown>)[name];
   return typeof value === 'string' ? value : undefined;
+}
+
+function isTruthyEnv(env: Env, name: string): boolean {
+  const value = stringEnv(env, name);
+  return value === '1' || value?.toLowerCase() === 'true';
 }
 
 function json(value: unknown, status = 200): Response {

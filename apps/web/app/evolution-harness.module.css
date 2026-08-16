@@ -1,0 +1,480 @@
+.harness {
+  --paper: #d8d1a7;
+  --paper-deep: #c7bf91;
+  --ink: #292820;
+  --soft-ink: #696650;
+  --hairline: rgba(50, 47, 34, 0.6);
+  --faint-line: rgba(50, 47, 34, 0.28);
+  min-height: 100vh;
+  overflow: hidden;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+:global(nextjs-portal) {
+  display: none;
+}
+
+.topbar {
+  display: flex;
+  min-height: 31px;
+  align-items: stretch;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--paper);
+}
+
+.repoCell,
+.metric,
+.topActions {
+  border-right: 1px solid var(--faint-line);
+}
+
+.repoCell {
+  display: flex;
+  min-width: 190px;
+  flex-direction: column;
+  justify-content: center;
+  padding: 2px 9px 3px;
+}
+
+.microLabel {
+  display: block;
+  color: var(--soft-ink);
+  font-size: 7px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.repoCell strong,
+.metric strong {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.metric {
+  display: flex;
+  min-width: 76px;
+  flex-direction: column;
+  justify-content: center;
+  padding: 2px 9px 3px;
+}
+
+.metricWide {
+  min-width: 170px;
+}
+
+.topActions {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  padding: 3px 6px;
+}
+
+.topButton,
+.mapControls button,
+.inspectorTabs button,
+.railItem {
+  appearance: none;
+  border: 1px solid var(--hairline);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.topButton {
+  min-height: 20px;
+  padding: 2px 8px;
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.topButton:hover,
+.topButton:focus-visible,
+.mapControls button:hover,
+.mapControls button:focus-visible,
+.inspectorTabs button:hover,
+.inspectorTabs button:focus-visible {
+  background: var(--ink);
+  color: var(--paper);
+  outline: none;
+}
+
+.body {
+  display: grid;
+  min-height: calc(100vh - 31px);
+  grid-template-columns: 108px minmax(0, 1fr) 244px;
+}
+
+.leftRail {
+  min-width: 0;
+  overflow-y: auto;
+  border-right: 1px solid var(--hairline);
+  background: var(--paper);
+}
+
+.railIntro {
+  display: grid;
+  gap: 6px;
+  border-bottom: 1px solid var(--faint-line);
+  padding: 10px 7px 8px;
+}
+
+.railHint {
+  color: var(--soft-ink);
+  font-size: 7px;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.railGroup {
+  border-bottom: 1px solid var(--faint-line);
+}
+
+.railGroup h2 {
+  margin: 0;
+  padding: 7px 7px 5px;
+  color: var(--soft-ink);
+  font-size: 7px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+}
+
+.railItemWrap {
+  border-top: 1px solid var(--faint-line);
+}
+
+.railItem {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 14px minmax(0, 1fr) 11px;
+  gap: 3px;
+  align-items: start;
+  border-width: 0;
+  padding: 6px 6px 5px;
+  text-align: left;
+}
+
+.railItem:hover,
+.railItem:focus-visible {
+  background: rgba(41, 40, 32, 0.08);
+  outline: none;
+}
+
+.railItemActive {
+  background: rgba(41, 40, 32, 0.13);
+  box-shadow: inset 3px 0 0 var(--ink);
+}
+
+.itemMarker,
+.itemCount {
+  color: var(--soft-ink);
+  font-size: 8px;
+}
+
+.itemLabel {
+  font-size: 8px;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.itemCount {
+  text-align: right;
+}
+
+.railChild {
+  border-top: 1px solid var(--faint-line);
+  padding: 5px 5px 6px 21px;
+  color: var(--soft-ink);
+  font-size: 7px;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.mapColumn {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border-right: 1px solid var(--hairline);
+  background: var(--paper);
+}
+
+.mapViewport {
+  position: absolute;
+  inset: 0 0 24px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.mapFrame {
+  position: relative;
+  width: min(100%, 900px);
+  aspect-ratio: 16 / 9;
+  flex: 0 0 auto;
+  transition: transform 180ms ease;
+}
+
+.mapImage {
+  object-fit: contain;
+  filter: brightness(0.91) saturate(0.74);
+  mix-blend-mode: multiply;
+  opacity: 1;
+}
+
+.mapControls {
+  position: absolute;
+  z-index: 2;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  gap: 3px;
+}
+
+.mapControls button {
+  display: grid;
+  width: 17px;
+  height: 17px;
+  place-items: center;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.mapFooter {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid var(--faint-line);
+  padding: 5px 8px;
+  color: var(--soft-ink);
+  font-size: 7px;
+  text-transform: uppercase;
+}
+
+.mapFooter span:first-child {
+  color: var(--ink);
+}
+
+.inspector {
+  min-width: 0;
+  overflow-y: auto;
+  background: var(--paper);
+}
+
+.inspectorTabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.inspectorTabs button {
+  min-height: 29px;
+  border-width: 0 0 0 1px;
+  border-left-color: var(--faint-line);
+  padding: 5px 7px;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+}
+
+.inspectorTabs button:first-child {
+  border-left: 0;
+}
+
+.inspectorTabs .tabActive {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.inspectorContent {
+  padding: 11px 10px 24px;
+}
+
+.inspectorContent h1 {
+  margin: 8px 0 3px;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.06em;
+  line-height: 1.05;
+}
+
+.lede {
+  margin: 0;
+  color: var(--soft-ink);
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.inspectorSection {
+  margin-top: 16px;
+  border-top: 1px solid var(--hairline);
+  padding-top: 7px;
+}
+
+.inspectorSection h2 {
+  margin: 0 0 6px;
+  color: var(--soft-ink);
+  font-size: 7px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+}
+
+.inspectorSection p {
+  margin: 0 0 9px;
+  font-size: 9px;
+  line-height: 1.44;
+}
+
+.inspectorSection p:last-child {
+  margin-bottom: 0;
+}
+
+.inspectorContent mark {
+  padding: 1px 2px;
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.selectedCard {
+  display: grid;
+  gap: 4px;
+  margin-top: 18px;
+  border: 1px solid var(--hairline);
+  padding: 8px;
+}
+
+.selectedCard strong {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.selectedCard span:last-child {
+  color: var(--soft-ink);
+  font-size: 8px;
+}
+
+.builtTable {
+  margin-top: 17px;
+  border-top: 1px solid var(--hairline);
+}
+
+.builtRow {
+  display: grid;
+  grid-template-columns: 39% minmax(0, 1fr);
+  gap: 8px;
+  border-bottom: 1px solid var(--faint-line);
+  padding: 7px 0;
+}
+
+.builtRow span {
+  color: var(--soft-ink);
+  font-size: 7px;
+}
+
+.builtRow strong {
+  font-size: 8px;
+  font-weight: 500;
+}
+
+.harness button:focus-visible {
+  outline: 1px solid var(--ink);
+  outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    overflow-x: auto;
+  }
+
+  .body {
+    grid-template-columns: 94px minmax(0, 1fr);
+  }
+
+  .inspector {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--hairline);
+  }
+
+  .mapColumn {
+    min-height: 58vh;
+    border-right: 0;
+  }
+
+  .inspectorContent {
+    max-width: 680px;
+  }
+}
+
+@media (max-width: 620px) {
+  .body {
+    display: block;
+  }
+
+  .leftRail {
+    display: flex;
+    max-height: 184px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .railIntro,
+  .railGroup {
+    flex: 0 0 108px;
+  }
+
+  .railIntro {
+    border-bottom: 0;
+    border-right: 1px solid var(--faint-line);
+  }
+
+  .railGroup {
+    border-right: 1px solid var(--faint-line);
+    border-bottom: 0;
+  }
+
+  .mapColumn {
+    min-height: 52vh;
+  }
+
+  .mapFooter {
+    gap: 4px;
+    font-size: 6px;
+  }
+
+  .mapFooter span:last-child {
+    display: none;
+  }
+
+  .repoCell {
+    min-width: 175px;
+  }
+
+  .metric {
+    min-width: 72px;
+  }
+
+  .topActions {
+    min-width: max-content;
+  }
+}

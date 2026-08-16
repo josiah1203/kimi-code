@@ -31,6 +31,7 @@ const IGNORED_DIRECTORIES = new Set([
   'dist',
   'dist-native',
   'dist-web',
+  '.next',
 ]);
 
 function readJson(path) {

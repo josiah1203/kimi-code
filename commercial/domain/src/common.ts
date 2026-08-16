@@ -170,6 +170,8 @@ export const capabilityKeySchema = z.enum([
   'webhooks',
   'customer_managed_keys',
   'private_networking',
+  'platform_identity_binding',
+  'platform_project_workspace_binding',
   'licensing',
 ]);
 export type CapabilityKey = z.infer<typeof capabilityKeySchema>;

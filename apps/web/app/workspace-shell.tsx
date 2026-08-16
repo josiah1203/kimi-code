@@ -1,11 +1,11 @@
 'use client';
 
 import { BrowserPlatformError } from '@spiderbyte/client/browser';
-import { useAuth, useOrganization, useUser } from '@clerk/nextjs';
 import type {
   CollaborationChannel as PlatformCollaborationChannel,
   CollaborationMessage as PlatformCollaborationMessage,
   CollaborationThread,
+  BusinessRole,
   Project,
   Run,
   Session,
@@ -18,6 +18,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -41,6 +42,11 @@ interface UiCollaborationMessage {
   readonly runId?: string;
 }
 
+interface UiWorkspaceMember {
+  readonly id: string;
+  readonly role: BusinessRole;
+}
+
 const fallbackChannel: PlatformCollaborationChannel = {
   id: 'unavailable',
   workspace_id: 'unavailable',
@@ -56,15 +62,13 @@ const fallbackChannel: PlatformCollaborationChannel = {
 };
 
 export function WorkspaceShell({ firstName }: { readonly firstName: string }) {
-  const { getToken } = useAuth();
-  const { organization } = useOrganization();
-  const { user } = useUser();
   const client = useMemo<SpiderByteWebClient>(
-    () => createSpiderByteWebClient(async () => (await getToken()) ?? undefined),
-    [getToken],
+    () => createSpiderByteWebClient(),
+    [],
   );
   const [workspaces, setWorkspaces] = useState<readonly Workspace[]>([]);
   const [project, setProject] = useState<Project | undefined>();
+  const [members, setMembers] = useState<readonly UiWorkspaceMember[]>([]);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | undefined>();
   const [session, setSession] = useState<Session | undefined>();
   const [runs, setRuns] = useState<readonly Run[]>([]);
@@ -78,6 +82,7 @@ export function WorkspaceShell({ firstName }: { readonly firstName: string }) {
   const [threads, setThreads] = useState<readonly CollaborationThread[]>([]);
   const [activeChannelId, setActiveChannelId] = useState('general');
   const [activeThreadId, setActiveThreadId] = useState<string | undefined>();
+  const [conversationSearch, setConversationSearch] = useState('');
   const [newThreadTitle, setNewThreadTitle] = useState('');
   const [isCreatingThread, setIsCreatingThread] = useState(false);
   const [composer, setComposer] = useState('');
@@ -94,10 +99,27 @@ export function WorkspaceShell({ firstName }: { readonly firstName: string }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [dataNotice, setDataNotice] = useState<string | undefined>();
+  const collaborationCursor = useRef(0);
 
   const selectedWorkspace = workspaces.find((item) => item.id === selectedWorkspaceId);
   const activeChannel = channels.find((item) => item.id === activeChannelId) ?? channels[0] ?? fallbackChannel;
   const activeThread = threads.find((item) => item.id === activeThreadId) ?? threads[0];
+  const filteredChannels = useMemo(() => {
+    const query = conversationSearch.trim().toLowerCase();
+    if (!query) return channels;
+    return channels.filter((channel) => (
+      channel.name.toLowerCase().includes(query)
+      || channel.description.toLowerCase().includes(query)
+      || channel.kind.includes(query)
+    ));
+  }, [channels, conversationSearch]);
+  const filteredPublicChannels = filteredChannels.filter((channel) => channel.kind === 'public');
+  const filteredPrivateChannels = filteredChannels.filter((channel) => channel.kind === 'private');
+  const filteredDirectChannels = filteredChannels.filter((channel) => channel.kind === 'direct');
+  const canWriteActiveChannel = selectedWorkspace !== undefined
+    && activeChannel.id !== fallbackChannel.id
+    && activeChannel.state === 'active'
+    && activeThread?.state === 'active';
   const latestRun = useMemo(
     () => runs.toSorted((left, right) => Date.parse(right.updated_at) - Date.parse(left.updated_at))[0],
     [runs],
@@ -108,7 +130,7 @@ export function WorkspaceShell({ firstName }: { readonly firstName: string }) {
       : messages.toReversed().find((message) => message.runId === latestRun.id),
     [latestRun, messages],
   );
-  const displayName = user?.fullName ?? user?.username ?? firstName;
+  const displayName = firstName || 'Preview user';
 
   const loadWorkspaces = useCallback(async () => {
     setPlatformStatus('loading');
@@ -140,6 +162,7 @@ export function WorkspaceShell({ firstName }: { readonly firstName: string }) {
     setRuns([]);
     setPendingApprovals([]);
     setProject(undefined);
+    setMembers([]);
     setChannels([]);
     setThreads([]);
     setActiveChannelId('general');
@@ -149,7 +172,36 @@ export function WorkspaceShell({ firstName }: { readonly firstName: string }) {
     setMessages([systemMessage(`Welcome to ${selectedWorkspace.name}. Start a thread when you are ready to run an agent.`)]);
     setDataNotice(undefined);
 
-    void client.getWorkspaceProject(selectedWorkspace.id).then(setProject).catch(() => setProject(undefined));
+    void client.getWorkspaceProject(selectedWorkspace.id).then(async (nextProject) => {
+      if (cancelled) return;
+      setProject(nextProject);
+      if (nextProject === undefined) {
+        setMembers([]);
+        return;
+      }
+      const [organizationResult, projectResult] = await Promise.allSettled([
+        client.listOrganizationMembers(nextProject.organization_id),
+        client.listProjectMembers(nextProject.id),
+      ]);
+      if (cancelled) return;
+      const memberById = new Map<string, UiWorkspaceMember>();
+      if (organizationResult.status === 'fulfilled') {
+        for (const member of organizationResult.value) {
+          memberById.set(member.member_id, { id: member.member_id, role: member.role });
+        }
+      }
+      if (projectResult.status === 'fulfilled') {
+        for (const member of projectResult.value) {
+          memberById.set(member.member_id, { id: member.member_id, role: member.role });
+        }
+      }
+      setMembers([...memberById.values()].toSorted((left, right) => left.id.localeCompare(right.id)));
+    }).catch(() => {
+      if (!cancelled) {
+        setProject(undefined);
+        setMembers([]);
+      }
+    });
 
     const configuredSessionId = process.env.NEXT_PUBLIC_SPIDERBYTE_SESSION_ID;
     if (!configuredSessionId) return;
@@ -253,16 +305,44 @@ export function WorkspaceShell({ firstName }: { readonly firstName: string }) {
     threadId: string,
   ) => {
     try {
-      const page = await client.listCollaborationMessages(workspaceId, channelId, {
+      let afterSequence = collaborationCursor.current;
+      let pageCount = 0;
+      let page = await client.listCollaborationMessages(workspaceId, channelId, {
+        afterSequence,
         limit: 100,
         threadId,
       });
-      const projected = page.items.map(projectCollaborationMessage);
+      const projected: UiCollaborationMessage[] = [];
+      while (true) {
+        projected.push(...page.items.map(projectCollaborationMessage));
+        const pageCursor = page.next_cursor === undefined ? 0 : Number(page.next_cursor);
+        const itemCursor = page.items.reduce(
+          (cursor, item) => Math.max(cursor, item.event_sequence ?? item.sequence),
+          afterSequence,
+        );
+        const nextSequence = Math.max(afterSequence, pageCursor, itemCursor);
+        collaborationCursor.current = Math.max(collaborationCursor.current, nextSequence);
+        if (page.next_cursor === undefined || page.items.length === 0 || nextSequence <= afterSequence || pageCount >= 19) break;
+        afterSequence = nextSequence;
+        pageCount += 1;
+        page = await client.listCollaborationMessages(workspaceId, channelId, {
+          afterSequence,
+          limit: 100,
+          threadId,
+        });
+      }
       if (projected.length > 0) setMessages((current) => mergeMessages(current, projected));
+      if (page.next_cursor !== undefined && pageCount >= 19) {
+        setDataNotice('Conversation history is still available; load is bounded while the thread catches up.');
+      }
     } catch (error) {
       setDataNotice(`Collaboration messages are unavailable: ${platformErrorMessage(error)}`);
     }
   }, [client]);
+
+  useEffect(() => {
+    collaborationCursor.current = 0;
+  }, [activeChannel.id, activeThread?.id]);
 
   useEffect(() => {
     if (!selectedWorkspace || !activeThread) return;
@@ -388,8 +468,10 @@ export function WorkspaceShell({ firstName }: { readonly firstName: string }) {
       setErrorMessage('Choose an authorized workspace before sending an instruction.');
       return;
     }
-    if (activeChannel.id === fallbackChannel.id || activeThread === undefined) {
-      setErrorMessage('Choose an available collaboration thread before sending an instruction.');
+    if (!canWriteActiveChannel || activeThread === undefined) {
+      setErrorMessage(activeChannel.state !== 'active'
+        ? `This channel is ${activeChannel.state} and does not accept new messages.`
+        : 'Choose an available collaboration thread before sending an instruction.');
       return;
     }
 
@@ -460,7 +542,7 @@ export function WorkspaceShell({ firstName }: { readonly firstName: string }) {
   async function handleCreateThread(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const title = newThreadTitle.trim();
-    if (!selectedWorkspace || activeChannel.id === fallbackChannel.id || !title || isCreatingThread) return;
+    if (!selectedWorkspace || !canWriteActiveChannel || !title || isCreatingThread) return;
     setIsCreatingThread(true);
     setErrorMessage(undefined);
     try {
@@ -542,7 +624,7 @@ export function WorkspaceShell({ firstName }: { readonly firstName: string }) {
   }
 
   return (
-    <div className="collab-app">
+    <div className="collab-app messages-app">
       <aside className="collab-rail" aria-label="Workspace switcher">
         <div className="collab-rail-mark" aria-label="SpiderByte">SB</div>
         {workspaces.map((workspace) => (
@@ -556,46 +638,70 @@ export function WorkspaceShell({ firstName }: { readonly firstName: string }) {
             {initials(workspace.name)}
           </button>
         ))}
-        <button className="collab-workspace-add" type="button" title="Workspace creation is governed by SpiderByte" disabled>
-          +
-        </button>
+        <button className="collab-workspace-add" type="button" title="Workspace creation is governed by SpiderByte" disabled>+</button>
       </aside>
 
       <aside className="collab-sidebar">
         <div className="collab-sidebar-header">
           <div>
-            <span className="collab-kicker">Project workspace</span>
-            <strong>{project?.name ?? selectedWorkspace?.name ?? organization?.name ?? 'No workspace selected'}</strong>
+            <span className="collab-kicker">Messages</span>
+            <strong>{project?.name ?? selectedWorkspace?.name ?? 'Personal workspace'}</strong>
           </div>
           <span className={`collab-health-dot ${platformStatus}`} aria-label={`Platform ${platformStatus}`} />
         </div>
 
-        <div className="collab-sidebar-search">⌕ <span>Search conversation</span><kbd>⌘ K</kbd></div>
+        <label className="collab-sidebar-search">
+          <span aria-hidden="true">⌕</span>
+          <input
+            value={conversationSearch}
+            onChange={(event) => setConversationSearch(event.target.value)}
+            placeholder="Search conversations"
+            aria-label="Search conversations"
+          />
+          <kbd>⌘ K</kbd>
+        </label>
 
-        <div className="collab-channel-section">
-          <div className="collab-section-heading"><span>Channels</span><span className="collab-count">{channels.length}</span></div>
-          {channels.map((channel) => (
-            <button
-              className={`collab-channel-button${channel.id === activeChannel.id ? ' active' : ''}`}
-              key={channel.id}
-              type="button"
-              title={channel.description}
-              onClick={() => setActiveChannelId(channel.id)}
-            >
-              <span className="collab-channel-hash">#</span>
-              <span>{channel.name}</span>
-              {channel.name === 'run-monitor' && latestRun ? <span className="collab-channel-indicator" /> : null}
-            </button>
-          ))}
+        <div className="collab-sidebar-action-row">
+          <span className="collab-sidebar-label">Inbox</span>
+          <span className="collab-count">{channels.length || '—'}</span>
         </div>
 
+        <ChannelSection
+          label="Workspaces"
+          channels={filteredPublicChannels}
+          activeChannelId={activeChannel.id}
+          latestRun={latestRun !== undefined}
+          onSelect={setActiveChannelId}
+        />
+        <ChannelSection
+          label="Private"
+          channels={filteredPrivateChannels}
+          activeChannelId={activeChannel.id}
+          latestRun={false}
+          onSelect={setActiveChannelId}
+          emptyLabel="No private channels available."
+        />
+        <ChannelSection
+          label="Direct messages"
+          channels={filteredDirectChannels}
+          activeChannelId={activeChannel.id}
+          latestRun={false}
+          onSelect={setActiveChannelId}
+          emptyLabel="No direct channels available."
+        />
+
         <div className="collab-channel-section">
-          <div className="collab-section-heading"><span>Direct messages</span><span className="collab-count">—</span></div>
-          <div className="collab-empty-sidebar">Direct messaging is defined by the collaboration adapter and is not stored in browser state.</div>
+          <div className="collab-section-heading"><span>More ways to connect</span><span className="collab-count">—</span></div>
+          <button className="collab-channel-button unavailable" type="button" disabled title="LiveKit token service is not configured">
+            <span className="collab-channel-hash">⌁</span><span>Voice room</span><span className="collab-channel-state">unavailable</span>
+          </button>
+          <button className="collab-channel-button unavailable" type="button" disabled title="LiveKit token service is not configured">
+            <span className="collab-channel-hash">◉</span><span>Video room</span><span className="collab-channel-state">unavailable</span>
+          </button>
         </div>
 
         <div className="collab-channel-section collab-thread-section">
-          <div className="collab-section-heading"><span>Threads</span><span className="collab-count">{threads.length}</span></div>
+          <div className="collab-section-heading"><span>Threads</span><span className="collab-count">{threads.length || '—'}</span></div>
           {threads.map((thread) => (
             <button
               className={`collab-thread-button${thread.id === activeThread?.id ? ' active' : ''}`}
@@ -613,21 +719,21 @@ export function WorkspaceShell({ firstName }: { readonly firstName: string }) {
               onChange={(event) => setNewThreadTitle(event.target.value)}
               placeholder="New thread title"
               aria-label="New thread title"
-              disabled={!selectedWorkspace || activeChannel.id === fallbackChannel.id || isCreatingThread}
+              disabled={!canWriteActiveChannel || isCreatingThread}
               maxLength={200}
             />
-            <button type="submit" disabled={!newThreadTitle.trim() || isCreatingThread} aria-label="Create thread">+</button>
+            <button type="submit" disabled={!newThreadTitle.trim() || !canWriteActiveChannel || isCreatingThread} aria-label="Create thread">+</button>
           </form>
         </div>
 
         <div className="collab-sidebar-footer">
           <div className="collab-user-row">
             <span className="collab-avatar">{initials(displayName)}</span>
-            <span><strong>{displayName}</strong><small>Signed in with Clerk</small></span>
+            <span><strong>{displayName}</strong><small>Local preview identity</small></span>
           </div>
           <div className="collab-boundary-note">
             <span className="status-dot" aria-hidden="true" />
-            Browser adapter active
+            SpiderByte platform connected
           </div>
         </div>
       </aside>
@@ -635,40 +741,42 @@ export function WorkspaceShell({ firstName }: { readonly firstName: string }) {
       <main className="collab-main">
         <header className="collab-main-header">
           <div className="collab-main-title">
-            <span className="collab-channel-hash">#</span>
+            <span className="collab-conversation-avatar">{initials(activeChannel.name)}</span>
             <div><h1>{activeChannel.name}</h1><p>{activeThread?.title ?? activeChannel.description}</p></div>
           </div>
           <div className="collab-main-actions">
             <button className="collab-icon-button" type="button" title="Create a thread" onClick={() => document.querySelector<HTMLInputElement>('.collab-thread-form input')?.focus()}>⌁</button>
             <button className="collab-icon-button" type="button" title="Voice and video require LiveKit configuration" disabled>◉</button>
             <span className="collab-header-divider" />
-            <span className="collab-member-chip">{organization?.name ?? 'Personal'}</span>
+            <span className="collab-member-chip">Personal workspace</span>
           </div>
         </header>
 
         <div className="collab-statusbar" role="status">
-          <span className={`collab-status-pill ${platformStatus}`}><span />Platform {statusLabel(platformStatus)}</span>
-          <span className="collab-status-pill"><span />Realtime {realtimeLabel(realtimeStatus)}</span>
+          <span className={`collab-status-pill ${platformStatus}`}><span />{statusLabel(platformStatus)}</span>
+          <span className="collab-status-pill"><span />{realtimeLabel(realtimeStatus)}</span>
           {project ? <span className="collab-status-pill"><span />Project {project.name}</span> : null}
           {session ? <span className="collab-status-pill"><span />Session {session.id.slice(-8)}</span> : null}
         </div>
 
         <div className="collab-message-list" aria-live="polite">
           <div className="collab-channel-welcome">
-            <span className="collab-welcome-icon">#</span>
-            <h2>Welcome to #{activeChannel.name}</h2>
-            <p>{activeChannel.description}. Human messages, agent responses, tool progress, and run results will appear here as projections of SpiderByte state.</p>
+            <span className="collab-welcome-icon">{initials(activeChannel.name)}</span>
+            <h2>{activeThread?.title ?? activeChannel.name}</h2>
+            <p>{activeChannel.description}. Human messages, agent responses, tool progress, and run results appear here as projections of SpiderByte state.</p>
           </div>
           {messages.map((message) => <MessageCard key={message.id} message={message} />)}
         </div>
 
         <form className="collab-composer" onSubmit={(event) => { void handleSubmit(event); }}>
+          <div className="collab-composer-shell">
+            <button className="collab-composer-add" type="button" aria-label="Attachments are not configured" disabled>+</button>
           <textarea
             value={composer}
             onChange={(event) => setComposer(event.target.value)}
-            placeholder={selectedWorkspace ? `Message #${activeChannel.name}` : 'Select a workspace to start'}
-            aria-label={`Message #${activeChannel.name}`}
-            disabled={!selectedWorkspace || isSubmitting}
+            placeholder={!selectedWorkspace ? 'Select a workspace to start' : !canWriteActiveChannel ? `Conversation is ${activeChannel.state}` : `Message ${activeChannel.name}`}
+            aria-label={`Message ${activeChannel.name}`}
+            disabled={!canWriteActiveChannel || isSubmitting}
             rows={2}
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.shiftKey) {
@@ -677,10 +785,11 @@ export function WorkspaceShell({ firstName }: { readonly firstName: string }) {
               }
             }}
           />
+          </div>
           <div className="collab-composer-actions">
-            <span>Shift + Enter for a new line</span>
-            <button className="collab-send-button" type="submit" disabled={!composer.trim() || !selectedWorkspace || isSubmitting}>
-              {isSubmitting ? 'Sending…' : 'Send'} <span aria-hidden="true">↗</span>
+            <span>SpiderByte will create a durable run from this message</span>
+            <button className="collab-send-button" type="submit" disabled={!composer.trim() || !canWriteActiveChannel || isSubmitting}>
+              {isSubmitting ? 'Sending…' : 'Send'} <span aria-hidden="true">↑</span>
             </button>
           </div>
         </form>
@@ -688,8 +797,8 @@ export function WorkspaceShell({ firstName }: { readonly firstName: string }) {
         {dataNotice ? <div className="collab-alert notice" role="status">{dataNotice}</div> : null}
       </main>
 
-      <aside className="collab-inspector" aria-label="Run inspector">
-        <div className="collab-inspector-heading"><span className="collab-kicker">Execution context</span><span className="collab-live-label">● Live</span></div>
+      <aside className="collab-inspector" aria-label="Conversation details">
+        <div className="collab-inspector-heading"><span className="collab-kicker">Details</span><span className="collab-live-label">● Live</span></div>
         <section className="collab-inspector-card">
           <div className="collab-card-heading"><span>Current run</span><span className={`collab-run-dot ${latestRun?.status ?? 'idle'}`} /></div>
           {latestRun ? (
@@ -733,6 +842,23 @@ export function WorkspaceShell({ firstName }: { readonly firstName: string }) {
         </section>
 
         <section className="collab-inspector-card">
+          <div className="collab-card-heading"><span>Members</span><span className="collab-resource-mark">{members.length > 0 ? members.length : '—'}</span></div>
+          {members.length > 0 ? (
+            <div className="collab-member-list">
+              {members.slice(0, 8).map((member) => (
+                <div className="collab-member-row" key={member.id}>
+                  <span className="collab-avatar">{initials(member.id.slice(-8))}</span>
+                  <span><strong>Platform member</strong><small>{member.id.slice(-12)} · {roleLabel(member.role)}</small></span>
+                </div>
+              ))}
+              {members.length > 8 ? <small className="collab-member-more">+{members.length - 8} more members</small> : null}
+            </div>
+          ) : (
+            <div className="collab-inspector-empty">Member identities are available only from the authorized platform directory.</div>
+          )}
+        </section>
+
+        <section className="collab-inspector-card">
           <div className="collab-card-heading"><span>Workspace resources</span><span className="collab-resource-mark">◇</span></div>
           <div className="collab-resource-row"><span>Artifacts</span><strong>{artifactCount === undefined ? '—' : artifactCount}</strong></div>
           <div className="collab-resource-row"><span>Usage</span><strong>Platform-owned</strong></div>
@@ -758,11 +884,58 @@ function MessageCard({ message }: { readonly message: UiCollaborationMessage }) 
       <span className={`collab-avatar ${message.role}`}>{initials(roleLabel)}</span>
       <div className="collab-message-body">
         <div className="collab-message-meta"><strong>{roleLabel}</strong><time dateTime={message.createdAt}>{relativeTime(message.createdAt)}</time>{message.state ? <span className={`collab-message-state ${message.state}`}>{message.state}</span> : null}</div>
-        <p>{message.content}</p>
+        <div className="collab-message-bubble"><p>{message.content}</p></div>
         {message.runId ? <code className="collab-message-link">Run {message.runId}</code> : null}
       </div>
     </article>
   );
+}
+
+function ChannelSection({
+  label,
+  channels,
+  activeChannelId,
+  latestRun,
+  onSelect,
+  emptyLabel = 'No channels available.',
+}: {
+  readonly label: string;
+  readonly channels: readonly PlatformCollaborationChannel[];
+  readonly activeChannelId: string;
+  readonly latestRun: boolean;
+  readonly onSelect: (channelId: string) => void;
+  readonly emptyLabel?: string;
+}) {
+  return (
+    <div className="collab-channel-section">
+      <div className="collab-section-heading"><span>{label}</span><span className="collab-count">{channels.length > 0 ? channels.length : '—'}</span></div>
+      {channels.length === 0 ? <div className="collab-empty-sidebar">{emptyLabel}</div> : null}
+      {channels.map((channel) => (
+        <button
+          className={`collab-channel-button${channel.id === activeChannelId ? ' active' : ''}${channel.state !== 'active' ? ' unavailable' : ''}`}
+          key={channel.id}
+          type="button"
+          title={channel.description || `Channel is ${channel.state}`}
+          onClick={() => onSelect(channel.id)}
+        >
+          <span className="collab-channel-avatar">{initials(channel.name)}</span>
+          <span className="collab-channel-copy"><strong>{channel.name}</strong><small>{channel.description || `${channel.kind} conversation`}</small></span>
+          {channel.state !== 'active' ? <span className="collab-channel-state">{channel.state}</span> : null}
+          {channel.name === 'run-monitor' && latestRun ? <span className="collab-channel-indicator" /> : null}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function channelGlyph(kind: PlatformCollaborationChannel['kind']): string {
+  if (kind === 'direct') return '@';
+  if (kind === 'private') return '◇';
+  return '#';
+}
+
+function roleLabel(role: BusinessRole): string {
+  return role.replaceAll('_', ' ');
 }
 
 function systemMessage(content: string): UiCollaborationMessage {

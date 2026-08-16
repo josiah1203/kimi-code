@@ -134,8 +134,8 @@ export async function secretRefForInput(
   return store.put(apiKey);
 }
 
-interface MigratedRecord {
-  readonly value: ProviderConfig | ModelRecord;
+interface MigratedRecord<T extends ProviderConfig | ModelRecord> {
+  readonly value: T;
   readonly changed: boolean;
 }
 
@@ -143,7 +143,7 @@ async function migrateProviderRecord(
   record: ProviderConfig,
   store: IPlatformSecretStore,
   referenceCache: Map<string, ProviderSecretRef>,
-): Promise<MigratedRecord> {
+): Promise<MigratedRecord<ProviderConfig>> {
   const result = await migrateRecord(record, store, referenceCache);
   const sourceResult = await migrateSource(record.source, store, referenceCache);
   const value: ProviderConfig = { ...(result.value as ProviderConfig) };
@@ -168,16 +168,16 @@ async function migrateModelRecord(
   record: ModelRecord,
   store: IPlatformSecretStore,
   referenceCache: Map<string, ProviderSecretRef>,
-): Promise<MigratedRecord> {
+): Promise<MigratedRecord<ModelRecord>> {
   return migrateRecord(record, store, referenceCache);
 }
 
-async function migrateRecord(
-  record: ProviderConfig | ModelRecord,
+async function migrateRecord<T extends ProviderConfig | ModelRecord>(
+  record: T,
   store: IPlatformSecretStore,
   referenceCache: Map<string, ProviderSecretRef>,
-): Promise<MigratedRecord> {
-  const value = { ...record } as ProviderConfig | ModelRecord;
+): Promise<MigratedRecord<T>> {
+  const value = { ...record } as T;
   let changed = false;
   if (Object.hasOwn(record, 'apiKey')) {
     const apiKey = record.apiKey;

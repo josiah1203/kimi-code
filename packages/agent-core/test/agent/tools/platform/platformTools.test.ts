@@ -58,7 +58,15 @@ function runs(): ISessionRunService {
     retry: async () => current,
     rerun: async () => current,
     fork: async () => current,
+    listAttempts: async () => [],
+    getAttempt: async () => undefined,
+    createAttempt: async () => undefined,
+    transitionAttempt: async () => undefined,
+    resumeAttempt: async () => undefined,
+    cancelAttempt: async () => undefined,
+    retryAttempt: async () => undefined,
     onDidChange: (() => ({ dispose: () => {} })) as never,
+    onDidChangeAttempt: (() => ({ dispose: () => {} })) as never,
   };
 }
 

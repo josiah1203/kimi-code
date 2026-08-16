@@ -1,5 +1,7 @@
 /** Stable `/api/v2/workspaces/:workspace_id/platform/*` surface. */
 
+import { timingSafeEqual } from 'node:crypto';
+
 import {
   IWorkspaceArtifactService,
   IWorkspaceAutomationService,
@@ -78,6 +80,8 @@ import {
   servingEndpointCreateInputSchema,
   servingEndpointActionInputSchema,
   organizationCreateInputSchema,
+  hostedOrganizationSyncInputSchema,
+  hostedProjectWorkspaceBindingInputSchema,
   organizationMemberUpsertInputSchema,
   projectCreateInputSchema,
   projectBindingCreateInputSchema,
@@ -118,6 +122,7 @@ interface PlatformRequest {
   readonly params: unknown;
   readonly query: unknown;
   readonly body: unknown;
+  readonly headers?: Readonly<Record<string, string | string[] | undefined>>;
 }
 
 interface PlatformReply {
@@ -236,6 +241,29 @@ export function registerPlatformRoutes(app: PlatformRouteHost, core: Scope): voi
     await governanceRequest(req, reply, core, z.object({}), (service) => {
       z.strictObject({ actor_id: z.string().min(1).optional() }).parse(req.body ?? {});
       return service.ensureLocalOrganization(resolveLocalActorId());
+    });
+  });
+  app.post('/internal/organizations/sync', opts, async (req, reply) => {
+    if (!hasHostedOrganizationSyncAuthorization(req)) {
+      reply.send(errEnvelope(ErrorCode.PLATFORM_POLICY_DENIED, 'hosted organization synchronization is not authorized', req.id));
+      return;
+    }
+    await governanceRequest(req, reply, core, z.object({}), (service) =>
+      service.synchronizeHostedOrganization(hostedOrganizationSyncInputSchema.parse(req.body)),
+    );
+  });
+  app.post('/internal/projects/:project_id/workspaces/bind', opts, async (req, reply) => {
+    if (!hasHostedOrganizationSyncAuthorization(req)) {
+      reply.send(errEnvelope(ErrorCode.PLATFORM_POLICY_DENIED, 'hosted project/workspace binding is not authorized', req.id));
+      return;
+    }
+    await governanceRequest(req, reply, core, projectParamsSchema, async (service, params) => {
+      const input = hostedProjectWorkspaceBindingInputSchema.parse(
+        withPathField(req.body, 'project_id', params.project_id),
+      );
+      const workspace = await core.accessor.get(IWorkspaceService).get(input.workspace_id);
+      if (workspace === undefined) return undefined;
+      return service.bindHostedWorkspace(input);
     });
   });
   app.get('/organizations/:organization_id', opts, async (req, reply) => {
@@ -937,13 +965,23 @@ function optionalStringFromObject(value: unknown, key: string): string | undefin
   return typeof candidate === 'string' ? candidate : undefined;
 }
 
+function hasHostedOrganizationSyncAuthorization(req: PlatformRequest): boolean {
+  const expected = process.env['SPIDERBYTE_PLATFORM_SYNC_SECRET'];
+  const presentedValue = req.headers?.['x-spiderbyte-hosted-sync-secret'];
+  const presented = Array.isArray(presentedValue) ? presentedValue[0] : presentedValue;
+  if (expected === undefined || expected.length === 0 || presented === undefined) return false;
+  const expectedBytes = Buffer.from(expected, 'utf8');
+  const presentedBytes = Buffer.from(presented, 'utf8');
+  return expectedBytes.length === presentedBytes.length && timingSafeEqual(expectedBytes, presentedBytes);
+}
+
 function platformCapabilityForRequest(req: PlatformRequest): import('@spiderbyte/protocol').PlatformCapability {
   const url = (req.url ?? '').split('?', 1)[0] ?? '';
   const method = req.method ?? 'GET';
   if (url.includes('/execution-targets')) return method === 'GET' ? 'workspace.read' : 'execution.execute';
   if (url.includes('/connections')) return method === 'GET' ? 'connection.read' : 'connection.manage';
   if (url.includes('/policy/decisions/') && /\/(approve|deny)$/.test(url)) return 'approval.grant';
-  if (url.includes('/policy/decisions/') && /\/audit$/.test(url)) return 'audit.read';
+  if (url.includes('/policy/decisions/') && url.endsWith('/audit')) return 'audit.read';
   if (url.includes('/policy')) {
     if (url.endsWith('/evaluate')) return 'workspace.read';
     return method === 'GET' ? 'workspace.read' : 'policy.manage';

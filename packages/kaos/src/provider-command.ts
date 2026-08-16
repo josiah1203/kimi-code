@@ -358,7 +358,7 @@ export class LocalProviderCommandAdapter implements ProviderCommandAdapter {
       void processHandle.kill().catch(() => undefined);
     };
     request.signal?.addEventListener('abort', onAbort, { once: true });
-    if (request.signal?.aborted === true) onAbort();
+    if (request.signal?.aborted) onAbort();
     const stderrPromise = collectStream(processHandle.stderr, this._spec.maxOutputBytes);
     const timeoutMs = request.timeoutMs ?? DEFAULT_RUN_TIMEOUT_MS;
     const timer = setTimeout(() => {

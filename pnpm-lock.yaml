@@ -120,6 +120,9 @@ importers:
       '@spiderbyte/pi-tui':
         specifier: workspace:^
         version: link:../../packages/pi-tui
+      '@spiderbyte/protocol':
+        specifier: workspace:^
+        version: link:../../packages/protocol
       '@spiderbyte/sdk':
         specifier: workspace:^
         version: link:../../packages/sdk
@@ -376,6 +379,9 @@ importers:
       '@spiderbyte/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@tabler/icons-react':
+        specifier: ^3.44.0
+        version: 3.44.0(react@19.2.5)
       next:
         specifier: 16.3.0
         version: 16.3.0(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)

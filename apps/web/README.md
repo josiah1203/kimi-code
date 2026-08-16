@@ -51,7 +51,8 @@ organization/project/workspace/session/run authorization. Set
 closed if this binding is absent. The commercial identity synchronization and
 webhook reconciliation path is still a separate deployment gate. The hosted
 commercial session route does synchronize Clerk membership into the commercial
-store; platform organization/project/workspace binding and webhook-driven
+store; the optional hosted Worker bridge can reconcile organization members
+into kap-server, while approved project/workspace binding and webhook-driven
 billing reconciliation remain separate gates.
 
 Set `SPIDERBYTE_REQUIRE_COMMERCIAL_SESSION_SYNC=1` when the web deployment is

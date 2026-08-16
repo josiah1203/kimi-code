@@ -29,7 +29,9 @@ import {
   listPendingApprovalsResponseSchema,
   listWorkspacesResponseSchema,
   organizationSchema,
+  organizationMemberSchema,
   projectSchema,
+  projectMemberSchema,
   promptAbortResponseSchema,
   promptSubmissionSchema,
   promptSubmitResultSchema,
@@ -49,7 +51,9 @@ import {
   type CollaborationThread,
   type CollaborationThreadPage,
   type Organization,
+  type OrganizationMember,
   type Project,
+  type ProjectMember,
   type Session,
   type Workspace,
   type ApprovalRequest,
@@ -64,7 +68,9 @@ interface WorkspaceListResponse {
 export interface SpiderByteWebClient {
   readonly platform: BrowserPlatformClient;
   listOrganizations(): Promise<readonly Organization[]>;
+  listOrganizationMembers(organizationId: string): Promise<readonly OrganizationMember[]>;
   listProjects(organizationId?: string): Promise<readonly Project[]>;
+  listProjectMembers(projectId: string): Promise<readonly ProjectMember[]>;
   listWorkspaces(): Promise<readonly Workspace[]>;
   listCollaborationChannels(workspaceId: string): Promise<readonly CollaborationChannel[]>;
   listCollaborationThreads(workspaceId: string, channelId: string): Promise<CollaborationThreadPage>;
@@ -159,6 +165,16 @@ export function createSpiderByteWebClient(
       );
       return response ?? [];
     },
+    listOrganizationMembers: async (organizationId) => {
+      const response = await request<readonly OrganizationMember[]>(
+        platform,
+        `/api/v2/organizations/${encodeURIComponent(requireId(organizationId, 'organizationId'))}/members`,
+        'GET',
+        undefined,
+        organizationMemberSchema.array(),
+      );
+      return response ?? [];
+    },
     listProjects: async (organizationId) => {
       const query = organizationId === undefined ? '' : `?organization_id=${encodeURIComponent(requireId(organizationId, 'organizationId'))}`;
       const response = await request<readonly Project[]>(
@@ -167,6 +183,16 @@ export function createSpiderByteWebClient(
         'GET',
         undefined,
         projectSchema.array(),
+      );
+      return response ?? [];
+    },
+    listProjectMembers: async (projectId) => {
+      const response = await request<readonly ProjectMember[]>(
+        platform,
+        `/api/v2/projects/${encodeURIComponent(requireId(projectId, 'projectId'))}/members`,
+        'GET',
+        undefined,
+        projectMemberSchema.array(),
       );
       return response ?? [];
     },

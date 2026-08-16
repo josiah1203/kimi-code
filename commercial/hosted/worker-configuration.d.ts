@@ -14,6 +14,11 @@ declare global {
     readonly RUN_ORCHESTRATION: Workflow<RunOrchestrationParams>;
     readonly SPIDERBYTE_ENVIRONMENT: string;
     readonly SPIDERBYTE_COMMERCIAL_ACCOUNT_ID?: string;
+    readonly SPIDERBYTE_PLATFORM_SYNC_URL?: string;
+    readonly SPIDERBYTE_PLATFORM_SYNC_TOKEN?: string;
+    readonly SPIDERBYTE_PLATFORM_SYNC_SECRET?: string;
+    readonly SPIDERBYTE_REQUIRE_PLATFORM_IDENTITY_BINDING?: string;
+    readonly SPIDERBYTE_PLATFORM_PROJECT_WORKSPACE_BINDINGS_JSON?: string;
     readonly CLERK_SECRET_KEY?: string;
     readonly CLERK_JWT_KEY?: string;
     readonly CLERK_AUTHORIZED_PARTIES?: string;

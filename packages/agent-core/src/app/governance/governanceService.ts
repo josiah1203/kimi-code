@@ -15,6 +15,8 @@ import {
   organizationMemberSchema,
   organizationMemberUpsertInputSchema,
   organizationSchema,
+  hostedOrganizationSyncInputSchema,
+  hostedProjectWorkspaceBindingInputSchema,
   projectCreateInputSchema,
   projectBindingCreateInputSchema,
   projectBindingRemoveInputSchema,
@@ -28,6 +30,8 @@ import {
   type OrganizationCreateInput,
   type OrganizationMember,
   type OrganizationMemberUpsertInput,
+  type HostedOrganizationSyncInput,
+  type HostedProjectWorkspaceBindingInput,
   type Project,
   type ProjectBinding,
   type ProjectBindingCreateInput,
@@ -132,6 +136,129 @@ export class PlatformGovernanceService extends Disposable implements IPlatformGo
       this.changes.fire({ kind: 'organization_created', organization });
       this.changes.fire({ kind: 'organization_member_changed', organization_member: member });
       return organization;
+    });
+  }
+
+  async synchronizeHostedOrganization(input: HostedOrganizationSyncInput): Promise<Organization> {
+    const command = hostedOrganizationSyncInputSchema.parse(input);
+    if (!command.members.some((member) => member.role === 'organization_owner')) {
+      throw new GovernanceServiceError(
+        GovernanceErrors.codes.GOVERNANCE_INVALID,
+        'hosted organization synchronization requires an organization owner',
+      );
+    }
+    if (new Set(command.members.map((member) => member.member_id)).size !== command.members.length) {
+      throw new GovernanceServiceError(
+        GovernanceErrors.codes.GOVERNANCE_INVALID,
+        'hosted organization synchronization contains duplicate members',
+      );
+    }
+    return this.enqueue(async () => {
+      await this.ready;
+      const mapped = this.requests[command.request_id];
+      if (mapped !== undefined) {
+        if (mapped !== command.organization_id) {
+          throw new GovernanceServiceError(
+            GovernanceErrors.codes.GOVERNANCE_REQUEST_REUSED,
+            'hosted organization synchronization request id was already used for another organization',
+          );
+        }
+        return this.requireOrganization(mapped);
+      }
+
+      const existing = this.organizations.find((organization) => organization.id === command.organization_id);
+      if (existing?.mode === 'local') {
+        throw new GovernanceServiceError(
+          GovernanceErrors.codes.GOVERNANCE_INVALID,
+          'a local organization cannot be changed into a hosted organization',
+        );
+      }
+      const now = nowIsoDateTime();
+      const organization = organizationSchema.parse({
+        id: command.organization_id,
+        name: command.name,
+        mode: 'hosted',
+        created_at: existing?.created_at ?? now,
+        updated_at: now,
+        metadata: existing?.metadata,
+      });
+      const memberIds = new Set(command.members.map((member) => member.member_id));
+      const previousMembers = this.organizationMembers.filter((member) => member.organization_id === organization.id);
+      const members = command.members.map((member) => organizationMemberSchema.parse({
+        organization_id: organization.id,
+        member_id: member.member_id,
+        role: member.role,
+        joined_at: previousMembers.find((candidate) => candidate.member_id === member.member_id)?.joined_at ?? now,
+      }));
+      const nextProjectMembers = this.projectMembers.filter((member) => {
+        const project = this.projects.find((candidate) => candidate.id === member.project_id);
+        return project?.organization_id !== organization.id || memberIds.has(member.member_id);
+      });
+      await this.replace(
+        [...this.organizations.filter((candidate) => candidate.id !== organization.id), organization],
+        [...this.organizationMembers.filter((candidate) => candidate.organization_id !== organization.id), ...members],
+        this.projects,
+        nextProjectMembers,
+        this.projectBindings,
+        { ...this.requests, [command.request_id]: organization.id },
+      );
+      const firstMember = members[0];
+      if (firstMember !== undefined) {
+        this.changes.fire({ kind: 'organization_member_changed', organization_member: firstMember });
+      }
+      return organization;
+    });
+  }
+
+  async bindHostedWorkspace(input: HostedProjectWorkspaceBindingInput): Promise<Project> {
+    const command = hostedProjectWorkspaceBindingInputSchema.parse(input);
+    return this.enqueue(async () => {
+      await this.ready;
+      const mapped = this.requests[command.request_id];
+      if (mapped !== undefined) {
+        const mappedProject = this.requireProject(mapped);
+        if (
+          mappedProject.id !== command.project_id ||
+          mappedProject.organization_id !== command.organization_id ||
+          !mappedProject.workspace_ids.includes(command.workspace_id)
+        ) {
+          throw new GovernanceServiceError(
+            GovernanceErrors.codes.GOVERNANCE_REQUEST_REUSED,
+            'hosted workspace binding request id was already used for another project',
+          );
+        }
+        return mappedProject;
+      }
+      const organization = this.requireOrganization(command.organization_id);
+      if (organization.mode !== 'hosted') {
+        throw new GovernanceServiceError(
+          GovernanceErrors.codes.GOVERNANCE_INVALID,
+          'hosted workspace binding requires a hosted organization',
+        );
+      }
+      const project = this.requireProject(command.project_id);
+      if (project.organization_id !== organization.id) {
+        throw new GovernanceServiceError(
+          GovernanceErrors.codes.GOVERNANCE_INVALID,
+          'hosted workspace binding project does not belong to the organization',
+          { organizationId: organization.id, projectId: project.id },
+        );
+      }
+      const owner = this.organizationMembers.find((member) =>
+        member.organization_id === organization.id &&
+        member.member_id === command.owner_member_id,
+      );
+      if (owner === undefined || !isOrganizationAdmin(owner.role)) {
+        throw new GovernanceServiceError(
+          GovernanceErrors.codes.GOVERNANCE_MEMBERSHIP_DENIED,
+          'hosted workspace binding requires an organization owner or administrator',
+        );
+      }
+      return this.bindWorkspaceInQueue(project.id, {
+        request_id: command.request_id,
+        actor_id: owner.member_id,
+        workspace_id: command.workspace_id,
+      });
     });
   }
 
@@ -264,35 +391,7 @@ export class PlatformGovernanceService extends Disposable implements IPlatformGo
     const command = projectWorkspaceBindInputSchema.parse(input);
     return this.enqueue(async () => {
       await this.ready;
-      const mapped = this.requests[command.request_id];
-      if (mapped !== undefined) return this.requireProject(mapped);
-      const project = this.requireProject(projectId);
-      this.assertProjectAdmin(project, command.actor_id);
-      const existingProject = this.projects.find((candidate) =>
-        candidate.id !== project.id && candidate.workspace_ids.includes(command.workspace_id),
-      );
-      if (existingProject !== undefined) {
-        throw new GovernanceServiceError(
-          GovernanceErrors.codes.GOVERNANCE_WORKSPACE_ALREADY_BOUND,
-          `workspace is already bound to project: ${existingProject.id}`,
-          { workspaceId: command.workspace_id, projectId: existingProject.id },
-        );
-      }
-      const next = projectSchema.parse({
-        ...project,
-        workspace_ids: [...new Set([...project.workspace_ids, command.workspace_id])],
-        updated_at: nowIsoDateTime(),
-      });
-      await this.replace(
-        this.organizations,
-        this.organizationMembers,
-        this.projects.map((candidate) => candidate.id === project.id ? next : candidate),
-        this.projectMembers,
-        this.projectBindings,
-        { ...this.requests, [command.request_id]: next.id },
-      );
-      this.changes.fire({ kind: 'workspace_bound', project: next });
-      return next;
+      return this.bindWorkspaceInQueue(projectId, command);
     });
   }
 
@@ -476,6 +575,46 @@ export class PlatformGovernanceService extends Disposable implements IPlatformGo
         'project administration requires project administrator or organization administration access',
       );
     }
+  }
+
+  private async bindWorkspaceInQueue(projectId: string, command: ProjectWorkspaceBindInput): Promise<Project> {
+    const mapped = this.requests[command.request_id];
+    if (mapped !== undefined) {
+      if (mapped !== projectId) {
+        throw new GovernanceServiceError(
+          GovernanceErrors.codes.GOVERNANCE_REQUEST_REUSED,
+          'workspace binding request id was already used for another project',
+        );
+      }
+      return this.requireProject(mapped);
+    }
+    const project = this.requireProject(projectId);
+    this.assertProjectAdmin(project, command.actor_id);
+    const existingProject = this.projects.find((candidate) =>
+      candidate.id !== project.id && candidate.workspace_ids.includes(command.workspace_id),
+    );
+    if (existingProject !== undefined) {
+      throw new GovernanceServiceError(
+        GovernanceErrors.codes.GOVERNANCE_WORKSPACE_ALREADY_BOUND,
+        `workspace is already bound to project: ${existingProject.id}`,
+        { workspaceId: command.workspace_id, projectId: existingProject.id },
+      );
+    }
+    const next = projectSchema.parse({
+      ...project,
+      workspace_ids: [...new Set([...project.workspace_ids, command.workspace_id])],
+      updated_at: nowIsoDateTime(),
+    });
+    await this.replace(
+      this.organizations,
+      this.organizationMembers,
+      this.projects.map((candidate) => candidate.id === project.id ? next : candidate),
+      this.projectMembers,
+      this.projectBindings,
+      { ...this.requests, [command.request_id]: next.id },
+    );
+    this.changes.fire({ kind: 'workspace_bound', project: next });
+    return next;
   }
 
   private requireOrganization(id: string): Organization {

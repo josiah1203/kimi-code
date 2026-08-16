@@ -805,10 +805,10 @@ export class WorkspaceProviderRuntimeService
         yield { type: 'part', part: { type: 'text', text: event.text } };
       } else if (event.kind === 'usage') {
         usageEmitted = true;
-        yield { type: 'usage', usage: providerCommandUsage(event), model: resolved.model };
+        yield { type: 'usage', usage: providerCommandUsage(event.usage), model: resolved.model };
       } else if (event.kind === 'completed' && event.usage !== undefined && !usageEmitted) {
         usageEmitted = true;
-        yield { type: 'usage', usage: providerCommandUsage(event), model: resolved.model };
+        yield { type: 'usage', usage: providerCommandUsage(event.usage), model: resolved.model };
       }
     }
     request.params?.onTraceId?.(null);

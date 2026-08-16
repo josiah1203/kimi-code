@@ -207,7 +207,9 @@ export class SessionRunService extends Disposable implements ISessionRunService 
 
       const attempt = this.materializeAttempt(run, command);
       const now = nowIsoDateTime();
-      const reopened = terminalStatuses.has(run.status) && run.status !== 'succeeded';
+      // A succeeded Run is rejected above; any terminal status that reaches
+      // this point is therefore retryable.
+      const reopened = terminalStatuses.has(run.status);
       const {
         completed_at: _completedAt,
         started_at: _startedAt,

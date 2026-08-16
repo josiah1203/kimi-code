@@ -90,6 +90,7 @@
     "@spiderbyte/minidb": "workspace:^",
     "@spiderbyte/oauth": "workspace:^",
     "@spiderbyte/pi-tui": "workspace:^",
+    "@spiderbyte/protocol": "workspace:^",
     "@spiderbyte/sdk": "workspace:^",
     "@spiderbyte/telemetry": "workspace:^",
     "chalk": "^5.4.1",

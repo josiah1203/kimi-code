@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import WebSocket from 'ws';
 
-import { IFlagService } from '@spiderbyte/agent-core';
+import { IFlagService, IPlatformGovernanceService } from '@spiderbyte/agent-core';
 import { type RunningServer, startServer } from '../src/start';
 import { authedFetch } from './helpers/auth';
 import { TEST_HOST_IDENTITY } from './helpers/hostIdentity';
@@ -61,6 +61,7 @@ describe('server /api/v2 platform surface', () => {
 
   beforeEach(async () => {
     vi.stubEnv('SPIDERBYTE_EXPERIMENTAL_PLATFORM_SERVICES', '1');
+    vi.stubEnv('SPIDERBYTE_PLATFORM_SYNC_SECRET', 'platform-sync-secret-test');
     // The server derives the local principal from host configuration; request
     // bodies cannot impersonate `actor_id` anymore.
     vi.stubEnv('SPIDERBYTE_LOCAL_ACTOR_ID', 'local-admin');
@@ -483,6 +484,152 @@ describe('server /api/v2 platform surface', () => {
       code: 40302,
       data: null,
     });
+  });
+
+  it('accepts hosted organization synchronization only through the protected internal bridge', async () => {
+    const syncBody = {
+      request_id: 'hosted_sync_route_1',
+      organization_id: 'org_hosted_route',
+      name: 'Hosted route organization',
+      mode: 'hosted',
+      members: [{ member_id: 'usr_hosted_owner', role: 'organization_owner' }],
+    };
+
+    const deniedResponse = await authedFetch(server as RunningServer, base, '/api/v2/internal/organizations/sync', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-spiderbyte-hosted-sync-secret': 'wrong-secret',
+      },
+      body: JSON.stringify(syncBody),
+    });
+    expect(await deniedResponse.json()).toMatchObject({ code: 40302, data: null });
+
+    const syncResponse = await authedFetch(server as RunningServer, base, '/api/v2/internal/organizations/sync', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-spiderbyte-hosted-sync-secret': 'platform-sync-secret-test',
+      },
+      body: JSON.stringify(syncBody),
+    });
+    expect(await syncResponse.json()).toMatchObject({
+      code: 0,
+      data: { id: 'org_hosted_route', mode: 'hosted', name: 'Hosted route organization' },
+    });
+
+    const replayResponse = await authedFetch(server as RunningServer, base, '/api/v2/internal/organizations/sync', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-spiderbyte-hosted-sync-secret': 'platform-sync-secret-test',
+      },
+      body: JSON.stringify(syncBody),
+    });
+    expect(await replayResponse.json()).toMatchObject({
+      code: 0,
+      data: { id: 'org_hosted_route', mode: 'hosted' },
+    });
+  });
+
+  it('binds an approved hosted project/workspace mapping through the protected internal bridge', async () => {
+    const root = home as string;
+    const workspaceResponse = await authedFetch(server as RunningServer, base, '/api/v1/workspaces', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ root, name: 'hosted-binding-test' }),
+    });
+    const workspace = (await workspaceResponse.json()) as Envelope<WorkspaceWire>;
+
+    const syncResponse = await authedFetch(server as RunningServer, base, '/api/v2/internal/organizations/sync', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-spiderbyte-hosted-sync-secret': 'platform-sync-secret-test',
+      },
+      body: JSON.stringify({
+        request_id: 'hosted_binding_route_sync',
+        organization_id: 'org_hosted_binding_route',
+        name: 'Hosted route binding',
+        mode: 'hosted',
+        members: [{ member_id: 'usr_hosted_route_owner', role: 'organization_owner' }],
+      }),
+    });
+    expect(await syncResponse.json()).toMatchObject({ code: 0 });
+
+    const project = await server?.core.accessor.get(IPlatformGovernanceService).createProject({
+      request_id: 'hosted_binding_route_project',
+      actor_id: 'usr_hosted_route_owner',
+      organization_id: 'org_hosted_binding_route',
+      name: 'Hosted route project',
+    });
+    expect(project).toBeDefined();
+
+    const bindResponse = await authedFetch(
+      server as RunningServer,
+      base,
+      `/api/v2/internal/projects/${project?.id}/workspaces/bind`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-spiderbyte-hosted-sync-secret': 'platform-sync-secret-test',
+        },
+        body: JSON.stringify({
+          request_id: 'hosted_binding_route_bind',
+          organization_id: 'org_hosted_binding_route',
+          project_id: 'request-body-project-must-be-overridden',
+          workspace_id: workspace.data?.id,
+          owner_member_id: 'usr_hosted_route_owner',
+        }),
+      },
+    );
+    const bound = (await bindResponse.json()) as Envelope<{ workspace_ids: string[] }>;
+    expect(bound).toMatchObject({ code: 0, data: { workspace_ids: [workspace.data?.id] } });
+
+    const replayResponse = await authedFetch(
+      server as RunningServer,
+      base,
+      `/api/v2/internal/projects/${project?.id}/workspaces/bind`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-spiderbyte-hosted-sync-secret': 'platform-sync-secret-test',
+        },
+        body: JSON.stringify({
+          request_id: 'hosted_binding_route_bind',
+          organization_id: 'org_hosted_binding_route',
+          project_id: project?.id,
+          workspace_id: workspace.data?.id,
+          owner_member_id: 'usr_hosted_route_owner',
+        }),
+      },
+    );
+    expect(await replayResponse.json()).toMatchObject({ code: 0, data: { id: project?.id } });
+
+    const deniedResponse = await authedFetch(
+      server as RunningServer,
+      base,
+      `/api/v2/internal/projects/${project?.id}/workspaces/bind`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-spiderbyte-hosted-sync-secret': 'wrong-secret',
+        },
+        body: JSON.stringify({
+          request_id: 'hosted_binding_route_denied',
+          organization_id: 'org_hosted_binding_route',
+          project_id: project?.id,
+          workspace_id: workspace.data?.id,
+          owner_member_id: 'usr_hosted_route_owner',
+        }),
+      },
+    );
+    const denied = await deniedResponse.json() as Envelope<null>;
+    expect(denied.code).toBe(40302);
+    expect(JSON.stringify(denied)).not.toContain('platform-sync-secret-test');
   });
 
   it('keeps the platform routes disabled unless the experimental flag is enabled', async () => {

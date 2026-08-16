@@ -7,6 +7,10 @@ import {
   CloudflareWorkflowAdapter,
 } from '../src/cloudflare';
 import {
+  parsePlatformProjectWorkspaceBindings,
+  platformProjectWorkspaceBindingCapability,
+} from '../src/platform-binding';
+import {
   ModalExecutionAdapter,
   OpenRouterLlmAdapter,
 } from '../src/providers';
@@ -57,6 +61,33 @@ class FakeR2Bucket {
 }
 
 describe('Cloudflare hosted adapters', () => {
+  it('reports approved project/workspace mappings only when the bridge and mapping are configured', async () => {
+    const capability = platformProjectWorkspaceBindingCapability(
+      true,
+      JSON.stringify([{ organization_id: 'org_hosted', project_id: 'project_one', workspace_id: 'wd_workspace_0123456789ab' }]),
+    );
+    expect(capability).toMatchObject({
+      availability: 'available',
+      reason: '1 approved project/workspace mapping configured',
+    });
+    expect(JSON.stringify(capability)).not.toContain('server-token');
+    expect(JSON.stringify(capability)).not.toContain('server-secret');
+  });
+
+  it('reports malformed project/workspace mapping configuration as unavailable', async () => {
+    expect(platformProjectWorkspaceBindingCapability(true, '{bad-json')).toMatchObject({
+      availability: 'not_configured',
+      reason: 'SPIDERBYTE_PLATFORM_PROJECT_WORKSPACE_BINDINGS_JSON must be valid JSON',
+    });
+  });
+
+  it('rejects duplicate approved project/workspace mappings before they reach the platform', () => {
+    expect(() => parsePlatformProjectWorkspaceBindings(JSON.stringify([
+      { organization_id: 'org_hosted', project_id: 'project_one', workspace_id: 'wd_workspace_0123456789ab' },
+      { organization_id: 'org_hosted', project_id: 'project_one', workspace_id: 'wd_workspace_0123456789ab' },
+    ]))).toThrow('duplicate platform project/workspace binding');
+  });
+
   it('stores content-addressed objects under an organization/workspace scope', async () => {
     const bucket = new FakeR2Bucket();
     const artifacts = new CloudflareR2ArtifactStore(bucket);

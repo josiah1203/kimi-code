@@ -21,6 +21,18 @@ const LOCAL_FALLBACK: CommercialCapabilitiesResponse = {
       adapter: 'commercial-status-unavailable',
       reason: 'Commercial entitlement status is unavailable from the web boundary.',
     },
+    {
+      capability: 'platform_identity_binding',
+      availability: 'not_configured',
+      adapter: 'commercial-status-unavailable',
+      reason: 'Hosted organization membership is not currently bound to the kap-server platform directory.',
+    },
+    {
+      capability: 'platform_project_workspace_binding',
+      availability: 'not_configured',
+      adapter: 'commercial-status-unavailable',
+      reason: 'No approved hosted project/workspace mappings are configured for the kap-server platform directory.',
+    },
   ],
 };
 

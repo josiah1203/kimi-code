@@ -30,6 +30,18 @@ const FALLBACK_CAPABILITIES: CommercialCapabilitiesResponse = {
       reason: 'SpiderByte commercial entitlements are not available to the web boundary.',
     },
     {
+      capability: 'platform_identity_binding',
+      availability: 'not_configured',
+      adapter: 'kap-server-hosted-organization-sync',
+      reason: 'Hosted organization membership synchronization into kap-server is not configured.',
+    },
+    {
+      capability: 'platform_project_workspace_binding',
+      availability: 'not_configured',
+      adapter: 'kap-server-hosted-project-workspace-binding',
+      reason: 'Approved hosted project/workspace mappings are not configured.',
+    },
+    {
       capability: 'hosted_compute',
       availability: 'not_configured',
       adapter: 'modal-runtime-pending',

@@ -1,17 +1,5 @@
 "use client";
 
-import {
-  ClerkLoaded,
-  ClerkLoading,
-  OrganizationSwitcher,
-  PricingTable,
-  Show,
-  SignInButton,
-  SignUpButton,
-  UserButton,
-  useOrganization,
-  useUser,
-} from "@clerk/nextjs";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -39,17 +27,7 @@ const navItems: readonly { id: AppView; label: string; icon: string }[] = [
 export function Dashboard() {
   return (
     <main className="site-shell">
-      <ClerkLoading>
-        <LoadingScreen />
-      </ClerkLoading>
-      <ClerkLoaded>
-        <Show when="signed-out">
-          <LandingScreen />
-        </Show>
-        <Show when="signed-in">
-          <WorkspaceApp />
-        </Show>
-      </ClerkLoaded>
+      <WorkspaceApp />
     </main>
   );
 }
@@ -90,16 +68,7 @@ function LandingScreen() {
           <a href="#billing">Billing</a>
         </nav>
         <div className="header-actions">
-          <SignInButton mode="modal">
-            <button className="button button-secondary" type="button">
-              Sign in
-            </button>
-          </SignInButton>
-          <SignUpButton mode="modal">
-            <button className="button button-primary" type="button">
-              Start building <span aria-hidden="true">↗</span>
-            </button>
-          </SignUpButton>
+          <span className="button button-secondary">Local preview</span>
         </div>
       </header>
 
@@ -114,11 +83,9 @@ function LandingScreen() {
             execution visible, policy close, and every decision accountable.
           </p>
           <div className="hero-actions">
-            <SignUpButton mode="modal">
-              <button className="button button-primary" type="button">
-                Create your workspace <span aria-hidden="true">→</span>
-              </button>
-            </SignUpButton>
+            <a className="button button-primary" href="#platform">
+              Open the workspace <span aria-hidden="true">→</span>
+            </a>
             <a className="button button-secondary" href="#governance">
               See how it works
             </a>
@@ -190,25 +157,14 @@ function FeatureCard({
 
 function WorkspaceApp() {
   const [activeView, setActiveView] = useState<AppView>("overview");
-  const { user } = useUser();
-  const { organization } = useOrganization();
-  const firstName = user?.firstName ?? user?.username ?? "there";
+  const firstName = "Preview user";
 
   return (
     <div className="app-frame collaboration-frame">
       <header className="app-header">
         <Brand />
         <div className="header-actions" style={{ marginLeft: "auto" }}>
-          <OrganizationSwitcher
-            afterCreateOrganizationUrl="/"
-            afterSelectOrganizationUrl="/"
-            afterSelectPersonalUrl="/"
-            appearance={{ elements: { rootBox: { minWidth: "11rem" } } }}
-          />
-          <Link className="button button-secondary" href="/account">
-            Account
-          </Link>
-          <UserButton />
+          <span className="button button-secondary">Local preview</span>
         </div>
       </header>
 
@@ -217,7 +173,7 @@ function WorkspaceApp() {
           <div className="workspace-switcher">
             <span className="eyebrow">Workspace</span>
             <div style={{ marginTop: "0.55rem", fontSize: "0.82rem", fontWeight: 700 }}>
-              {organization?.name ?? "Personal workspace"}
+              Personal workspace
             </div>
           </div>
           <nav className="app-nav" aria-label="Workspace navigation">
@@ -237,7 +193,7 @@ function WorkspaceApp() {
 
         <section className="app-content">
           {activeView === "billing" ? (
-            <BillingView organizationName={organization?.name} />
+            <BillingView organizationName="Personal workspace" />
           ) : (
             <WorkspaceShell firstName={firstName} />
           )}
@@ -265,6 +221,8 @@ function BillingView({ organizationName }: { organizationName?: string }) {
 
   const billing = findCapability(commercial, "billing");
   const entitlements = findCapability(commercial, "entitlements");
+  const platformBinding = findCapability(commercial, "platform_identity_binding");
+  const projectWorkspaceBinding = findCapability(commercial, "platform_project_workspace_binding");
 
   return (
     <div className="billing-frame">
@@ -282,13 +240,15 @@ function BillingView({ organizationName }: { organizationName?: string }) {
         <div className="billing-card-header">
           <div>
             <span className="eyebrow">Subscription plans</span>
-            <p>Clerk renders the plan surface; SpiderByte must enforce the resulting entitlements server-side.</p>
+            <p>Commercial billing is disabled in local preview mode; SpiderByte remains the authority for usage and entitlements.</p>
           </div>
           <span className={`status-dot commercial-status-dot ${billing?.availability ?? "not_configured"}`} aria-label={`Billing ${billing?.availability ?? "status unavailable"}`} />
         </div>
         <div className="commercial-capability-grid" aria-live="polite">
           <CommercialCapabilityCard label="Billing enforcement" capability={billing} />
           <CommercialCapabilityCard label="Entitlements" capability={entitlements} />
+          <CommercialCapabilityCard label="Platform tenant binding" capability={platformBinding} />
+          <CommercialCapabilityCard label="Project/workspace mapping" capability={projectWorkspaceBinding} />
         </div>
         <div className="commercial-session-status" aria-live="polite">
           <span className="eyebrow">Hosted identity synchronization</span>
@@ -298,9 +258,6 @@ function BillingView({ organizationName }: { organizationName?: string }) {
               ? "The hosted commercial boundary has not returned an authorized tenant projection."
               : `${commercialSession.organizations.length} authorized organization${commercialSession.organizations.length === 1 ? "" : "s"} are synchronized for this session.`}
           </p>
-        </div>
-        <div className="pricing-wrap">
-          <PricingTableForCurrentPayer />
         </div>
       </div>
     </div>
@@ -340,17 +297,4 @@ function capabilityLabel(availability: CommercialCapability["availability"] | un
     case "not_configured": return "Not configured";
   }
   return "Status unavailable";
-}
-
-function PricingTableForCurrentPayer() {
-  const { organization } = useOrganization();
-
-  return (
-    <div className="clerk-host">
-      <PricingTable
-        for={organization ? "organization" : "user"}
-        newSubscriptionRedirectUrl="/"
-      />
-    </div>
-  );
 }

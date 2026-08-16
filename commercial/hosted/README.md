@@ -59,6 +59,17 @@ Non-secret variables:
   the complete `/chat/completions` path.
 - `SPIDERBYTE_PUBLIC_ORIGIN`: HTTPS public origin used when issuing artifact
   download signatures.
+- `SPIDERBYTE_PLATFORM_SYNC_URL`: internal kap-server origin for the hosted
+  organization synchronization bridge. Leave unset when the commercial
+  Worker is intentionally deployed without a platform binding.
+- `SPIDERBYTE_REQUIRE_PLATFORM_IDENTITY_BINDING`: set to `1` or `true` when
+  the hosted session must fail closed unless the platform synchronization
+  bridge is configured.
+- `SPIDERBYTE_PLATFORM_PROJECT_WORKSPACE_BINDINGS_JSON`: optional JSON array
+  of approved `{ organization_id, project_id, workspace_id }` mappings. When
+  present, the authenticated commercial session applies these mappings after
+  synchronizing each organization; the owner is taken from the trusted Clerk
+  organization snapshot, never from browser input.
 
 Secrets, configured with `wrangler secret put`:
 
@@ -75,6 +86,17 @@ Secrets, configured with `wrangler secret put`:
   by overlapping signer verification during a planned migration.
 - `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET`: only for the Modal Web Function
   transport; never expose these to a browser, CLI, SDK, or MCP client.
+- `SPIDERBYTE_PLATFORM_SYNC_TOKEN`: server-only kap-server bearer credential
+  used by the synchronization bridge.
+- `SPIDERBYTE_PLATFORM_SYNC_SECRET`: shared server-only secret checked by the
+  kap-server internal synchronization route.
+
+The organization bridge does not guess project/workspace ownership. The JSON
+mapping is deployment configuration, not a browser-controlled relationship.
+The Worker calls the protected `/api/v2/internal/projects/:project_id/workspaces/bind`
+route with the approved IDs. Each request is idempotent and the platform
+verifies the hosted tenant, project ownership, workspace existence, and
+organization-admin authority.
 
 The Worker reports billing, entitlement, SecretRef, and Modal dispatch as
 unavailable until their application-level reconciliation, authorization, and
@@ -95,9 +117,15 @@ not grant billing or entitlement access.
 5. Exercise a content-addressed artifact upload/download, duplicate event
    delivery, queue retry, workflow retry, and Durable Object reconnect before
    enabling tenant traffic.
-6. Exercise `/api/v1/commercial/session` with a real Clerk bearer token and
+6. If hosted platform binding is enabled, configure all three
+   `SPIDERBYTE_PLATFORM_SYNC_*` values and verify the kap-server organization
+   and member projections before enabling tenant traffic. If the binding is a
+   release requirement, also set `SPIDERBYTE_REQUIRE_PLATFORM_IDENTITY_BINDING=1`.
+   Apply and validate each approved project/workspace mapping before enabling
+   tenant traffic.
+7. Exercise `/api/v1/commercial/session` with a real Clerk bearer token and
    verify tenant counts, membership removal, idempotent replay, and audit
    writes before enabling broader tenant traffic.
-7. Enable the remaining authenticated API gateway only after rate limits,
+8. Enable the remaining authenticated API gateway only after rate limits,
    budgets, entitlements, and all resource authorization paths are connected
    to the same application services used by local/API clients.

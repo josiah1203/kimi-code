@@ -50,8 +50,10 @@ the platform-side collaboration projection and run links; the clone’s Prisma
 tables and process-local Socket.IO server are not mounted. Clerk remains the
 hosted presentation/session boundary. A signed, provider-neutral delegated
 principal bridge now binds Clerk-derived actor and organization IDs to
-kap-server when configured; commercial identity synchronization and hosted
-tenant provisioning remain separate deployment gates.
+kap-server when configured. The hosted Worker can also reconcile the trusted
+Clerk organization/member snapshot into kap-server through a separately
+secret-protected internal route; project/workspace bindings remain an explicit
+deployment mapping decision.
 
 ## Authority matrix
 
@@ -90,8 +92,9 @@ the same bridge secret on the web server and kap-server. The bridge prevents a
 shared local actor from authorizing multiple Clerk organizations, but it does
 not replace commercial organization/membership synchronization. The hosted
 commercial session route now performs that synchronization into the commercial
-store; binding those synchronized memberships to kap-server's organization,
-project, and workspace records remains an explicit deployment gate.
+store. An explicit deployment mapping can bind approved project/workspace
+records to the synchronized hosted organization; the platform never infers
+that mapping.
 Set `SPIDERBYTE_REQUIRE_COMMERCIAL_SESSION_SYNC=1` in the hosted web deployment
 to make every REST BFF request and every `/api/identity/ws` assertion request
 pass through that commercial session check before reaching platform resources.
@@ -202,7 +205,7 @@ topology.
 | Signed delegated principal bridge | Available when configured | BFF signs a short-lived assertion; kap-server verifies and enforces the actor/organization binding |
 | Clerk billing presentation | UI surface available when configured | Render pricing UI; do not infer entitlements client-side; show the commercial capability diagnostic beside it |
 | Billing reconciliation and entitlement enforcement | Not configured/not implemented in hosted Worker | Report the server-side status; never treat a Clerk plan selection as an entitlement grant |
-| Commercial identity adapter in hosted runtime | Hosted session route synchronizes Clerk membership into the commercial store; kap-server tenant binding remains open | Do not claim full hosted platform tenancy readiness |
+| Commercial identity adapter in hosted runtime | Hosted session route synchronizes Clerk membership into the commercial store; optional Worker→kap-server organization/member bridge is implemented | Configure and verify the bridge before claiming hosted organization authorization; project/workspace mapping remains separate |
 | Hosted compute/artifact storage | Adapter-dependent/not configured | Show unavailable or customer-managed state |
 | Usage, budgets, policies, approvals | Platform contracts exist | Read and enforce through authorized server routes |
 | SSO/SCIM, managed OpenRouter, managed compute | Not verified in this checkout | Do not expose as functional controls |
@@ -211,12 +214,13 @@ topology.
 
 1. The current kap-server authorization path is local-first, while Clerk
    verification, delegated-principal signing, and commercial identity
-   synchronization are separate package boundaries. The bridge binds requests
-   when configured; hosted deployment still must bind the synchronized
-   commercial organizations and memberships to platform resources.
+   synchronization are separate package boundaries. The optional hosted sync
+bridge now binds organization memberships when all server-only bridge
+settings are configured. An operator-approved project/workspace binding
+endpoint is available, but it does not infer mappings or create resources.
 2. The collaboration-channel/message contract now exists for local kap-server
    projections, but hosted persistence, cross-process event publication, and
-   organization-level identity binding still need commercial integration before
+   approved project/workspace mapping still need commercial integration before
    it can serve as a hosted migration target.
 3. Next.js Route Handlers do not proxy WebSocket upgrades. Deployments must
    expose an authorized WS endpoint or use REST catch-up; a production Socket.IO
@@ -245,6 +249,8 @@ topology.
 - [x] Add a signed delegated-principal bridge for BFF REST and direct platform WebSocket requests.
 - [x] Add browser approval resolution plus authoritative Run retry/rerun controls.
 - [x] Add the hosted authenticated commercial session route and idempotent Clerk membership synchronization into the commercial store.
-- [ ] Bind synchronized commercial organizations/memberships to kap-server's platform authorization store end-to-end.
+- [x] Add a protected Worker→kap-server organization/member synchronization bridge with idempotent replay and stale-member removal.
+- [x] Add a protected, idempotent endpoint for binding approved hosted projects/workspaces to the synchronized organization in kap-server.
+- [ ] Configure and validate the approved hosted project/workspace mappings for each deployment.
 - [ ] Add authorized WS deployment and replay/security integration tests.
 - [ ] Perform an explicit, validated Prisma data migration only after mapping approval.

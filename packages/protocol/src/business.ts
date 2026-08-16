@@ -33,7 +33,7 @@ export const businessRoleSchema = z.enum([
 
 export type BusinessRole = z.infer<typeof businessRoleSchema>;
 
-export const organizationModeSchema = z.literal('local');
+export const organizationModeSchema = z.enum(['local', 'hosted']);
 export type OrganizationMode = z.infer<typeof organizationModeSchema>;
 
 export const organizationSchema = z.strictObject({
@@ -65,6 +65,40 @@ export const organizationMemberUpsertInputSchema = z.strictObject({
 });
 
 export type OrganizationMemberUpsertInput = z.infer<typeof organizationMemberUpsertInputSchema>;
+
+/**
+ * Complete membership snapshot accepted only by a trusted hosted control-plane
+ * bridge. The platform stores opaque member IDs and provider-neutral roles; it
+ * never accepts provider tokens or email addresses at this boundary.
+ */
+export const hostedOrganizationSyncInputSchema = z.strictObject({
+  request_id: platformIdentifierSchema,
+  organization_id: organizationIdSchema,
+  name: z.string().min(1).max(200),
+  mode: z.literal('hosted'),
+  members: z.array(z.strictObject({
+    member_id: platformIdentifierSchema,
+    role: businessRoleSchema,
+  })).max(100_000),
+});
+
+export type HostedOrganizationSyncInput = z.infer<typeof hostedOrganizationSyncInputSchema>;
+
+/**
+ * Explicit project/workspace mapping accepted only by the trusted hosted
+ * control-plane bridge. The mapping is deployment configuration, not a
+ * client-inferred relationship between a provider organization and a local
+ * SpiderByte workspace.
+ */
+export const hostedProjectWorkspaceBindingInputSchema = z.strictObject({
+  request_id: platformIdentifierSchema,
+  organization_id: organizationIdSchema,
+  project_id: projectIdSchema,
+  workspace_id: workspaceIdSchema,
+  owner_member_id: platformIdentifierSchema,
+});
+
+export type HostedProjectWorkspaceBindingInput = z.infer<typeof hostedProjectWorkspaceBindingInputSchema>;
 
 export const projectStateSchema = z.enum(['active', 'archived']);
 export type ProjectState = z.infer<typeof projectStateSchema>;
@@ -352,7 +386,7 @@ export const organizationCreateInputSchema = z.strictObject({
   request_id: platformIdentifierSchema,
   actor_id: platformIdentifierSchema,
   name: z.string().min(1).max(200),
-  mode: organizationModeSchema.default('local'),
+  mode: z.literal('local').default('local'),
   metadata: platformMetadataSchema.optional(),
 });
 

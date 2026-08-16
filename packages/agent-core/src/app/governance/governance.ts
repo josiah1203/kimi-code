@@ -15,6 +15,8 @@ import type {
   ProjectMember,
   ProjectMemberUpsertInput,
   ProjectWorkspaceBindInput,
+  HostedOrganizationSyncInput,
+  HostedProjectWorkspaceBindingInput,
   BusinessRole,
 } from '@spiderbyte/protocol';
 
@@ -41,6 +43,8 @@ export interface IPlatformGovernanceService {
   getOrganization(id: string): Promise<Organization | undefined>;
   listOrganizationMembers(id: string): Promise<readonly OrganizationMember[]>;
   createOrganization(input: OrganizationCreateInput): Promise<Organization>;
+  synchronizeHostedOrganization(input: HostedOrganizationSyncInput): Promise<Organization>;
+  bindHostedWorkspace(input: HostedProjectWorkspaceBindingInput): Promise<Project>;
   upsertOrganizationMember(input: OrganizationMemberUpsertInput): Promise<OrganizationMember>;
   listProjects(organizationId?: string): Promise<readonly Project[]>;
   getProject(id: string): Promise<Project | undefined>;
